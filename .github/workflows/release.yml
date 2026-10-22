@@ -1,0 +1,90 @@
+name: Release
+
+# Baut bei Tags der Form v* installierbare Pakete und hängt sie ans
+# GitHub Release: Linux (.deb, AppImage), Windows (.msi, .exe),
+# macOS arm64 (.dmg). Intel-Macs bauen aus den Quellen (siehe README).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  check-version:
+    name: Versionen stimmen mit dem Tag überein
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Versionen prüfen
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "Tag-Version: $TAG"
+          NPM=$(node -p "require('./package.json').version")
+          TAURI=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          CARGO=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          echo "package.json: $NPM / tauri.conf.json: $TAURI / Cargo.toml: $CARGO"
+          test "$NPM" = "$TAG" || { echo "package.json weicht ab"; exit 1; }
+          test "$TAURI" = "$TAG" || { echo "tauri.conf.json weicht ab"; exit 1; }
+          test "$CARGO" = "$TAG" || { echo "Cargo.toml weicht ab"; exit 1; }
+
+  release:
+    name: Paket bauen (${{ matrix.os }})
+    needs: check-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: windows-latest
+          - os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Frontend-Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Rust-Toolchain installieren
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Tauri-Systemabhängigkeiten installieren (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libssl-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
+
+      - name: Release bauen und hochladen
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "OpenPrintCost ${{ github.ref_name }}"
+          releaseDraft: false
+          prerelease: false

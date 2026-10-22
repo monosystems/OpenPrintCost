@@ -10,104 +10,125 @@ Die fachliche Ausrichtung folgt dem 3D-Druckkosten-Kalkulator von
 Andreas Reitberger (ar3dp.de). Die Implementierung ist eine **eigenständige
 Eigenentwicklung** unter Apache-2.0-Lizenz; es wurde kein GPL-Code übernommen.
 Die Formelsemantik richtet sich an der Apache-2.0-Bibliothek
-[`3dPrintCostCalculatorSharp`](https://github.com/AndreasReitberger/3dPrintCostCalculatorSharp).
+[`3dPrintCostCalculatorSharp`](https://github.com/AndreasReitberger/3dPrintCostCalculatorSharp)
+aus, die Kommentarformate an
+[`GcodeParserSharp`](https://github.com/AndreasReitberger/GcodeParserSharp).
 
-## Warum OpenPrintCost?
+![CI](https://github.com/monosystems/OpenPrintCost/actions/workflows/ci.yml/badge.svg)
 
-* **Lokal und ohne Konto.** Keine Anmeldung, kein Lizenzschlüssel, kein
-  Netzzugriff. Alle Daten bleiben auf dem eigenen Rechner.
-* **Exakte Beträge.** Alle Geldbeträge werden als `Decimal` gerechnet — kein
-  `f64`, keine Rundungsfehler in der Kostenkette. Gerundet wird erst bei der
-  Anzeige.
-* **Nachvollziehbar.** Jeder Kostenblock ist eine eigene Position. Marge und
-  Steuer werden nie im Basispreis versteckt, die Fehlerrate nie als pauschaler
-  Aufschlag verrechnet.
-* **Offen entwickelt.** Der gesamte Quellcode — inklusive Build- und
-  Release-Pipeline — liegt im Repository.
+## Funktionen
 
-## Status
+* **Stammdaten** — Drucker (Verfahren, Leistung, Verschleißkosten),
+  Materialien (Dichte, Verpackung, Preis), Arbeitsschritte + Kategorien,
+  Maschinenstundensätze (Abschreibung, Zins, Fix-/Variablenkosten),
+  Kalkulationsprofile.
+* **Kalkulationsblatt** — Dateien manuell oder per **GCode-/STL-Import**
+  (PrusaSlicer, OrcaSlicer, BambuStudio, Cura, Simplify3D, IdeaMaker,
+  CraftWare; Kommentarzeit gewinnt, sonst geometrische Simulation),
+  Materialzuordnung, Arbeitsschritte, Zusatzartikel, Zuschläge, Marge,
+  Steuer — alles je Datei plus Projektebene.
+* **Er Ergebnis** — gruppierte Positionen mit Datei-Zuordnung und
+  Fehlerrate-Kennzeichnung, Summen (Basis/Marge/Steuer/Gesamt).
+* **Export** — PDF-Report und Excel-Arbeitsmappe (Positionen, Dateien,
+  Übersicht) über den Dateidialog.
+* **Lokal ohne Konto** — keine Anmeldung, kein Lizenzschlüssel, kein
+  Netzzugriff. SQLite-Datei im Benutzerverzeichnis der App.
+* **Exakt** — alle Geldbeträge als `Decimal` (kein `f64`), gerundet wird erst
+  bei der Anzeige.
 
-Dieses Repository enthält den **Rechenkern** (`opc-core`): die vollständige,
-sofort testbare Kostenberechnung als reine Rust-Bibliothek.
+## Installation
 
-| Bereich | Status |
+Fertige Pakete liegen unter
+[GitHub Releases](https://github.com/monosystems/OpenPrintCost/releases):
+
+| System | Paket |
 |---|---|
-| Rechenkern `opc-core` | ✅ fertig, 39 Tests + 7 Doc-Tests |
-| Persistenz (SQLite) | ⏳ geplant |
-| GCode-/STL-Parser | ⏳ geplant |
-| Desktop-Oberfläche (Tauri) | ⏳ geplant |
-| PDF-/Excel-Export | ⏳ geplant |
+| Linux | `.deb` (Debian/Ubuntu) oder `.AppImage` |
+| Windows | `.msi`-Installer |
+| macOS (Apple Silicon) | `.dmg` |
 
-Die vollständige Spezifikation liegt in [`docs/spec/`](docs/spec/).
+Intel-Macs bauen aus den Quellen (siehe unten).
 
-## Funktionsumfang des Rechenkerns
+## Entwicklung
 
-* **Drucker** — Modell, Verfahren (FDM/SLA/Pulverbett), Bemessungsleistung,
-  Bauvolumen, Kaufpreis, optionaler Maschinenstundensatz, Verschleißkosten für
-  Düse und Druckplatte, Kosten für Materialwechsel.
-* **Material** — Bezeichnung, Typ (PLA, PETG, …), Dichte, Verpackungsgröße
-  mit Einheit (kg/g/lb/oz), Preis; daraus wird der Preis pro Gramm abgeleitet.
-* **Arbeitsschritte** — pro Stunde, pro Stück oder pro Auftrag, kategorisiert
-  und zeitlich zugeordnet (vor/nach/sonstiges).
-* **Maschinenstundensatz** — aus Abschreibung, Zins, Fix- und Variablenkosten
-  über eine Jahres- oder Monatsbasis; ein frei gesetzter Stundensatz
-  überschreibt die Berechnung.
-* **Kalkulationsprofil** — Fehlerrate, Steuersatz, Gewinnmarge,
-  Handlungspauschale, Energiepreis, Leistungsgrad sowie Schalter zum
-  Ausschluss einzelner Kostenblöcke von der Margenberechnung.
-* **Kostenblöcke** — Material, Maschine, Energie, verfahrensspezifische
-  Zuschläge, Arbeitsschritte, Zusatzartikel, Handlungspauschale, prozentuale
-  Zuschläge (vor und nach der Marge), Marge, Steuer.
-* **Fehlerrate** — erzeugt eigene Positionen für Druckzeit, Material, Maschine
-  und Energie; der verworfene Druck ist bezahlt und fließt in die Gesamtkosten
-  ein.
+Voraussetzungen: aktuelle Rust-Toolchain (stable), Node.js 22+, systemweit —
+je nach OS zusätzlich die Tauri-Systembibliotheken:
+
+| OS | Pakete |
+|---|---|
+| Ubuntu/Debian | `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev` |
+| Windows | WebView2 (vorinstalliert), [Rust](https://rustup.rs), Node.js |
+| macOS | Xcode Command Line Tools, Rust, Node.js |
+
+```bash
+git clone https://github.com/monosystems/OpenPrintCost
+cd OpenPrintCost
+
+# Oberfläche (Browser, ohne Tauri-Binary — Mock statt Backend):
+VITE_MOCK_API=1 npm run dev     # → http://localhost:1420
+
+# Desktop-App (braucht die Systembibliotheken von oben):
+npm install && npm run build
+cargo build -p openprintcost
+```
+
+Gates vor jedem Commit (siehe [CONTRIBUTING.md](CONTRIBUTING.md)):
+
+```bash
+npm run typecheck && npm run lint && npm test -- --run && npm run build
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test --locked
+```
+
+Die Tauri-Crate baut lokal nur mit den Systembibliotheken; ohne sie läuft
+alles außer `cargo build/clippy -p openprintcost` — dafür gibt es ein
+Docker-Image (`Dockerfile` siehe Verlauf, Ubuntu 24.04 + webkit2gtk).
 
 ## Architektur
 
 ```text
-crates/opc-core/          Rechenkern — pure, ohne IO, ohne Tauri, ohne DB
-  src/money.rs            Decimal-Helfer, kaufmännische Rundung
-  src/units.rs            Einheitenfaktoren kg/g/lb/oz
-  src/model/              Domänenmodell (Drucker, Material, …)
-  src/calc/               Kostenformeln + Orchestrierung
-  tests/calculation.rs    Integrationstests mit von Hand nachgerechneten Sollwerten
+crates/opc-core/    Rechenkern — pure Kostenberechnung (Decimal, UUID, Result statt Panic)
+crates/opc-store/   Persistenz — Port (Traits) + SQLite-Adapter + In-Memory-Adapter
+crates/opc-io/      Datei-Import — GCode-Parser + STL-Volumen (pure, ohne IO)
+crates/opc-export/  Export — PDF + Excel als pure Funktionen (Bytes rein/raus)
+src-tauri/          Tauri-Hülle — 35 Commands über Arc<dyn Store>, sonst keine Logik
+src/                React + TypeScript + Tailwind — kennt Tauri nur über einen PlatformAdapter
 ```
 
-Drei Invarianten prägen den Aufbau:
+Zentrale Invarianten (Details in [`docs/spec/`](docs/spec/)):
 
-1. **`opc-core` ist pure.** Kein Dateisystem, kein Netzwerk, kein globaler
-   Zustand, keine Uhr. Jede Formel ist ohne Nebenwirkungen testbar.
-2. **IDs sind UUID v4.** Damit sind Kalkulationen zwischen Installationen
-   exportierbar und importierbar, ohne dass IDs kollidieren.
-3. **Geld ist ausschließlich `Decimal`.** Serialisiert wird als String, damit
-   Exporte diff-freundlich und verlustfrei bleiben.
+* `opc-core`, `opc-io` und `opc-export` sind **pure** (kein IO, kein Clock,
+  kein globaler Zustand) und kompilieren nach `wasm32-unknown-unknown`.
+* Geld ausschließlich `Decimal`, serialisiert als String.
+* IDs sind UUID v4; Geldbeträge liegen in SQLite als `TEXT` (kein `REAL`).
+* Das Frontend rechnet nicht — einzige Wahrheit ist `opc-core`.
 
-Der Kern kompiliert nach `wasm32-unknown-unknown` — eine spätere
-Browser-Variante wäre damit ohne zweites Rechenmodell möglich.
+## Dokumentation
 
-## Entwicklung
+* [`docs/spec/0001-mvp-core.md`](docs/spec/0001-mvp-core.md) — fachlicher Vertrag (Formeln)
+* [`docs/spec/0002-block-plan.md`](docs/spec/0002-block-plan.md) — Blockübersicht
+* [`docs/spec/0003-block-1-core.md`](docs/spec/0003-block-1-core.md),
+  [`0005-block-2-store.md`](docs/spec/0005-block-2-store.md),
+  [`0007-block-3-io.md`](docs/spec/0007-block-3-io.md),
+  [`0008-block-4-frontend.md`](docs/spec/0008-block-4-frontend.md),
+  [`0009-block-5-calculation.md`](docs/spec/0009-block-5-calculation.md),
+  [`0011-block-6-export.md`](docs/spec/0011-block-6-export.md),
+  [`0012-block-7-polish.md`](docs/spec/0012-block-7-polish.md),
+  [`0013-block-8-oss.md`](docs/spec/0013-block-8-oss.md) — Bauabschnitte
 
-Voraussetzung: eine aktuelle Rust-Toolchain (stable). Kein Tauri- und kein
-Node-Toolchain nötig, um den Rechenkern zu bauen oder zu testen.
+**Hinweis zu den Formeln:** Die Formelsemantik orientiert sich an der
+Apache-2.0-Bibliothek `3dPrintCostCalculatorSharp`. Bekannte Fehler der
+Referenz (insbesondere die doppelte Materialberechnung bei Multi-Material-
+Dateien) wurden **nicht** nachgebildet. Details in Spec 0001, Abschnitt 10.
 
-```bash
-cargo build                       # Rechenkern bauen
-cargo test --workspace            # alle Tests (39 + 7 Doc-Tests)
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all --check
-```
+## Mitmachen
 
-Die Dateien `src/` und `src-tauri/` gehören zur späteren Desktop-Oberfläche
-und sind noch leer.
+Beiträge sind willkommen — siehe [CONTRIBUTING.md](CONTRIBUTING.md) und die
+Issue-/PR-Templates. Bitte erst ein Issue anlegen, bevor du größere
+Änderungen beginnst.
 
 ## Lizenz
 
 [Apache-2.0](LICENSE) — mit ausdrücklichem Patentschutz und uneingeschränkter
 kommerzieller Nutzbarkeit.
-
-**Hinweis zu den Formeln:** Die Formelsemantik orientiert sich an der
-Apache-2.0-Bibliothek `3dPrintCostCalculatorSharp` von Andreas Reitberger. Es
-handelt sich um eine eigenständige Implementierung; der GPL-lizenzierte
-Quellcode der Desktop-Anwendung wurde nicht übernommen. Bekannte Fehler der
-Referenz (insbesondere die doppelte Materialberechnung bei Multi-Material-
-Dateien) wurden **nicht** nachgebildet.
