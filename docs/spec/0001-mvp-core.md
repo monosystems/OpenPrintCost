@@ -31,7 +31,9 @@ verändern.
 
 ## 3. Mengen- und Einheitenlogik
 
-- **Druckzeit**: Stunden (Dezimal). Quelle: GCode-Parser oder manuell.
+- **Druckzeit**: Stunden (Dezimal). Quelle: GCode-Parser oder manuell. Die
+  Druckzeit gilt **je Stück**; wird sie mit der Stückzahl multipliziert
+  (Voreinstellung: ja, wie in der Referenz), ist der Faktor 1.
 - **Volumen**: cm³ (Dezimal). Quelle: STL-Volumenberechnung oder GCode.
 - **Gewicht**: g. `gewicht_g = volumen_cm3 × dichte_g_cm3`.
 - **Materialverbrauch**: `verbrauch_g = gewicht_g × stückzahl`.
@@ -145,8 +147,26 @@ steuer        = (kosten_nach_marge + custom_nach_marge) × steuersatz / 100
 - Marge und Steuer sind **eigene Positionen**, nie im Basispreis versteckt.
 - Die Steuer wird auf die Summe inkl. Marge berechnet (Referenzverhalten).
 - Ausschlüsse: Maschinen-, Material- und/oder Arbeitsschrittkosten können von der
-  Margenberechnung ausgenommen werden (Schalter je Block).
+  Margenberechnung ausgenommen werden (Schalter je Block). **Energiekosten sind
+  nicht ausnehmbar** — sie bilden in der Referenz einen eigenen Typ.
 - Positionssummen werden erst am Ende kaufmännisch gerundet, nicht pro Zwischenschritt.
+
+**Ebenen der Berechnung (Referenzverhalten, 2026-10-22 verifiziert):**
+
+Marge und Steuer werden **je Datei** berechnet; jede Datei bildet eine eigene
+Kostenbasis. Auf **Projektebene** liegen die Arbeitsschritte *pro Stunde* und
+*pro Auftrag*, die projekteigenen Zusatzartikel sowie — sofern gewählt — die
+einmalige Handlungspauschale.
+
+| Ebene | Marge | Steuer |
+|---|---|---|
+| Datei | `(kosten_basis − ausgeschlossene_posten) × marge_prozent / 100` | auf `kosten_nach_marge` der Datei |
+| Projekt | nur auf die einmalige Handlungspauschale (`pauschale × marge_prozent / 100`) | auf die Projektkosten (ohne Dateikosten) |
+
+Die Prozentzuschläge werden **je Datei** angewandt: sie sind einmal je
+Kalkulation definiert, wirken aber auf die laufende Summe der jeweiligen Datei
+(Referenzverhalten). Zuschläge *nach* der Marge gehören **nicht** zur
+Kostenbasis, wohl aber zur Steuerbasis.
 
 ### 4.10 Fehlerrate
 
@@ -206,40 +226,117 @@ Angewandte Migrationen werden nie geändert, nur fortgeschrieben.
 - GCode-Parser `GcodeParserSharp`: **Apache-2.0** → gleiches Vorgehen.
 - Website der Referenz wird zum 31.12.2026 eingestellt.
 
-## 11. SaaS-Nahtstellen (verbindlich für Blöcke 1–5)
+### 10.1 Am Quelltext der Referenz verifizierte Semantik (2026-10-22)
 
-Der Kalkulator ist als Open-Core angelegt: **Basisversion kostenlos, Pro-Version
-mit Zusatzfunktionen** (Open-Core-Modell). Der Desktop-Client bleibt das
-lokale Produkt; eine spätere SaaS-Stufe ist eine **additive Server-Schicht**,
-kein Umbau der Desktop-App. Damit der Ausbau später ohne Umbau möglich bleibt,
-gelten ab Block 1 verbindlich:
+Die Formeln dieses Specs wurden gegen die Apache-2.0-Referenzbibliothek
+geprüft. Bestätigt wurden:
 
-| Invariante | Warum | Verifiziert |
+| Thema | Verifiziertes Verhalten |
+|---|---|
+| Maschinenstundensatz | `abschreibung = R / nutzungsdauer`, `zins = (R/2)/100 × zinssatz`; Fix- und variable Kosten × Faktor (1 pro Jahr, 12 pro Monat); Abschreibung und Zins **ohne** Faktor; freier Stundensatz ≥ 0 überschreibt; `maschinenstunden ≤ 0` → 0 |
+| Fehlerrate | multipliziert **Druckzeit** und **Materialgewicht**; daraus entstehen **echte, zusätzliche** Kostenpositionen für Maschine, Energie und Material, die in die Gesamtkosten einfließen |
+| Marge | wird **je Datei** berechnet; Basis = Dateikosten inkl. Pauschale je Datei, Arbeitsschritten pro Stück, Zusatzartikeln und Zuschlägen vor der Marge |
+| Ausschlüsse | Maschinen-, Material- und Arbeitsschrittkosten; **Energie ist nicht ausnehmbar** (eigener Typ) |
+| Steuer | auf `kosten_nach_marge` inkl. Zuschlägen nach der Marge; auf Projektebene nur auf die Projektkosten |
+| Energie | `kWh = druckzeit_h × leistung_w / 1000 × (leistungsgrad / 100)`; der Fehlerraten-Anteil erzeugt eine eigene Energieposition |
+| Arbeitsschritte | *pro Stück* → je Datei × Stückzahl; *pro Stunde* und *pro Auftrag* → einmal je Kalkulation, auf Projektebene |
+| Handlungspauschale | *je Datei* → `pauschale × stückzahl`; *einmal* → eine Projektposition mit eigener Margeposition |
+| Zusatzartikel | dateizugeordnet → je Datei; ohne Dateizuordnung → Projektebene, ohne Stückzahl-Multiplikation |
+| Prozentzuschläge | vor der Marge → Teil der Margebasis; nach der Marge → Teil der Steuerbasis, nicht der Margebasis |
+| Rundung | die Referenz rechnet **ohne jede Rundung**; gerundet wird erst in der Oberfläche — so implementiert OpenPrintCost ebenfalls |
+
+### 10.2 Bewusste Abweichungen von der Referenz
+
+1. **Multi-Material ohne Doppelberechnung.** Die Referenz rechnet bei
+   Multi-Material-Dateien das Material #1 mit dem Preis des Materials #2 ein
+   zweites Mal (bekannter Fehler). OpenPrintCost bildet jedes Material separat
+   ab und übernimmt diesen Fehler **nicht**.
+2. **Einheiten.** Die Referenz kennt kg/g/t/ml/l. OpenPrintCost verwendet
+   gemäß Abschnitt 3 kg/g/lb/oz — `lb` und `oz` fehlen in der Referenz.
+3. **Verfahrenszuschläge.** Die Referenz kennt ein generalisiertes System
+   (`ProcedureAddition`) mit Ziel Maschine/Material/Allgemein und
+   Verschleißfaktor. OpenPrintCost verwendet gemäß Abschnitt 4.7 die
+   vereinfachte, absolute Variante (Düse, Druckplatte, Materialwechsel).
+4. **Negative Marge.** Die Referenz legt eine Marge nur bei Wert > 0 an.
+   OpenPrintCost erlaubt auch eine negative Marge (Verlustgeschäft) als sichtbare
+   Position.
+5. **Prozentuale Materialverteilung.** Die Referenz verteilt Multi-Material
+   über einen Prozentanteil je Material. Diese Verteilungslogik ist in Block 1
+   nicht enthalten; OpenPrintCost rechnet je Material mit eigenem Gewicht.
+
+## 11. Open-Source-Prinzipien und Erweiterbarkeit
+
+OpenPrintCost ist **zuerst ein Open-Source-Projekt**: Eine vollständig funktionsfähige,
+lokal lauffähige Desktop-App, die ohne Konto, ohne Lizenzschlüssel und ohne
+Netzwerkverbindung nutzbar ist. Eine spätere kommerzielle Stufe (z. B. Hosted-/
+SaaS-Angebot) ist **möglich, aber nicht geplant und nicht vorbereitet**. Der Code
+wird so geschrieben, dass eine solche Erweiterung später möglich bleibt — ohne
+dafür jetzt Komplexität zu bezahlen.
+
+### 11.1 Verbindliche Invarianten (ab Block 1)
+
+Diese Regeln sind **nicht** SaaS-getrieben, sondern haben heute einen eigenen Nutzen:
+
+| Invariante | Nutzen heute | Aufwand |
 |---|---|---|
-| IDs sind **UUID v4**, nie `INTEGER AUTOINCREMENT` | Lokale SQLite-IDs sind beim späteren Postgres-/Cloud-Sync nicht stabil und kollidieren. Postgres-`numeric`-IDs und Sync-Schemas setzen UUID voraus. | — |
-| Jede Entität trägt ein **`account_id: Uuid`** (in der Desktop-DB fest `00000000-0000-0000-0000-000000000001` = `LOCAL`) | Server-Schema muss nur **RLS-Policies** ergänzen, keine Spaltenmigration. Basis für kostenlose lokale Nutzer und zahlende Cloud-Mandanten. | — |
-| `opc-core` ist **pure** (kein IO, kein Clock, kein State) | Erlaubt späteren Einsatz in Rust-Backend **und** im Browser. | `cargo build --target wasm32-unknown-unknown` verifiziert 2026-10-21 (`rust_decimal` + `serde` + `uuid` kompilieren nach WASM, 5.0 MB Debug). |
-| `opc-store` ist ein **Port** (Domain-API ohne SQL-Leak) | Ein Postgres-Adapter implementiert denselben Port, ohne Aufrufstellen zu ändern. | Spec 0002 Block 2 |
-| Frontend kennt **kein Tauri direkt**, nur ein `PlatformAdapter` | Dieselbe UI kann später gegen HTTP ohne Umbau laufen. | Spec 0002 Block 4 |
-| Pro-Features werden per **Feature-Flag-Enum** definiert, **nie** durch verstreute `if`-Checks | Entitlements müssen einmalig, zentral und testbar geschehen. Serverdurchsetzung später ohne Umbau. | — |
+| IDs sind **UUID v4**, kein `INTEGER PRIMARY KEY` | Export/Import einer Kalkulation zwischen Installationen ohne ID-Kollision; stabile Referenzen von Positionen auf Dateien und Stammdaten | vernachlässigbar |
+| `opc-core` ist **pure**: kein IO, kein Clock, kein globaler State | Jede Formel ist ohne Nebenwirkungen testbar; keine flaky Tests durch Zeitabhängigkeit | keiner (Pure-Design ist der Normalfall) |
+| `opc-store` ist ein **Port** (Domain-API ohne SQL-Leak) + Adapter | Tests laufen gegen eine In-Memory-Implementierung ohne DB-Datei; Austausch des Speicher-Backends bleibt lokal | klein |
+| Frontend kennt Tauri **nur** über einen `PlatformAdapter` | Browser-E2E-Tests laufen ohne Tauri-Binary; die UI bleibt gegen die Plattformgrenze testbar | klein |
+| Geld ausschließlich `Decimal`, serialisiert als String | Exakte Beträge, keine Rundungsfehler; Diff-freundliches Datenformat für Export/Import | keiner |
 
-**Bewusst ausgelagert (nicht im MVP):** Auth, Account-Modell, Mandanten, RLS,
-Stripe-Billing, Lizenzschlüssel, Lizenzserver, Cloud-Sync. Diese Kategorien
-bestimmen den SaaS-Ausbau, sind aber für die Grundversion teuer und spekulativ.
-Die oben genannten Invarianten sind der Preis, der **jetzt** gezahlt wird, damit
-jener spätere Umbau nicht nötig wird.
+### 11.2 Bewusst NICHT vorbereitet
 
-### 11.1 Lizenzmodell – offene Entscheidung vor Block 1
+Diese Themen werden **nicht** vorstrukturiert, weil sie für die Open-Source-Version
+keinen Nutzen haben und bei Bedarf später sauber ergänzt werden können:
 
-Der Core ist Eigenimplementierung, keine GPL-Ableitung — die Lizenz ist damit
-wählbar und geschäftskritisch für ein Open-Core-Modell:
+- Mehrbenutzer-/Mandanten-Konzept, `account_id` je Entität, RLS
+- Auth, Session-Verwaltung, OAuth
+- Stripe-Billing, Abo-Modelle, Feature-Gating, Lizenzschlüssel, Lizenzserver
+- Cloud-Sync zwischen Installationen, Postgres-Backend
 
-- **MIT / Apache-2.0**: maximal offen. Jeder Dritte kann selbst hosten; das
-  SaaS-Geschäftsmodell muss über cloud-exklusive Features (Teams, Sync, Integrationen)
-  abgegrenzt werden, nicht über Code-Zugang.
-- **AGPL-3.0** für die Kernkomponenten: ein Dritter, der den Code gehostet anbietet,
-  muss seine Änderungen offenlegen. Schützt ein SaaS-Geschäftsmodell, hat aber
-  höhere Onboarding-Hürden für Community-Mitarbeit.
+**Warum das vertretbar ist:** Eine spätere Mandantentrennung über eine
+`account_id`-Spalte plus RLS ist eine klar abgegrenzte, additive Änderung an der
+Persistenzschicht. Sie jetzt vorzubereiten würde bedeuten, in der lokalen
+Single-User-Version überall eine tote Spalte mitzuführen, die im UI nie sichtbar
+ist — Kosten ohne Gegenwert. Die Zusicherung lautet daher nicht „der Umbau ist
+kostenlos", sondern: **die Änderung ist später lokal begrenzt und erfordert
+keinen Neuschreiben der Rechenlogik oder der Oberfläche.**
 
-Die Lizenz ist **Block-1-blockend**: sie wird einmalig im `LICENSE`-File und im
-Projekt-README festgehalten, bevor der erste Quell-Commit entsteht.
+### 11.3 Nachgewiesene Erweiterbarkeit (kein Aufwand im MVP)
+
+- `opc-core` kompiliert nach `wasm32-unknown-unknown` (verifiziert 2026-10-21:
+  `rust_decimal` + `serde` + `uuid` bauen nach WASM, 5.0 MB Debug-Build). Eine
+  spätere Browser-Variante des Kalkulators wäre damit ohne zweites
+  Rechenmodell möglich.
+- Export-Routinen (PDF/Excel) werden als pure Rust-Funktionen umgesetzt und sind
+  später serverseitig wiederverwendbar.
+- `opc-io` (GCode-/STL-Parser) bleibt ohne Plattformbindung.
+
+### 11.4 Lizenz
+
+**Apache-2.0** für das gesamte Projekt (`LICENSE` im Repo-Root, im README genannt).
+
+Begründung: Der Kern ist eine Eigenimplementierung ohne GPL-Ableitung, die
+Formelvorlagen stammen aus Apache-2.0-Quellen. Apache-2.0 liefert einen
+ausdrücklichen Patent-Schutz, wird von der gesamten Rust-/Tauri-Community
+akzeptiert und erlaubt uneingeschränkte kommerzielle Nutzung.
+
+Der bewusst gewählte Nachteil: Eine spätere gehostete kommerzielle Variante des
+Projekts könnte Dritte unter einer Apache-2.0-lizenzierten Kopie selbst betreiben.
+Das ist die bewusste Konsequenz eines Open-Source-First-Projekts. Sollte sich
+später abzeichnen, dass ein kommerzielles Angebot die zentrale Einnahmequelle
+wird, ist der Wechsel auf **AGPL-3.0** oder eine **Dual-Lizenz** die dann
+passende Maßnahme — das ist vor dem ersten Quell-Commit trivial, später mit
+externen Beitragenden nur noch per Contributor-License-Agreement möglich.
+
+### 11.5 Was „Open Source" für dieses Projekt praktisch bedeutet
+
+- Vollständige Funktionalität der Grundversion ohne Konto, ohne Lizenzschlüssel,
+  ohne Netzzugriff. Keine künstliche Einschränkung der lokalen App, um eine
+  spätere Bezahlstufe zu erzwingen.
+- Der Quellcode enthält die gesamte Anwendung, **inklusive** Build- und
+  Release-Pipeline.
+- Installierbare Artefakte für Linux, macOS und Windows werden per CI gebaut
+  und als Release publiziert (Spec 0004).
+- Beiträge sind über `CONTRIBUTING.md` und issue/PR-Templates eingeladen.

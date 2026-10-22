@@ -8,37 +8,40 @@ mit eigenem Verifikations-Gate.
 
 | Block | Inhalt | Risiko | Gate |
 |---|---|---|---|
-| **1** | Fundament + `opc-core` Rechenkern (Domänenmodell, Formeln, Maschinenstundensatz) | hoch (Formeln) | `cargo test` grün, Festwert-Tests |
-| **2** | `opc-store` Persistenz als **Port** + SQLite-Adapter (UUID + `account_id`) + Migrationen + Tauri-Commands | hoch (SaaS-Nahtstelle) | DB-Tests + `cargo test` |
+| **1** | Fundament + `opc-core` Rechenkern (Domänenmodell, Formeln, Maschinenstundensatz) + `LICENSE`/README/CI | hoch (Formeln) | `cargo test` grün, Festwert-Tests, CI-Workflow vorhanden |
+| **2** | `opc-store` Persistenz als **Port** + SQLite-Adapter (UUID) + Migrationen + Tauri-Commands | hoch (Speichervertrag) | DB-Tests + `cargo test` |
 | **3** | `opc-io` GCode-Parser + STL-Volumen + Datei-Import | hoch (Parser) | Parser-Fixture-Tests |
 | **4** | Frontend-Grundgerüst + Stammdatenverwaltung (Drucker/Material/Arbeitsschritte/Stundensatz) | mittel | Vitest + Build |
 | **5** | Frontend-Kalkulationsblatt + Ergebnisdarstellung | mittel | Vitest + Playwright |
 | **6** | Export PDF + Excel | mittel | Datei-Inhaltsprüfung |
 | **7** | Polish: Settings, Profile, Firmendaten, i18n-Vorbereitung | niedrig | Build + manueller Rest |
+| **8** | OSS-Paketierung: README, `LICENSE` (Apache-2.0), `CONTRIBUTING.md`, GitHub-Actions-CI (Build + Test), Release-Workflow mit Installationspaketen für Win/macOS/Linux (Spec 0004) | mittel | Reale Release-Artefakte in GitHub Release |
 
 Block 1 und 3 sind die fachlich riskanten Blöcke. Block 1 enthält **keine** UI und
 **keine** Datenbank — reine, sofort prüfbare Rechenlogik.
 
 ---
 
-## SaaS-Nahtstellen je Block (Basis: Spec 0001 Abschnitt 11)
+## Open-Source- und Erweiterbarkeits-Prinzipien je Block (Basis: Spec 0001 Abschnitt 11)
 
-Ziel: **Basisversion kostenlos + Pro-Version mit Zusatzfunktionen (Open-Core)**,
-später ausbaubar zu einer SaaS-Stufe. Jeder Block zahlt seinen vorhersehbaren
-Anteil an die Nahtstellen, damit ein späterer Ausbau ohne Architekturumbau möglich bleibt.
+Ziel: **vollständig funktionsfähige Open-Source-Desktop-App** — ohne Konto, ohne
+Lizenzschlüssel, ohne Netzzugriff. Eine spätere kommerzielle Stufe ist möglich,
+aber nicht geplant. Die folgenden Regeln haben heute jeweils einen eigenen Nutzen
+und kosten fast nichts.
 
-| Block | SaaS-Verpflichtung |
-|---|---|
-| 1 | UUID v4 als ID, `account_id` je Entität, keine SQL-leakenden Typen |
-| 2 | `opc-store` als **Port** (Domain-API); SQLite-Adapter wird später durch einen Postgres-Adapter ergänzt, ohne Aufrufstellen zu ändern |
-| 3 | `opc-io` bleibt pure (bytes/strings in, Struktur out) |
-| 4 | Frontend kennt **nicht** Tauri direkt, sondern einen `PlatformAdapter`; Browser-E2E ist dann dieselbe Architektur wie späteres Web-Frontend |
-| 5 | Pro-zu-Gate: Kalkulationsgrenzen (z. B. Anzahl Projekte) sind Feature-Flags, nicht verstreute `if` |
-| 6 | Export-Routinen sind pure Rust → später serverseitig direkt wiederverwendbar (kein Frontend-Export) |
-| 7 | Feature-Flag-Enum (`Feature::Pro`) statt verstreuter Checks lokalisiert derivierte Lizenzlogik |
+| Block | Prinzip | Nutzen heute |
+|---|---|---|
+| 1 | UUID v4 als ID, keine SQL-leakenden Typen | Import/Export einer Kalkulation zwischen Installationen ohne ID-Kollision |
+| 2 | `opc-store` als **Port** (Domain-API) + SQLite-Adapter | Tests gegen In-Memory-Adapter, kein DB-File nötig |
+| 3 | `opc-io` bleibt pure (bytes/strings in, Struktur out) | Parser-Fixtures ohne Dateisystem, deterministische Tests |
+| 4 | Frontend kennt Tauri **nur** über `PlatformAdapter` | Browser-E2E ohne Tauri-Binary; UI bleibt gegen die Plattformgrenze testbar |
+| 5 | Ergebnisdarstellung liest ausschließlich Engine-Werte | Kein Rechnen in der UI — eine Quelle der Wahrheit |
+| 6 | Export-Routinen als pure Rust-Funktionen | Später serverseitig wiederverwendbar, ohne Frontend-Export |
+| 7 | Settings/Profile/Firmendaten | Vervollständigt die lokale Nutzung ohne Account-Zwang |
 
-**Bewusst ausgelagert** (nicht im MVP): Auth, Mandanten, RLS, Stripe-Billing,
-Lizenzschlüssel, Lizenzserver, Cloud-Sync.
+**Bewusst nicht vorbereitet** (kein Nutzen in der OSS-Version, später additiv
+ergänzbar): Auth, Mandanten/`account_id`, RLS, Stripe, Feature-Gating,
+Lizenzschlüssel, Cloud-Sync, Postgres-Backend.
 
 ---
 

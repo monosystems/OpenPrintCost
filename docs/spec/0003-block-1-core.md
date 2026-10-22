@@ -39,10 +39,15 @@ gesamte Kostenberechnung nach Spec 0001 Abschnitt 4 abbildet. Die Bibliothek hat
 **keine** Tauri-, keine Datenbank- und keine Dateisystemabhängigkeit; jedes
 Formelverhalten ist durch einen Test mit von Hand nachgerechneten Sollwert belegt.
 
+Außerdem das **Open-Source-Fundament**: `LICENSE` (Apache-2.0), Projekt-README
+und ein GitHub-Actions-Workflow, das das Rust-Gate ausführt. Damit ist das Repo
+vom ersten Commit an ein glaubwürdiges OSS-Projekt, nicht „Quellcode veröffentlicht“.
+
 ## Nicht in diesem Block
 
 Keine Tauri-App, kein `tauri.conf.json`, kein SQLite, kein Frontend, kein GCode-/
-STL-Parser, kein PDF/Excel-Export, kein `opc-store`, kein `opc-io`.
+STL-Parser, kein PDF/Excel-Export, kein `opc-store`, kein `opc-io`. **Kein**
+Release-Workflow mit installierbaren BSP-Artefakten — das ist Block 8 (Spec 0004).
 
 ## Dateien (genau diese, keine weiteren)
 
@@ -70,6 +75,9 @@ STL-Parser, kein PDF/Excel-Export, kein `opc-store`, kein `opc-io`.
 | `crates/opc-core/src/calc/margin.rs` | Marge, Steuer, Custom-Zuschläge (Spec 4.9) |
 | `crates/opc-core/src/calc/engine.rs` | `calculate()` — Orchestrierung in fester Reihenfolge |
 | `crates/opc-core/tests/calculation.rs` | Integrationstests mit den Festwerten |
+| `LICENSE` | Apache-2.0-Volltext (Spec 0001 Abschnitt 11.4) |
+| `README.md` | Zweck, Funktionsumfang, Stack, Startanleitung (WSL/Linux), Lizenz, Hinweis auf Mac/Windows-Build via CI (Spec 0004) |
+| `.github/workflows/ci.yml` | GitHub-Actions-Workflow: `fmt` + `clippy` + `test` bei Push/PR, inkl. Rust-Cache |
 
 ## Akzeptanzkriterien
 
@@ -96,11 +104,17 @@ STL-Parser, kein PDF/Excel-Export, kein `opc-store`, kein `opc-io`.
     `DivisionByZero` (Feldname im Fehler), `InvalidInput`, `Arithmetic`.
 11. Keine `#[ignore]`, keine `todo!()`, kein `unimplemented!()`, keine
     `unwrap()`/`expect()` in Produktionspfaden (Panics sind in `Result` zu wandeln).
-12. **SaaS-Nahtstelle (Spec 0001 Abschnitt 11):** jede Entität (`Printer`,
-    `Material`, `Workstep`, `HourlyRate`, `CalculationInput`-Dateien) trägt
-    `id: Uuid` (UUID v4) und `account_id: Uuid`. `CalculationResult`-Positionen
-    referenzieren die Entitäts-UUID. Kein `INTEGER`-Primärschlüssel.
-    `Uuid`-Dependency mit `features = ["v4", "serde"]`.
+12. **IDs (Spec 0001 Abschnitt 11.1):** jede Entität (`Printer`, `Material`,
+    `Workstep`, `HourlyRate`, `CalculationInput`-Dateien) trägt `id: Uuid`
+    (UUID v4). `CalculationResult`-Positionen referenzieren die Entitäts-UUID.
+    Kein `INTEGER`-Primärschlüssel. `Uuid`-Dependency mit `features
+    = ["v4", "serde"]`.
+13. **Open-Source-Datei-Fundament (Spec 0001 Abschnitt 11.4/11.5):** `LICENSE`
+    (Apache-2.0, Volltext) und ein Projekt-README, das Zweck, Stack,
+    Startanleitung und Lizenz nennt. Ein minimales GitHub-Actions-Workflow,
+    das auf Push/PR `cargo fmt --all --check`, `cargo clippy --workspace
+    --all-targets -- -D warnings` und `cargo test --workspace` ausführt.
+    Workflow-Must hängen am Rust-Cache, keine Secrets.
 
 ## Festwert-Tests (Sollwerte — verbindlich)
 

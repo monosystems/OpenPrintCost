@@ -1,0 +1,29 @@
+[package]
+name = "opc-core"
+description = "Rechenkern für 3D-Druck-Kostenkalkulationen (OpenPrintCost)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+rust_decimal.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+# Für WASM (wasm32-unknown-unknown) braucht `uuid` eine explizite Quelle für
+# Zufall — dort steht kein System-Entropie-Pool zur Verfügung. Die `js`-Feature
+# nutzt die Browser-Kryptografie. Auf nativen Zielen bleibt `getrandom` aktiv.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1", features = ["v4", "serde", "js"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+rust_decimal_macros = "1.40.0"
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
