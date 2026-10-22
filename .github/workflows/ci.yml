@@ -75,6 +75,9 @@ jobs:
       - name: Frontend-Typen prüfen
         run: npm run typecheck
 
+      - name: Frontend-Tests
+        run: npm test -- --run
+
       - name: Frontend bauen
         # Erzeugt dist/ — das Tauri als frontendDist einbettet.
         run: npm run build

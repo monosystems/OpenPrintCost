@@ -1,17 +1,30 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import { MockPlatformAdapter } from "./api/mockAdapter";
+import type { PlatformAdapter } from "./api/platform";
+import { TauriPlatformAdapter } from "./api/tauriAdapter";
+import "./styles.css";
 
-import App from './App';
-import './styles.css';
-
-const container = document.getElementById('root');
-
-if (!container) {
-  throw new Error('Root-Element #root wurde nicht gefunden.');
+/**
+ * Adapterwahl: In der Tauri-App läuft der echte Adapter; mit
+ * `VITE_MOCK_API=1` läuft die Oberfläche ohne Tauri-Binary im Browser
+ * (Entwicklung, Tests, E2E).
+ */
+function createAdapter(): PlatformAdapter {
+  if (import.meta.env.VITE_MOCK_API === "1") {
+    return new MockPlatformAdapter();
+  }
+  return new TauriPlatformAdapter();
 }
 
-createRoot(container).render(
+const root = document.getElementById("root");
+if (!root) {
+  throw new Error("Root-Element fehlt.");
+}
+
+createRoot(root).render(
   <StrictMode>
-    <App />
+    <App adapter={createAdapter()} />
   </StrictMode>,
 );
