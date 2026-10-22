@@ -13,7 +13,7 @@ env:
 
 jobs:
   rust:
-    name: Rust — fmt, clippy, test (Kern + Store)
+    name: Rust — fmt, clippy, test (core + store)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,51 +35,51 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Check formatting
-        # Prüft alle Workspace-Member, inklusive src-tauri.
+        # Checks all workspace members, including src-tauri.
         run: cargo fmt --all --check
 
       - name: Clippy
-        # --workspace greift auf default-members zurück (opc-core, opc-store).
-        # src-tauri wird im separaten tauri-Job geprüft.
+        # --workspace falls back to default-members (opc-core, opc-store).
+        # src-tauri is covered by the separate tauri job.
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
         run: cargo test --locked
 
-      - name: Build (Kern + Store)
+      - name: Build (core + store)
         run: cargo build --locked
 
   tauri:
-    name: Desktop — Frontend bauen, Tauri prüfen
+    name: Desktop — build frontend, check Tauri
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Tauri-Systemabhängigkeiten installieren
+      - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
             libayatana-appindicator3-dev libssl-dev
 
-      - name: Node einrichten
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Frontend-Abhängigkeiten installieren
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Frontend-Typen prüfen
+      - name: Check frontend types
         run: npm run typecheck
 
-      - name: Frontend-Tests
+      - name: Frontend tests
         run: npm test -- --run
 
-      - name: Frontend bauen
-        # Erzeugt dist/ — das Tauri als frontendDist einbettet.
+      - name: Build frontend
+        # Produces dist/ — embedded by Tauri as frontendDist.
         run: npm run build
 
       - name: Install Rust toolchain
@@ -97,10 +97,10 @@ jobs:
           key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-tauri-
 
-      - name: Clippy (Tauri-Crate)
+      - name: Clippy (Tauri crate)
         run: cargo clippy -p openprintcost --all-targets --locked -- -D warnings
 
-      - name: Tauri-Binärpaket bauen (debug)
-        # Der Release-Bundle gehört zu Block 8; hier zählt, dass die App
-        # inklusive aller Commands kompiliert und linkt.
+      - name: Build Tauri package (debug)
+        # The release bundle belongs to Block 8; here it counts that the app
+        # compiles and links including all commands.
         run: cargo build -p openprintcost --locked

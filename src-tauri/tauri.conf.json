@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenPrintCost — 3D-Druck-Kostenkalkulator",
+        "title": "OpenPrintCost — 3D Print Cost Calculator",
         "width": 1400,
         "height": 900,
         "minWidth": 1024,
@@ -29,8 +29,8 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "shortDescription": "Kostenkalkulation für 3D-Druck-Aufträge",
-    "longDescription": "OpenPrintCost berechnet die Kosten von 3D-Druck-Aufträgen: Material, Maschinenzeit, Energie, Arbeitsschritte, Marge und Steuer.",
+    "shortDescription": "Cost calculation for 3D printing jobs",
+    "longDescription": "OpenPrintCost calculates the cost of 3D printing jobs: material, machine time, energy, work steps, margin, and tax.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -1,19 +1,19 @@
-# Mitmachen bei OpenPrintCost
+# Contributing to OpenPrintCost
 
-Danke für dein Interesse! Diese Anleitung fasst zusammen, wie du effektiv
-beitragen kannst. Bei Fragen: Issue aufmachen — lieber einmal zu viel gefragt
-als schweigend in die falsche Richtung gebaut.
+Thanks for your interest! This guide summarizes how to contribute effectively.
+When in doubt: open an issue — better to ask once too often than to silently
+build in the wrong direction.
 
-## Bevor du beginnst
+## Before you start
 
-Für größere Änderungen bitte **zuerst ein Issue** anlegen und kurz skizzieren,
-was du vorhast. So vermeiden wir doppelte Arbeit und Design-Brüche. Kleine
-Fixes (Tippfehler, Doku) können direkt als PR kommen.
+For larger changes, please **open an issue first** and briefly outline what
+you plan to do. This avoids duplicate work and design breaks. Small fixes
+(typos, docs) can go directly as a PR.
 
-## Entwicklungsumgebung
+## Development environment
 
-Voraussetzungen: Rust-Toolchain (stable, siehe `rust-toolchain.toml`),
-Node.js 22+, und für den Tauri-Build die Systembibliotheken aus der
+Prerequisites: stable Rust toolchain (see `rust-toolchain.toml`), Node.js 22+,
+and for the Tauri build the system libraries from the
 [README](README.md) (Ubuntu: `libwebkit2gtk-4.1-dev libgtk-3-dev
 librsvg2-dev libayatana-appindicator3-dev libssl-dev`).
 
@@ -22,13 +22,13 @@ git clone https://github.com/monosystems/OpenPrintCost
 cd OpenPrintCost
 npm install
 
-# Schnelles Arbeiten ohne Tauri-Binary (Mock statt Backend):
+# Fast iteration without a Tauri binary (mock instead of backend):
 VITE_MOCK_API=1 npm run dev
 ```
 
-## Gates — vor jedem Commit
+## Gates — before every commit
 
-Frontend (Repo-Root):
+Frontend (repo root):
 
 ```bash
 npm run typecheck
@@ -37,7 +37,7 @@ npm test -- --run
 npm run build
 ```
 
-Rust (Repo-Root, `cargo` ggf. via `export PATH="$HOME/.cargo/bin:$PATH"`):
+Rust (repo root, `cargo` via `export PATH="$HOME/.cargo/bin:$PATH"` if needed):
 
 ```bash
 cargo fmt --all --check
@@ -45,72 +45,73 @@ cargo clippy --all-targets -- -D warnings
 cargo test --locked
 ```
 
-Die Tauri-Crate (`-p openprintcost`) baut lokal nur **mit** den
-Systembibliotheken; ohne sie ist das kein Fehler deinerseits — die CI prüft
-sie (Job `tauri`). Wer Docker hat, kann lokal prüfen:
+The Tauri crate (`-p openprintcost`) only builds **with** the system
+libraries; without them that is not your fault — CI covers it (job `tauri`).
+If you have Docker, you can check locally:
 
 ```bash
 docker run --rm -v "$PWD":/app -v ~/.cache/opc-tauri-target:/app/target \
-  <image-mit-webkit2gtk> bash -lc \
+  <image-with-webkit2gtk> bash -lc \
   "cd /app && export PATH=/root/.cargo/bin:\$PATH && \
    cargo clippy -p openprintcost --all-targets --locked -- -D warnings && \
    cargo build -p openprintcost --locked"
 ```
 
-## Regeln, die immer gelten
+## Rules that always apply
 
-* **Kein `unwrap`/`expect` in Produktionspfaden** — Fehler sind `Result`
+* **No `unwrap`/`expect` in production paths** — errors are `Result`
   (`CalcError`, `StoreError`, `IoError`, `ExportError`, `AdapterError`).
-  Tests und Doc-Beispiele dürfen `expect` nutzen.
-* **Geld ausschließlich `Decimal`**, serialisiert als String. `f64` nur für
-  physikalische Messwerte, mit expliziter Konvertierung an der Grenze.
-* **`opc-core`, `opc-io` und `opc-export` bleiben pure** — kein IO, kein
-  Clock, kein globaler Zustand. Wer Clock/IO braucht, gehört in die Hülle
-  (`src-tauri`) oder den Adapter.
-* **Kein Tauri-Import außerhalb `src/api/tauriAdapter.ts`** —
-  per `grep -rn "@tauri-apps" src --include="*.tsx" | grep -v tauriAdapter.ts`
-  prüfbar (muss leer sein).
-* **Deutsche UI-Texte nur in `src/i18n/de.ts`** (Tests ausgenommen).
-* **Migrationen werden nie geändert**, nur fortgeschrieben (`crates/opc-store/
-  src/sqlite/migrations/` + Eintrag in `migrations.rs`).
-* Neue Commands in `src-tauri` brauchen: Registrierung in `lib.rs`,
-  Adapter-Methode in `platform.ts` + `tauriAdapter.ts` + `mockAdapter.ts`
-  und einen Vitest, der den Mock-Pfad abdeckt.
+  Tests and doc examples may use `expect`.
+* **Money is always `Decimal`**, serialized as string. `f64` only for
+  physical measurements, with explicit conversion at the boundary.
+* **`opc-core`, `opc-io` and `opc-export` stay pure** — no IO, no clock,
+  no global state. Anything needing clock/IO belongs in the shell
+  (`src-tauri`) or the adapter.
+* **No Tauri imports outside `src/api/tauriAdapter.ts`** —
+  verifiable via `grep -rn "@tauri-apps" src --include="*.tsx" | grep -v tauriAdapter.ts`
+  (must be empty).
+* **UI strings only in `src/i18n/`** (currently `de.ts`; `en.ts` planned).
+  No hardcoded user-facing strings in components (verifiable via grep);
+  tests may use text for querying.
+* **Migrations are never modified**, only appended (`crates/opc-store/
+  src/sqlite/migrations/` + entry in `migrations.rs`).
+* New commands in `src-tauri` require: registration in `lib.rs`,
+  adapter method in `platform.ts` + `tauriAdapter.ts` + `mockAdapter.ts`
+  and a Vitest covering the mock path.
 
-## Commit-Stil
+## Commit style
 
-Kurze, imperative Betreffzeilen mit Scope-Präfix:
+Short, imperative subject lines with scope prefix:
 
-* `feat(store): …` — neues Verhalten
-* `fix(io): …` — Fehlerbehebung
-* `chore(deps): …` — Abhängigkeiten
-* `docs(spec): …` — Spezifikation/Dokumentation
-* `test(frontend): …` — nur Tests
+* `feat(store): …` — new behavior
+* `fix(io): …` — bug fix
+* `chore(deps): …` — dependencies
+* `docs(spec): …` — specification/documentation
+* `test(frontend): …` — tests only
 
-Ein Commit = ein Thema. Spec-Änderungen und die zugehörige Implementierung
-dürfen getrennt committen werden.
+One commit = one topic. Spec changes and the corresponding implementation
+may be committed separately.
 
-## Pull-Requests
+## Pull requests
 
-* Beschreibung: Was, warum, wie verifiziert (Gates auflisten).
-* Checkliste (siehe PR-Template): Gates grün, keine neuen Warnungen,
-  Spec aktualisiert (falls fachlich relevant), kein Scope-Creep.
-* Review: mindestens ein Maintainer schaut drüber; fachliche Zweifel werden
-  im PR ausdiskutiert, nicht nachträglich.
+* Description: what, why, how verified (list gates).
+* Checklist (see PR template): gates green, no new warnings,
+  spec updated (if technically relevant), no scope creep.
+* Review: at least one maintainer takes a look; technical doubts are
+  discussed in the PR, not afterwards.
 
-## Releases (Maintainer)
+## Releases (maintainers)
 
-1. Versionen angleichen: `package.json`, `src-tauri/tauri.conf.json`,
-   `Cargo.toml` (Workspace) — alle drei identisch, z. B. `0.2.0`.
-2. Committen, Tag setzen (`git tag v0.2.0`), pushen (`git push --tags`).
-3. Der Release-Workflow (`.github/workflows/release.yml`) baut `.deb`,
-   AppImage, `.msi` und `.dmg` und hängt sie ans GitHub Release.
-4. Release-Notes schreiben: Was ist neu, was ist kaputt gegangen, danke an
-   Beitragende.
+1. Align versions: `package.json`, `src-tauri/tauri.conf.json`,
+   `Cargo.toml` (workspace) — all three identical, e.g. `0.2.0`.
+2. Commit, tag (`git tag v0.2.0`), push (`git push --tags`).
+3. The release workflow (`.github/workflows/release.yml`) builds `.deb`,
+   AppImage, `.msi` and `.dmg` and attaches them to the GitHub Release.
+4. Write release notes: what is new, what broke, thanks to contributors.
 
-## Verhaltenskodex
+## Code of conduct
 
-Sei sachlich, präzise und respektvoll. Technische Richtigkeit schlägt
-Höflichkeitsfloskeln — aber niemals auf Kosten von Menschen. Wer andere
-herabwürdigt oder Beiträge blockiert, statt sie zu verbessern, ist hier
-falsch.
+Be factual, precise, and respectful. Technical correctness beats
+politeness phrases — but never at the expense of people. Anyone who demeans
+others or blocks contributions instead of improving them is in the wrong
+place here. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

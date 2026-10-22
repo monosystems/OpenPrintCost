@@ -1,17 +1,17 @@
-## Was ändert dieser PR?
+## What does this PR change?
 
-<!-- Kurzbeschreibung, gern mit Verweis auf relevante Code-Stellen. -->
+<!-- Short description, ideally with references to relevant code locations. -->
 
-## Wie verifiziert?
+## How was it verified?
 
-<!-- Gates auflisten, z. B.: npm test (35 grün), cargo test (100 grün),
-     Docker-Tauri-Build grün. -->
+<!-- List gates, e.g.: npm test (35 green), cargo test (100 green),
+     Docker Tauri build green. -->
 
-## Checkliste
+## Checklist
 
-- [ ] Alle Gates aus CONTRIBUTING.md sind grün
-- [ ] Keine neuen Clippy-/TSC-Warnungen
-- [ ] Spec aktualisiert (falls fachlich relevant)
-- [ ] Kein Scope-Creep: ein Thema pro PR
-- [ ] Neue Commands sind im Mock-Adapter und in Tests abgedeckt
-- [ ] UI-Texte stehen in `src/i18n/de.ts` (keine Hardcodierung)
+- [ ] All gates from CONTRIBUTING.md are green
+- [ ] No new Clippy/TSC warnings
+- [ ] Spec updated (if technically relevant)
+- [ ] No scope creep: one topic per PR
+- [ ] New commands are covered in the mock adapter and in tests
+- [ ] UI strings live in `src/i18n/` (no hardcoding)

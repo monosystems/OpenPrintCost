@@ -1,18 +1,18 @@
 ---
-name: Funktionswunsch
-about: Eine neue Funktion oder Verbesserung vorschlagen
+name: Feature request
+about: Suggest a new feature or improvement
 title: "[Feature] "
 labels: enhancement
 ---
 
 ## Problem
 
-<!-- Welches Problem löst der Wunsch? Für wen? -->
+<!-- Which problem does this solve? For whom? -->
 
-## Vorschlag
+## Proposal
 
-<!-- Was soll die App tun? Möglichst konkret, gern mit Beispiel. -->
+<!-- What should the app do? As concrete as possible, ideally with an example. -->
 
-## Alternativen
+## Alternatives
 
-<!-- Gibt es einen Workaround oder eine andere Lösung? -->
+<!-- Is there a workaround or another solution? -->

@@ -1,8 +1,8 @@
 name: Release
 
-# Baut bei Tags der Form v* installierbare Pakete und hängt sie ans
-# GitHub Release: Linux (.deb, AppImage), Windows (.msi, .exe),
-# macOS arm64 (.dmg). Intel-Macs bauen aus den Quellen (siehe README).
+# On tags of the form v*, builds installable packages and attaches them to
+# the GitHub Release: Linux (.deb, AppImage), Windows (.msi, .exe),
+# macOS arm64 (.dmg). Intel Macs build from source (see README).
 
 on:
   push:
@@ -18,26 +18,26 @@ env:
 
 jobs:
   check-version:
-    name: Versionen stimmen mit dem Tag überein
+    name: Versions match the tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Versionen prüfen
+      - name: Check versions
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          echo "Tag-Version: $TAG"
+          echo "Tag version: $TAG"
           NPM=$(node -p "require('./package.json').version")
           TAURI=$(node -p "require('./src-tauri/tauri.conf.json').version")
           CARGO=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           echo "package.json: $NPM / tauri.conf.json: $TAURI / Cargo.toml: $CARGO"
-          test "$NPM" = "$TAG" || { echo "package.json weicht ab"; exit 1; }
-          test "$TAURI" = "$TAG" || { echo "tauri.conf.json weicht ab"; exit 1; }
-          test "$CARGO" = "$TAG" || { echo "Cargo.toml weicht ab"; exit 1; }
+          test "$NPM" = "$TAG" || { echo "package.json mismatch"; exit 1; }
+          test "$TAURI" = "$TAG" || { echo "tauri.conf.json mismatch"; exit 1; }
+          test "$CARGO" = "$TAG" || { echo "Cargo.toml mismatch"; exit 1; }
 
   release:
-    name: Paket bauen (${{ matrix.os }})
+    name: Build package (${{ matrix.os }})
     needs: check-version
     strategy:
       fail-fast: false
@@ -51,19 +51,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Node einrichten
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Frontend-Abhängigkeiten installieren
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Rust-Toolchain installieren
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Tauri-Systemabhängigkeiten installieren (Linux)
+      - name: Install Tauri system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -81,7 +81,7 @@ jobs:
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-release-
 
-      - name: Release bauen und hochladen
+      - name: Build and upload release
         uses: tauri-apps/tauri-action@v0
         with:
           tagName: ${{ github.ref_name }}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Releases (download)
+    url: https://github.com/monosystems/OpenPrintCost/releases
+    about: Download the latest .deb, AppImage, .msi, or .dmg build.
+  - name: Contributing guide
+    url: https://github.com/monosystems/OpenPrintCost/blob/main/CONTRIBUTING.md
+    about: How to set up the dev environment and open pull requests.

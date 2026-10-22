@@ -1,6 +1,6 @@
 [package]
 name = "openprintcost"
-description = "OpenPrintCost — Kostenkalkulation für 3D-Druck-Aufträge"
+description = "OpenPrintCost — cost calculation for 3D printing jobs"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"

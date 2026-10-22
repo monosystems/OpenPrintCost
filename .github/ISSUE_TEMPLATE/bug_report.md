@@ -1,27 +1,27 @@
 ---
-name: Fehlerbericht
-about: Ein Fehler oder eine falsche Berechnung melden
+name: Bug report
+about: Report a bug or an incorrect calculation
 title: "[Bug] "
 labels: bug
 ---
 
-## Was ist passiert?
+## What happened?
 
-<!-- Kurze Beschreibung des Fehlers. -->
+<!-- Short description of the bug. -->
 
-## Schritte zum Nachstellen
+## Steps to reproduce
 
 1.
 2.
 3.
 
-## Erwartet vs. tatsächlich
+## Expected vs. actual
 
-<!-- Was hättest du erwartet, was kam heraus? Bei falschen Beträgen bitte
-     die Eingabewerte (Drucker, Material, Datei, Profil) dazuschreiben. -->
+<!-- What did you expect, what did you get? For wrong amounts, please
+     include the inputs (printer, material, file, profile). -->
 
-## Umgebung
+## Environment
 
-- OpenPrintCost-Version:
-- Betriebssystem:
-- Installationsart (deb / AppImage / msi / dmg / selbst gebaut):
+- OpenPrintCost version:
+- OS:
+- Install type (deb / AppImage / msi / dmg / built from source):

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Frontend-Grundgerüst der Desktop-App OpenPrintCost (Tauri v2 + React + TypeScript + Vite + Tailwind CSS)",
+  "description": "Frontend for the OpenPrintCost desktop app (Tauri v2 + React + TypeScript + Vite + Tailwind CSS)",
   "scripts": {
     "dev": "vite --port 1420 --strictPort",
     "build": "tsc -b && vite build",
