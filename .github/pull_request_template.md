@@ -1,6 +1,6 @@
 ## Was ändert dieser PR?
 
-<!-- Kurzbeschreibung, gern mit Spec-Referenz (docs/spec/…). -->
+<!-- Kurzbeschreibung, gern mit Verweis auf relevante Code-Stellen. -->
 
 ## Wie verifiziert?
 

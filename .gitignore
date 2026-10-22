@@ -22,3 +22,6 @@ test-results/
 .vscode/
 *.swp
 .DS_Store
+
+# Interne Entwicklungs-Dokumente (nicht oeffentlich)
+docs-intern/

@@ -96,7 +96,7 @@ src-tauri/          Tauri-Hülle — 35 Commands über Arc<dyn Store>, sonst kei
 src/                React + TypeScript + Tailwind — kennt Tauri nur über einen PlatformAdapter
 ```
 
-Zentrale Invarianten (Details in [`docs/spec/`](docs/spec/)):
+Zentrale Invarianten:
 
 * `opc-core`, `opc-io` und `opc-export` sind **pure** (kein IO, kein Clock,
   kein globaler Zustand) und kompilieren nach `wasm32-unknown-unknown`.
@@ -106,16 +106,11 @@ Zentrale Invarianten (Details in [`docs/spec/`](docs/spec/)):
 
 ## Dokumentation
 
-* [`docs/spec/0001-mvp-core.md`](docs/spec/0001-mvp-core.md) — fachlicher Vertrag (Formeln)
-* [`docs/spec/0002-block-plan.md`](docs/spec/0002-block-plan.md) — Blockübersicht
-* [`docs/spec/0003-block-1-core.md`](docs/spec/0003-block-1-core.md),
-  [`0005-block-2-store.md`](docs/spec/0005-block-2-store.md),
-  [`0007-block-3-io.md`](docs/spec/0007-block-3-io.md),
-  [`0008-block-4-frontend.md`](docs/spec/0008-block-4-frontend.md),
-  [`0009-block-5-calculation.md`](docs/spec/0009-block-5-calculation.md),
-  [`0011-block-6-export.md`](docs/spec/0011-block-6-export.md),
-  [`0012-block-7-polish.md`](docs/spec/0012-block-7-polish.md),
-  [`0013-block-8-oss.md`](docs/spec/0013-block-8-oss.md) — Bauabschnitte
+Die ausführliche technische Spezifikation (Formelvertrag, Blockpläne,
+Referenz-Audits) liegt unter `docs-intern/` und ist **nicht Teil des
+öffentlichen Repositories**. Was du hier siehst — Code, README,
+CONTRIBUTING, Build- und Release-Pipeline — ist vollständig und genügt,
+um die App zu bauen, zu verstehen und zu erweitern.
 
 **Hinweis zu den Formeln:** Die Formelsemantik orientiert sich an der
 Apache-2.0-Bibliothek `3dPrintCostCalculatorSharp`. Bekannte Fehler der
