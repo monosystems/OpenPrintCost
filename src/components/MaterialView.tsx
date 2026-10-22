@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, formatQuantity, isDecimalString, labels } from "../api/format";
+import { de } from "../i18n/de";
 import { newId, type Material, type MaterialFamily, type MaterialUnit } from "../api/types";
 import {
   ConfirmDialog,
@@ -36,15 +37,15 @@ type Errors = Partial<Record<string, string>>;
 
 function validate(material: Material): Errors {
   const errors: Errors = {};
-  if (material.name.trim() === "") errors.name = "Bitte eine Bezeichnung eingeben.";
-  if (material.material_type.trim() === "") errors.material_type = "Bitte einen Typ eingeben (z. B. PLA).";
+  if (material.name.trim() === "") errors.name = de.validation.required(de.validation.designation);
+  if (material.material_type.trim() === "") errors.material_type = de.validation.required(de.validation.materialType);
   for (const [key, label] of [
-    ["density_g_cm3", "Dichte"],
-    ["package_size", "Verpackungsgröße"],
-    ["price", "Preis"],
+    ["density_g_cm3", de.materials.density],
+    ["package_size", de.materials.packageSize],
+    ["price", de.materials.price],
   ] as const) {
     if (!isDecimalString(material[key])) {
-      errors[key] = `${label}: bitte eine Zahl mit Punkt eingeben (z. B. 1.24).`;
+      errors[key] = de.validation.decimal(label);
     }
   }
   return errors;
@@ -64,7 +65,7 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       setMaterials(await adapter.listMaterials());
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Materialien konnten nicht geladen werden.");
+      setError(error instanceof Error ? error.message : de.errors.materialsLoad);
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Material konnte nicht gespeichert werden.");
+      setError(error instanceof Error ? error.message : de.errors.materialSave);
     }
   };
 
@@ -108,7 +109,7 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : "Material konnte nicht gelöscht werden.");
+      setError(error instanceof Error ? error.message : de.errors.materialDelete);
     }
   };
 
@@ -116,20 +117,20 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
   return (
-    <section aria-label="Materialien">
+    <section aria-label={de.materials.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">Materialien</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{de.materials.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
-          Neues Material
+          {de.materials.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">Wird geladen …</p>
+        <p className="text-sm text-slate-400">{de.common.loading}</p>
       ) : materials.length === 0 ? (
-        <EmptyState message="Noch keine Materialien angelegt. Lege dein erstes Filament, Harz oder Pulver an." />
+        <EmptyState message={de.materials.empty} />
       ) : (
         <ul className="space-y-2">
           {materials.map((material) => (
@@ -147,10 +148,10 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...material }); setFormErrors({}); }}>
-                  Bearbeiten
+                  {de.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(material)}>
-                  Löschen
+                  {de.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -159,57 +160,57 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={materials.some((m) => m.id === editing.id) ? "Material bearbeiten" : "Neues Material"} onClose={() => setEditing(null)}>
+        <Modal title={materials.some((m) => m.id === editing.id) ? de.materials.editTitle : de.materials.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Bezeichnung *" error={formErrors.name}>
-              <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder="z. B. PETG Schwarz" />
+            <Field label={`${de.materials.name} *`} error={formErrors.name}>
+              <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={de.materials.nameExample} />
             </Field>
-            <Field label="Typ *" error={formErrors.material_type}>
-              <TextInput value={editing.material_type} onChange={(e) => set("material_type", e.target.value)} placeholder="z. B. PETG" />
+            <Field label={`${de.materials.type} *`} error={formErrors.material_type}>
+              <TextInput value={editing.material_type} onChange={(e) => set("material_type", e.target.value)} placeholder={de.materials.typeExample} />
             </Field>
-            <Field label="Materialfamilie">
+            <Field label={de.materials.family}>
               <Select
                 value={editing.family}
                 onChange={(v) => set("family", v as MaterialFamily)}
                 options={Object.entries(labels.family).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label="Hersteller">
+            <Field label={de.materials.manufacturer}>
               <TextInput value={editing.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} />
             </Field>
-            <Field label="Dichte (g/cm³) *" error={formErrors.density_g_cm3}>
+            <Field label={`${de.materials.density} *`} error={formErrors.density_g_cm3}>
               <DecimalInput value={editing.density_g_cm3} onChange={(v) => set("density_g_cm3", v)} />
             </Field>
-            <Field label="Preis (€) *" error={formErrors.price}>
+            <Field label={`${de.materials.price} *`} error={formErrors.price}>
               <DecimalInput value={editing.price} onChange={(v) => set("price", v)} />
             </Field>
-            <Field label="Verpackungsgröße *" error={formErrors.package_size}>
+            <Field label={`${de.materials.packageSize} *`} error={formErrors.package_size}>
               <DecimalInput value={editing.package_size} onChange={(v) => set("package_size", v)} />
             </Field>
-            <Field label="Einheit">
+            <Field label={de.materials.unit}>
               <Select
                 value={editing.unit}
                 onChange={(v) => set("unit", v as MaterialUnit)}
                 options={[
-                  { value: "kg", label: "Kilogramm (kg)" },
-                  { value: "g", label: "Gramm (g)" },
-                  { value: "lb", label: "Pfund (lb)" },
-                  { value: "oz", label: "Unze (oz)" },
+                  { value: "kg", label: de.materials.unitKg },
+                  { value: "g", label: de.materials.unitG },
+                  { value: "lb", label: de.materials.unitLb },
+                  { value: "oz", label: de.materials.unitOz },
                 ]}
               />
             </Field>
             <div className="md:col-span-2">
-              <Field label="Shop-Link">
+              <Field label={de.materials.shopLink}>
                 <TextInput value={editing.shop_link ?? ""} onChange={(e) => set("shop_link", e.target.value)} placeholder="https://…" />
               </Field>
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              Abbrechen
+              {de.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              Speichern
+              {de.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -217,9 +218,9 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title="Material löschen"
-          message={`„${deleting.name}“ wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`}
-          confirmLabel="Löschen"
+          title={de.common.confirmTitle(de.materials.one)}
+          message={de.common.confirmDeleteMessage(deleting.name)}
+          confirmLabel={de.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />

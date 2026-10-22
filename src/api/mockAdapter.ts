@@ -276,4 +276,14 @@ export class MockPlatformAdapter implements PlatformAdapter {
   ): Promise<string | null> {
     return "mock-report.xlsx";
   }
+
+  // -- Firmendaten ---------------------------------------------------------------
+  private company: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
+
+  async getCompanyInfo(): Promise<CompanyInfo> {
+    return { ...this.company };
+  }
+  async saveCompanyInfo(info: CompanyInfo): Promise<void> {
+    this.company = { ...info };
+  }
 }

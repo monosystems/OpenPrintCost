@@ -20,11 +20,18 @@ pub struct Migration {
 }
 
 /// Alle Migrationen in aufsteigender Versionsfolge.
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "initial_schema",
-    sql: include_str!("migrations/0001_initial_schema.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "initial_schema",
+        sql: include_str!("migrations/0001_initial_schema.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "company_info",
+        sql: include_str!("migrations/0002_company_info.sql"),
+    },
+];
 
 /// Die höchste von dieser Version unterstützte Schema-Version.
 pub fn latest_version() -> i64 {

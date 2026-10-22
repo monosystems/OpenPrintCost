@@ -23,6 +23,22 @@ pub struct StoredCalculation {
     pub document: CalculationInput,
 }
 
+/// Firmendaten für Reportköpfe und Einstellungen.
+///
+/// Genau ein Datensatz (Singleton) — der Adapter liefert leere Firmendaten,
+/// wenn noch nichts gespeichert wurde (Spec 0012).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CompanyInfo {
+    /// Firmenname.
+    pub name: String,
+    /// Straße und Hausnummer.
+    pub street: String,
+    /// PLZ und Ort.
+    pub zip_city: String,
+    /// E-Mail-Adresse.
+    pub email: String,
+}
+
 /// Kurzfassung einer Kalkulation für Listenansichten.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CalculationSummary {

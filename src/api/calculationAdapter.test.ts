@@ -99,8 +99,20 @@ describe("MockPlatformAdapter (Kalkulationen)", () => {
     expect(result.positions.some((p) => p.group === "total")).toBe(true);
   });
 
-  it("liefert Demo-Importdaten und Demo-Exportpfade", async () => {
+  it("rundet Firmendaten durch den Mock", async () => {
     const adapter = new MockPlatformAdapter();
+    expect(await adapter.getCompanyInfo()).toMatchObject({ name: "" });
+
+    await adapter.saveCompanyInfo({
+      name: "Muster GmbH",
+      street: "Druckweg 1",
+      zip_city: "12345 Ort",
+      email: "info@example.invalid",
+    });
+    expect(await adapter.getCompanyInfo()).toMatchObject({ name: "Muster GmbH" });
+  });
+
+  it("liefert Demo-Importdaten und Demo-Exportpfade", async () => {    const adapter = new MockPlatformAdapter();
     const gcode = await adapter.importGcodeFile("demo");
     expect(gcode.used_comments).toBe(true);
     expect(gcode.time_from_comments_hours).toBe("2.5");

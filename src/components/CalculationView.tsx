@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
+import { de } from "../i18n/de";
 import {
   emptyCompany,
   newId,
@@ -10,6 +11,7 @@ import {
   type CalculationProfile,
   type CalculationResult,
   type CalculationSummary,
+  type CompanyInfo,
   type CustomSurcharge,
   type HourlyRate,
   type Material,
@@ -33,7 +35,7 @@ import {
 function defaultProfile(): CalculationProfile {
   return {
     id: newId(),
-    name: "Standard",
+    name: de.profiles.title,
     fail_rate_percent: "0",
     tax_rate_percent: "19",
     margin_percent: "0",
@@ -94,23 +96,26 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
   const [error, setError] = useState<string | null>(null);
   const [deletingSaved, setDeletingSaved] = useState<CalculationSummary | null>(null);
   const [importHint, setImportHint] = useState<string | null>(null);
+  const [company, setCompany] = useState<CompanyInfo>(emptyCompany);
 
   const reloadBase = useCallback(async () => {
     try {
-      const [p, m, w, r, s] = await Promise.all([
+      const [p, m, w, r, s, c] = await Promise.all([
         adapter.listPrinters(),
         adapter.listMaterials(),
         adapter.listWorksteps(),
         adapter.listHourlyRates(),
         adapter.listCalculations(),
+        adapter.getCompanyInfo().catch(() => emptyCompany),
       ]);
       setPrinters(p);
       setMaterials(m);
       setAllWorksteps(w);
       setRates(r);
       setSaved(s);
+      setCompany(c);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Stammdaten konnten nicht geladen werden.");
+      setError(error instanceof Error ? error.message : de.errors.baseLoad);
     }
   }, [adapter]);
 
@@ -124,7 +129,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
   const newCalculation = () => {
     if (printers.length === 0) {
-      fail("Bitte zuerst einen Drucker anlegen (Tab „Drucker“).");
+      fail(de.errors.printerRequired);
       return;
     }
     const first = printers[0];
@@ -140,7 +145,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setResult(null);
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Kalkulation konnte nicht geladen werden.");
+      fail(error instanceof Error ? error.message : de.errors.calculationLoad);
     }
   };
 
@@ -153,32 +158,32 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setSaved(list);
     } catch (error) {
       setDeletingSaved(null);
-      fail(error instanceof Error ? error.message : "Kalkulation konnte nicht gelöscht werden.");
+      fail(error instanceof Error ? error.message : de.errors.calculationDelete);
     }
   };
 
   const calculate = async () => {
     if (!current) return;
     if (current.project_name.trim() === "") {
-      fail("Bitte einen Projektnamen eingeben.");
+      fail(de.errors.projectRequired);
       return;
     }
     if (current.files.length === 0) {
-      fail("Bitte mindestens eine Datei hinzufügen.");
+      fail(de.errors.fileRequired);
       return;
     }
     try {
       setResult(await adapter.calculate(current));
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Berechnung ist fehlgeschlagen.");
+      fail(error instanceof Error ? error.message : de.errors.calculate);
     }
   };
 
   const save = async () => {
     if (!current) return;
     if (current.project_name.trim() === "") {
-      fail("Bitte einen Projektnamen eingeben.");
+      fail(de.errors.projectRequired);
       return;
     }
     try {
@@ -186,7 +191,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setSaved(await adapter.listCalculations());
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Kalkulation konnte nicht gespeichert werden.");
+      fail(error instanceof Error ? error.message : de.errors.calculationSave);
     }
   };
 
@@ -195,14 +200,14 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
     try {
       const path =
         kind === "pdf"
-          ? await adapter.exportResultPdf(result, emptyCompany)
-          : await adapter.exportResultExcel(result, emptyCompany);
+          ? await adapter.exportResultPdf(result, company)
+          : await adapter.exportResultExcel(result, company);
       setImportHint(
-        path ? `Export gespeichert: ${path}` : "Export abgebrochen — keine Datei geschrieben.",
+        path ? de.calculation.exportSaved(path) : de.calculation.exportCancelled,
       );
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Export ist fehlgeschlagen.");
+      fail(error instanceof Error ? error.message : de.errors.exportFailed);
     }
   };
 
@@ -247,15 +252,15 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
         updateFile(fileId, { print_time_hours: time });
         setImportHint(
           info.detected_slicer
-            ? `${info.detected_slicer} erkannt — Druckzeit ${info.used_comments ? "aus Kommentaren" : "simuliert"} übernommen.`
-            : "Druckzeit aus der Datei übernommen.",
+            ? de.calculation.importTaken(info.detected_slicer ?? "?", info.used_comments ? de.calculation.commentTime : de.calculation.simulatedTime)
+            : de.calculation.fileTimeTaken,
         );
       } else if (kind === "stl" && "volume_cm3" in info) {
         updateFile(fileId, { volume_cm3: info.volume_cm3 });
-        setImportHint(`${info.triangle_count} Dreiecke — Volumen übernommen.`);
+        setImportHint(de.calculation.trianglesTaken(info.triangle_count));
       }
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Import ist fehlgeschlagen.");
+      fail(error instanceof Error ? error.message : de.errors.importFailed);
     }
   };
 
@@ -277,11 +282,11 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
     );
 
   return (
-    <section aria-label="Kalkulation">
+    <section aria-label={de.calculation.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">Kalkulation</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{de.calculation.title}</h2>
         <PrimaryButton type="button" onClick={newCalculation}>
-          Neue Kalkulation
+          {de.calculation.newButton}
         </PrimaryButton>
       </div>
 
@@ -295,7 +300,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       {saved.length > 0 ? (
         <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
           <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-            Gespeichert
+            {de.calculation.savedTitle}
           </h3>
           <ul className="space-y-1">
             {saved.map((entry) => (
@@ -307,13 +312,13 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                 >
                   {entry.project_name}
                   <span className="ml-2 text-xs text-slate-500">
-                    {entry.file_count} Datei(en) · {entry.total_quantity} Stk.
+                    {de.calculation.savedMeta(entry.file_count, entry.total_quantity)}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeletingSaved(entry)}
-                  aria-label={`Kalkulation ${entry.project_name} löschen`}
+                  aria-label={de.calculation.deleteSavedLabel(entry.project_name)}
                   className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
                 >
                   ✕
@@ -325,24 +330,24 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       ) : null}
 
       {!current ? (
-        <EmptyState message="Noch keine Kalkulation geöffnet. Lege eine neue an oder lade eine gespeicherte." />
+        <EmptyState message={de.calculation.empty} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Projektname *">
+            <Field label={`${de.calculation.projectName} *`}>
               <TextInput
                 value={current.project_name}
                 onChange={(e) => update({ project_name: e.target.value })}
-                placeholder="z. B. Gehäuse-Serie"
+                placeholder={de.calculation.projectExample}
               />
             </Field>
-            <Field label="Notizen">
+            <Field label={de.calculation.notes}>
               <TextInput
                 value={current.notes ?? ""}
                 onChange={(e) => update({ notes: e.target.value ? e.target.value : null })}
               />
             </Field>
-            <Field label="Drucker">
+            <Field label={de.calculation.printer}>
               <Select
                 value={current.printer.id}
                 onChange={(id) => {
@@ -352,7 +357,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                 options={printers.map((p) => ({ value: p.id, label: p.model }))}
               />
             </Field>
-            <Field label="Stundensatz (optional)">
+            <Field label={de.calculation.hourlyRate}>
               <Select
                 value={current.hourly_rate?.id ?? ""}
                 onChange={(id) => {
@@ -360,7 +365,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                   update({ hourly_rate: found ? { ...found } : null });
                 }}
                 options={[
-                  { value: "", label: "— Stundensatz vom Drucker —" },
+                  { value: "", label: de.calculation.hourlyRateNone },
                   ...rates.map((r) => ({ value: r.id, label: r.name })),
                 ]}
               />
@@ -374,13 +379,13 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">Dateien</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">{de.calculation.filesTitle}</h3>
               <SecondaryButton type="button" onClick={() => update({ files: [...current.files, emptyFile()] })}>
-                Datei hinzufügen
+                {de.calculation.addFile}
               </SecondaryButton>
             </div>
             {current.files.length === 0 ? (
-              <EmptyState message="Noch keine Dateien. Füge eine Datei manuell hinzu oder importiere GCode/STL." />
+              <EmptyState message={de.calculation.noFiles} />
             ) : (
               <ul className="space-y-3">
                 {current.files.map((file) => (
@@ -406,7 +411,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
               Arbeitsschritte
             </h3>
             {allWorksteps.length === 0 ? (
-              <p className="text-sm text-slate-500">Keine Arbeitsschritte angelegt (Tab „Arbeitsschritte“).</p>
+              <p className="text-sm text-slate-500">{de.worksteps.noneAvailable}</p>
             ) : (
               <ul className="space-y-1">
                 {allWorksteps.map((workstep) => {
@@ -444,18 +449,18 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <PrimaryButton type="button" onClick={() => void calculate()}>
-              Berechnen
+              {de.calculation.calculate}
             </PrimaryButton>
             <SecondaryButton type="button" onClick={() => void save()}>
-              Speichern
+              {de.calculation.save}
             </SecondaryButton>
             {result ? (
               <>
                 <SecondaryButton type="button" onClick={() => void exportFile("pdf")}>
-                  PDF exportieren
+                  {de.calculation.exportPdf}
                 </SecondaryButton>
                 <SecondaryButton type="button" onClick={() => void exportFile("xlsx")}>
-                  Excel exportieren
+                  {de.calculation.exportExcel}
                 </SecondaryButton>
               </>
             ) : null}
@@ -467,9 +472,9 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deletingSaved ? (
         <ConfirmDialog
-          title="Kalkulation löschen"
-          message={`„${deletingSaved.project_name}“ wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`}
-          confirmLabel="Löschen"
+          title={de.common.confirmTitle(de.calculation.one)}
+          message={de.common.confirmDeleteMessage(deletingSaved.project_name)}
+          confirmLabel={de.common.delete}
           onConfirm={() => void confirmDeleteSaved()}
           onCancel={() => setDeletingSaved(null)}
         />
@@ -517,31 +522,31 @@ function ProfileForm({
         Kalkulationsprofil
       </legend>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {num("Fehlerrate (%)", "fail_rate_percent")}
-        {num("Steuersatz (%)", "tax_rate_percent")}
-        {num("Marge (%)", "margin_percent")}
-        {num("Pauschale (€)", "handling_fee")}
-        {num("Energie (€/kWh)", "energy_price_per_kwh")}
-        {num("Leistungsgrad (%)", "power_level_percent")}
-        {num("Zeitfaktor", "print_time_factor")}
-        <Field label="Pauschale wirkt">
+        {num(de.profiles.failRate, "fail_rate_percent")}
+        {num(de.profiles.tax, "tax_rate_percent")}
+        {num(de.profiles.margin, "margin_percent")}
+        {num(de.profiles.handlingFee, "handling_fee")}
+        {num(de.profiles.energyPrice, "energy_price_per_kwh")}
+        {num(de.profiles.powerLevel, "power_level_percent")}
+        {num(de.profiles.printTimeFactor, "print_time_factor")}
+        <Field label={de.profiles.handlingScope}>
           <Select
             value={profile.handling_fee_scope}
             onChange={(v) => onChange({ handling_fee_scope: v as "per-file" | "once" })}
             options={[
-              { value: "once", label: "einmal je Kalkulation" },
-              { value: "per-file", label: "je Datei" },
+              { value: "once", label: de.profiles.once },
+              { value: "per-file", label: de.profiles.perFile },
             ]}
           />
         </Field>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
-        {check("Energiekosten anwenden", "apply_energy_costs")}
-        {check("Materialien zusammenfassen", "combine_materials")}
-        {check("Druckzeit × Stückzahl", "multiply_print_time_with_quantity")}
-        {check("Maschine ohne Marge", "exclude_machine_from_margin")}
-        {check("Material ohne Marge", "exclude_material_from_margin")}
-        {check("Arbeitsschritte ohne Marge", "exclude_worksteps_from_margin")}
+        {check(de.profiles.applyEnergy, "apply_energy_costs")}
+        {check(de.profiles.combine, "combine_materials")}
+        {check(de.profiles.multiplyTime, "multiply_print_time_with_quantity")}
+        {check(de.profiles.excludeMachine, "exclude_machine_from_margin")}
+        {check(de.profiles.excludeMaterial, "exclude_material_from_margin")}
+        {check(de.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
       </div>
     </fieldset>
   );
@@ -577,20 +582,20 @@ function FileCard({
         <TextInput
           value={file.file_name}
           onChange={(e) => onChange({ file_name: e.target.value })}
-          placeholder="Dateiname, z. B. Gehäuse.stl"
-          aria-label="Dateiname"
+          placeholder={de.calculation.fileNamePlaceholder}
+          aria-label={de.calculation.fileNameAria}
         />
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Datei ${file.file_name || "ohne Namen"} entfernen`}
+          aria-label={de.calculation.removeFileLabel(file.file_name || de.calculation.unnamedFile)}
           className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
         >
           ✕
         </button>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Field label="Stückzahl">
+        <Field label={de.calculation.quantity}>
           <TextInput
             value={String(file.quantity)}
             inputMode="numeric"
@@ -600,28 +605,28 @@ function FileCard({
             }}
           />
         </Field>
-        <Field label="Druckzeit (h)">
+        <Field label={de.calculation.printTime}>
           <DecimalInput value={file.print_time_hours} onChange={(v) => onChange({ print_time_hours: v })} />
         </Field>
-        <Field label="Volumen (cm³)">
+        <Field label={de.calculation.volume}>
           <DecimalInput value={num(file.volume_cm3)} onChange={(v) => onChange({ volume_cm3: v ? v : null })} />
         </Field>
-        <Field label="Gewicht (g)">
+        <Field label={de.calculation.weight}>
           <DecimalInput value={num(file.weight_g)} onChange={(v) => onChange({ weight_g: v ? v : null })} />
         </Field>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <SecondaryButton type="button" onClick={() => onImport("gcode")}>
-          GCode importieren
+          {de.calculation.importGcode}
         </SecondaryButton>
         <SecondaryButton type="button" onClick={() => onImport("stl")}>
-          STL importieren
+          {de.calculation.importStl}
         </SecondaryButton>
       </div>
       <div className="mt-3">
-        <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Materialien</h4>
+        <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{de.calculation.fileMaterials}</h4>
         {file.materials.length === 0 ? (
-          <p className="mb-2 text-xs text-slate-500">Noch kein Material zugeordnet.</p>
+          <p className="mb-2 text-xs text-slate-500">{de.calculation.noFileMaterials}</p>
         ) : (
           <ul className="mb-2 space-y-1">
             {file.materials.map((entry, index) => (
@@ -648,10 +653,10 @@ function FileCard({
               value={materialPick}
               onChange={setMaterialPick}
               options={[
-                { value: "", label: "Material wählen …" },
+                { value: "", label: de.calculation.materialPick },
                 ...materials.map((m) => ({ value: m.id, label: m.name })),
               ]}
-              aria-label="Material wählen"
+              aria-label={de.calculation.materialAria}
             />
             <SecondaryButton
               type="button"
@@ -661,11 +666,11 @@ function FileCard({
                 setMaterialPick("");
               }}
             >
-              Hinzufügen
+              {de.common.add}
             </SecondaryButton>
           </div>
         ) : (
-          <p className="text-xs text-slate-500">Keine Materialien angelegt (Tab „Materialien“).</p>
+          <p className="text-xs text-slate-500">{de.calculation.noMaterialsHint}</p>
         )}
       </div>
     </li>
@@ -707,7 +712,7 @@ function ItemEditor({
   return (
     <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        Zusatzartikel
+        {de.calculation.itemsTitle}
       </h3>
       {items.length > 0 ? (
         <ul className="mb-3 space-y-1">
@@ -717,14 +722,14 @@ function ItemEditor({
                 {item.name} · {item.quantity} × {formatMoney(item.price)} €
                 <span className="ml-2 text-xs text-slate-500">
                   {item.file_id
-                    ? `Datei: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
-                    : "Projekt"}
+                    ? `${de.calculation.itemFilePrefix}: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
+                    : de.common.project}
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
-                aria-label={`Artikel ${item.name} entfernen`}
+                aria-label={de.calculation.removeItemLabel(item.name)}
                 className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
               >
                 ✕
@@ -734,20 +739,20 @@ function ItemEditor({
         </ul>
       ) : null}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Artikelname" />
-        <DecimalInput value={price} onChange={setPrice} aria-label="Artikelpreis" />
-        <DecimalInput value={quantity} onChange={setQuantity} aria-label="Artikelmenge" />
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={de.common.namePlaceholder} aria-label={de.calculation.itemName} />
+        <DecimalInput value={price} onChange={setPrice} aria-label={de.calculation.itemPrice} />
+        <DecimalInput value={quantity} onChange={setQuantity} aria-label={de.calculation.itemQuantity} />
         <Select
           value={fileId}
           onChange={setFileId}
           options={[
-            { value: "", label: "Projekt" },
-            ...files.map((f) => ({ value: f.id, label: f.file_name || "Datei ohne Namen" })),
+            { value: "", label: de.common.project },
+            ...files.map((f) => ({ value: f.id, label: f.file_name || de.calculation.unnamedFile })),
           ]}
-          aria-label="Zuordnung"
+          aria-label={de.calculation.itemTarget}
         />
         <SecondaryButton type="button" disabled={!valid} onClick={add}>
-          Hinzufügen
+          {de.common.add}
         </SecondaryButton>
       </div>
     </div>
@@ -781,7 +786,7 @@ function SurchargeEditor({
   return (
     <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        Prozentuale Zuschläge
+        {de.calculation.surchargesTitle}
       </h3>
       {surcharges.length > 0 ? (
         <ul className="mb-3 space-y-1">
@@ -790,13 +795,13 @@ function SurchargeEditor({
               <span className="text-slate-200">
                 {surcharge.name} · {surcharge.percent} %
                 <span className="ml-2 text-xs text-slate-500">
-                  {surcharge.timing === "before-margin" ? "vor der Marge" : "nach der Marge"}
+                  {surcharge.timing === "before-margin" ? de.calculation.beforeMargin : de.calculation.afterMargin}
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => onChange(surcharges.filter((_, i) => i !== index))}
-                aria-label={`Zuschlag ${surcharge.name} entfernen`}
+                aria-label={de.calculation.removeSurchargeLabel(surcharge.name)}
                 className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
               >
                 ✕
@@ -806,19 +811,19 @@ function SurchargeEditor({
         </ul>
       ) : null}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Zuschlagsname" />
-        <DecimalInput value={percent} onChange={setPercent} aria-label="Prozentsatz" />
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={de.common.namePlaceholder} aria-label={de.calculation.surchargeName} />
+        <DecimalInput value={percent} onChange={setPercent} aria-label={de.calculation.surchargePercent} />
         <Select
           value={timing}
           onChange={(v) => setTiming(v as SurchargeTiming)}
           options={[
-            { value: "before-margin", label: "vor der Marge" },
-            { value: "after-margin", label: "nach der Marge" },
+            { value: "before-margin", label: de.calculation.beforeMargin },
+            { value: "after-margin", label: de.calculation.afterMargin },
           ]}
-          aria-label="Zeitpunkt"
+          aria-label={de.calculation.surchargeTiming}
         />
         <SecondaryButton type="button" disabled={!valid} onClick={add}>
-          Hinzufügen
+          {de.common.add}
         </SecondaryButton>
       </div>
     </div>

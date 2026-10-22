@@ -31,16 +31,10 @@ export function isDecimalString(value: string): boolean {
   return /^-?\d+(\.\d+)?$/.test(value.trim());
 }
 
-/** Anzeigenamen der Aufzählungen. */
-export const labels = {
-  process: { fdm: "FDM", sla: "SLA", "powder-bed": "Pulverbett" } as const,
-  family: { filament: "Filament", resin: "Harz", powder: "Pulver" } as const,
-  unit: { kg: "kg", g: "Gramm", lb: "Pfund (lb)", oz: "Unze (oz)" } as const,
-  calculationType: {
-    "per-hour": "pro Stunde",
-    "per-piece": "pro Stück",
-    "per-order": "pro Auftrag",
-  } as const,
-  timing: { before: "vor dem Druck", after: "nach dem Druck", other: "sonstiges" } as const,
-  timeBasis: { "per-year": "pro Jahr", "per-month": "pro Monat" } as const,
-};
+import { de } from "../i18n/de";
+
+/**
+ * Anzeigenamen der Aufzählungen — aus dem Wörterbuch, damit kein deutscher
+ * Text in der Formatierungsschicht steht.
+ */
+export const labels = de.domain;

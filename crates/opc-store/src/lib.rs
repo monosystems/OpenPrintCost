@@ -49,8 +49,8 @@ pub mod sqlite;
 pub use error::{StoreError, StoreResult};
 pub use memory::MemoryStore;
 pub use port::{
-    CalculationRepository, HourlyRateRepository, MaterialRepository, PrinterRepository,
-    ProfileRepository, Store, WorkstepCategoryRepository, WorkstepRepository,
+    CalculationRepository, CompanyRepository, HourlyRateRepository, MaterialRepository,
+    PrinterRepository, ProfileRepository, Store, WorkstepCategoryRepository, WorkstepRepository,
 };
-pub use record::{CalculationSummary, StoredCalculation};
+pub use record::{CalculationSummary, CompanyInfo, StoredCalculation};
 pub use sqlite::SqliteStore;

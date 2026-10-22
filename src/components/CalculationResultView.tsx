@@ -1,4 +1,5 @@
 import { formatMoney } from "../api/format";
+import { de } from "../i18n/de";
 import type {
   CalculationFileInput,
   CalculationResult,
@@ -21,17 +22,17 @@ const GROUP_ORDER: CostGroup[] = [
 ];
 
 const GROUP_LABELS: Record<CostGroup, string> = {
-  material: "Material",
-  machine: "Maschinenkosten",
-  energy: "Energiekosten",
-  "process-surcharge": "Verfahrenszuschläge",
-  worksteps: "Arbeitsschritte",
-  "additional-items": "Zusatzartikel",
-  "handling-fee": "Handlungspauschale",
-  "custom-surcharge": "Zuschläge",
-  margin: "Gewinnmarge",
-  tax: "Steuer",
-  total: "Gesamtkosten",
+  material: de.resultGroups.material,
+  machine: de.resultGroups.machine,
+  energy: de.resultGroups.energy,
+  "process-surcharge": de.resultGroups.processSurcharge,
+  worksteps: de.resultGroups.worksteps,
+  "additional-items": de.resultGroups.additionalItems,
+  "handling-fee": de.resultGroups.handlingFee,
+  "custom-surcharge": de.resultGroups.customSurcharge,
+  margin: de.resultGroups.margin,
+  tax: de.resultGroups.tax,
+  total: de.resultGroups.total,
 };
 
 function fileNameOf(position: CostPosition, files: CalculationFileInput[]): string | null {
@@ -51,9 +52,9 @@ export function CalculationResultView({
   );
 
   return (
-    <section aria-label="Kalkulationsergebnis" className="mt-8">
+    <section aria-label={de.calculation.resultTitle} className="mt-8">
       <h3 className="mb-4 text-lg font-semibold text-slate-100">
-        Ergebnis: {result.project_name}
+        {de.calculation.resultTitle}: {result.project_name}
       </h3>
 
       {groups.map((group) => {
@@ -87,12 +88,12 @@ export function CalculationResultView({
                           {position.label}
                           {position.is_fail_rate ? (
                             <span className="ml-2 rounded bg-amber-950 px-1.5 py-0.5 text-xs text-amber-300">
-                              Fehlerrate
+                              {de.calculation.failRateBadge}
                             </span>
                           ) : null}
                         </p>
                         <p className="truncate text-xs text-slate-500">
-                          {[position.detail, file ? `Datei: ${file}` : null]
+                          {[position.detail, file ? `${de.calculation.resultFilePrefix}: ${file}` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
@@ -111,19 +112,19 @@ export function CalculationResultView({
 
       <dl className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-xs text-slate-500">Basis</dt>
+          <dt className="text-xs text-slate-500">{de.calculation.sums.base}</dt>
           <dd className="font-semibold text-slate-100">{formatMoney(result.base_total)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Marge</dt>
+          <dt className="text-xs text-slate-500">{de.calculation.sums.margin}</dt>
           <dd className="font-semibold text-slate-100">{formatMoney(result.margin_total)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Steuer</dt>
+          <dt className="text-xs text-slate-500">{de.calculation.sums.tax}</dt>
           <dd className="font-semibold text-slate-100">{formatMoney(result.tax_total)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">Gesamt</dt>
+          <dt className="text-xs text-slate-500">{de.calculation.sums.total}</dt>
           <dd className="font-semibold text-sky-400">{formatMoney(result.total)} €</dd>
         </div>
       </dl>

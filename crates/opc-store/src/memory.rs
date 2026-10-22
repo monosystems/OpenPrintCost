@@ -12,10 +12,10 @@
 
 use crate::error::{StoreError, StoreResult};
 use crate::port::{
-    CalculationRepository, HourlyRateRepository, MaterialRepository, PrinterRepository,
-    ProfileRepository, WorkstepCategoryRepository, WorkstepRepository,
+    CalculationRepository, CompanyRepository, HourlyRateRepository, MaterialRepository,
+    PrinterRepository, ProfileRepository, WorkstepCategoryRepository, WorkstepRepository,
 };
-use crate::record::{CalculationSummary, StoredCalculation};
+use crate::record::{CalculationSummary, CompanyInfo, StoredCalculation};
 use chrono::{SecondsFormat, Utc};
 use opc_core::model::{
     CalculationInput, CalculationProfile, HourlyRate, Material, Printer, Workstep, WorkstepCategory,
@@ -100,6 +100,7 @@ struct MemoryData {
     hourly_rates: Table<HourlyRate>,
     profiles: Table<CalculationProfile>,
     calculations: Table<StoredCalculation>,
+    company: Option<CompanyInfo>,
 }
 
 /// Ein Store, der seine Daten im Arbeitsspeicher hält.
@@ -489,6 +490,19 @@ impl CalculationRepository for MemoryStore {
                     id,
                 })
             }
+        })
+    }
+}
+
+impl CompanyRepository for MemoryStore {
+    fn get_company_info(&self) -> StoreResult<CompanyInfo> {
+        self.with_data(|data| Ok(data.company.clone().unwrap_or_default()))
+    }
+
+    fn save_company_info(&self, info: &CompanyInfo) -> StoreResult<()> {
+        self.with_data(|data| {
+            data.company = Some(info.clone());
+            Ok(())
         })
     }
 }

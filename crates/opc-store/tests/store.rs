@@ -554,6 +554,40 @@ fn datenbank_mit_hoeherer_version_wird_abgelehnt() {
     ));
 }
 
+#[test]
+fn firmendaten_runden_sich_ueber_beide_adapter() {
+    for_each_backend(|store| {
+        // Anfangs leer, kein Fehler.
+        let initial = store.get_company_info().unwrap();
+        assert_eq!(initial.name, "");
+        assert_eq!(initial.email, "");
+
+        store
+            .save_company_info(&opc_store::CompanyInfo {
+                name: "Muster GmbH".to_string(),
+                street: "Druckweg 1".to_string(),
+                zip_city: "12345 Beispielstadt".to_string(),
+                email: "info@example.invalid".to_string(),
+            })
+            .unwrap();
+
+        let loaded = store.get_company_info().unwrap();
+        assert_eq!(loaded.name, "Muster GmbH");
+        assert_eq!(loaded.zip_city, "12345 Beispielstadt");
+
+        // Überschreiben ersetzt vollständig.
+        store
+            .save_company_info(&opc_store::CompanyInfo {
+                name: "Neu".to_string(),
+                street: "".to_string(),
+                zip_city: "".to_string(),
+                email: "".to_string(),
+            })
+            .unwrap();
+        assert_eq!(store.get_company_info().unwrap().name, "Neu");
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Vertragsprüfung
 // ---------------------------------------------------------------------------

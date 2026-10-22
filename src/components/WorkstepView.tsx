@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString, labels } from "../api/format";
+import { de } from "../i18n/de";
 import {
   newId,
   type Workstep,
@@ -39,14 +40,14 @@ type Errors = Partial<Record<string, string>>;
 
 function validate(workstep: Workstep): Errors {
   const errors: Errors = {};
-  if (workstep.name.trim() === "") errors.name = "Bitte eine Bezeichnung eingeben.";
+  if (workstep.name.trim() === "") errors.name = de.validation.required(de.validation.designation);
   for (const [key, label] of [
-    ["price", "Preis"],
-    ["quantity", "Menge"],
-    ["duration_hours", "Dauer"],
+    ["price", de.worksteps.price],
+    ["quantity", de.worksteps.quantity],
+    ["duration_hours", de.worksteps.duration],
   ] as const) {
     if (!isDecimalString(workstep[key])) {
-      errors[key] = `${label}: bitte eine Zahl mit Punkt eingeben (z. B. 0.5).`;
+      errors[key] = de.validation.decimal(label);
     }
   }
   return errors;
@@ -74,7 +75,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setCategories(loadedCategories);
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Arbeitsschritte konnten nicht geladen werden.");
+      setError(error instanceof Error ? error.message : de.errors.workstepsLoad);
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
   const openNew = () => {
     const first = categories[0];
     if (!first) {
-      setError("Bitte zuerst eine Kategorie anlegen.");
+      setError(de.errors.categoryRequired);
       return;
     }
     setEditing(emptyWorkstep(first));
@@ -104,7 +105,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Arbeitsschritt konnte nicht gespeichert werden.");
+      setError(error instanceof Error ? error.message : de.errors.workstepSave);
     }
   };
 
@@ -116,7 +117,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : "Arbeitsschritt konnte nicht gelöscht werden.");
+      setError(error instanceof Error ? error.message : de.errors.workstepDelete);
     }
   };
 
@@ -128,7 +129,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setNewCategory("");
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Kategorie konnte nicht gespeichert werden.");
+      setError(error instanceof Error ? error.message : de.errors.categorySave);
     }
   };
 
@@ -140,7 +141,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeletingCategory(null);
-      setError(error instanceof Error ? error.message : "Kategorie konnte nicht gelöscht werden.");
+      setError(error instanceof Error ? error.message : de.errors.categoryDelete);
     }
   };
 
@@ -148,20 +149,20 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
   return (
-    <section aria-label="Arbeitsschritte">
+    <section aria-label={de.worksteps.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">Arbeitsschritte</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{de.worksteps.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
-          Neuer Arbeitsschritt
+          {de.worksteps.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">Kategorien</h3>
+        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">{de.worksteps.categories}</h3>
         {categories.length === 0 ? (
-          <p className="mb-3 text-sm text-slate-500">Noch keine Kategorien.</p>
+          <p className="mb-3 text-sm text-slate-500">{de.worksteps.noCategories}</p>
         ) : (
           <ul className="mb-3 flex flex-wrap gap-2">
             {categories.map((category) => (
@@ -173,7 +174,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
                 <button
                   type="button"
                   onClick={() => setDeletingCategory(category)}
-                  aria-label={`Kategorie ${category.name} löschen`}
+                  aria-label={de.worksteps.deleteCategoryLabel(category.name)}
                   className="rounded px-1 text-slate-400 hover:bg-slate-700 hover:text-red-300"
                 >
                   ✕
@@ -186,19 +187,19 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
           <TextInput
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
-            placeholder="Neue Kategorie, z. B. Nachbearbeitung"
-            aria-label="Neue Kategorie"
+            placeholder={de.worksteps.newCategoryPlaceholder}
+            aria-label={de.worksteps.category}
           />
           <SecondaryButton type="button" onClick={() => void addCategory()}>
-            Hinzufügen
+            {de.common.add}
           </SecondaryButton>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400">Wird geladen …</p>
+        <p className="text-sm text-slate-400">{de.common.loading}</p>
       ) : worksteps.length === 0 ? (
-        <EmptyState message="Noch keine Arbeitsschritte angelegt." />
+        <EmptyState message={de.worksteps.empty} />
       ) : (
         <ul className="space-y-2">
           {worksteps.map((workstep) => (
@@ -215,10 +216,10 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...workstep, category: { ...workstep.category } }); setFormErrors({}); }}>
-                  Bearbeiten
+                  {de.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(workstep)}>
-                  Löschen
+                  {de.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -227,14 +228,14 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={worksteps.some((w) => w.id === editing.id) ? "Arbeitsschritt bearbeiten" : "Neuer Arbeitsschritt"} onClose={() => setEditing(null)}>
+        <Modal title={worksteps.some((w) => w.id === editing.id) ? de.worksteps.editTitle : de.worksteps.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <Field label="Bezeichnung *" error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder="z. B. Entstutzung" />
+              <Field label={`${de.worksteps.name} *`} error={formErrors.name}>
+                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={de.worksteps.nameExample} />
               </Field>
             </div>
-            <Field label="Kategorie">
+            <Field label={de.worksteps.category}>
               <Select
                 value={editing.category.id}
                 onChange={(id) => {
@@ -244,25 +245,25 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
                 options={categories.map((c) => ({ value: c.id, label: c.name }))}
               />
             </Field>
-            <Field label="Berechnungstyp">
+            <Field label={de.worksteps.calculationType}>
               <Select
                 value={editing.calculation_type}
                 onChange={(v) => set("calculation_type", v as WorkstepCalculationType)}
                 options={Object.entries(labels.calculationType).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label="Preis (€) *" error={formErrors.price}>
+            <Field label={`${de.worksteps.price} (€) *`} error={formErrors.price}>
               <DecimalInput value={editing.price} onChange={(v) => set("price", v)} />
             </Field>
-            <Field label="Menge *" error={formErrors.quantity}>
+            <Field label={`${de.worksteps.quantity} *`} error={formErrors.quantity}>
               <DecimalInput value={editing.quantity} onChange={(v) => set("quantity", v)} />
             </Field>
             {editing.calculation_type === "per-hour" ? (
-              <Field label="Dauer (Stunden) *" error={formErrors.duration_hours}>
+              <Field label={`${de.worksteps.duration} (Stunden) *`} error={formErrors.duration_hours}>
                 <DecimalInput value={editing.duration_hours} onChange={(v) => set("duration_hours", v)} />
               </Field>
             ) : null}
-            <Field label="Zeitliche Zuordnung">
+            <Field label={de.worksteps.timing}>
               <Select
                 value={editing.timing}
                 onChange={(v) => set("timing", v as WorkstepTiming)}
@@ -272,10 +273,10 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              Abbrechen
+              {de.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              Speichern
+              {de.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -283,9 +284,9 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title="Arbeitsschritt löschen"
-          message={`„${deleting.name}“ wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`}
-          confirmLabel="Löschen"
+          title={de.common.confirmTitle(de.worksteps.one)}
+          message={de.common.confirmDeleteMessage(deleting.name)}
+          confirmLabel={de.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />
@@ -293,9 +294,9 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deletingCategory ? (
         <ConfirmDialog
-          title="Kategorie löschen"
-          message={`Kategorie „${deletingCategory.name}“ wirklich löschen? Wird sie noch verwendet, bleibt sie erhalten und es erscheint ein Hinweis.`}
-          confirmLabel="Löschen"
+          title={de.worksteps.deleteCategoryTitle}
+          message={de.worksteps.deleteCategoryMessage(deletingCategory.name)}
+          confirmLabel={de.common.delete}
           onConfirm={() => void confirmDeleteCategory()}
           onCancel={() => setDeletingCategory(null)}
         />

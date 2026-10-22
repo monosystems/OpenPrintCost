@@ -10,7 +10,7 @@
 //! nur die Teilmenge implementieren muss, die er tatsächlich unterstützt.
 
 use crate::error::StoreResult;
-use crate::record::{CalculationSummary, StoredCalculation};
+use crate::record::{CalculationSummary, CompanyInfo, StoredCalculation};
 use opc_core::model::{
     CalculationInput, CalculationProfile, HourlyRate, Material, Printer, Workstep, WorkstepCategory,
 };
@@ -123,6 +123,15 @@ pub trait CalculationRepository {
     fn delete_calculation(&self, id: Uuid) -> StoreResult<()>;
 }
 
+/// Lesen und Schreiben der Firmendaten (Singleton).
+pub trait CompanyRepository {
+    /// Die Firmendaten — leere Werte, wenn noch nichts gespeichert wurde.
+    fn get_company_info(&self) -> StoreResult<CompanyInfo>;
+
+    /// Speichert die Firmendaten (ersetzt den bisherigen Stand).
+    fn save_company_info(&self, info: &CompanyInfo) -> StoreResult<()>;
+}
+
 /// Der vollständige Speicherport.
 ///
 /// Der Port ist ein **Kompositum** aus den Repository-Traits. Ein Adapter
@@ -136,6 +145,7 @@ pub trait Store:
     + HourlyRateRepository
     + ProfileRepository
     + CalculationRepository
+    + CompanyRepository
     + Send
     + Sync
 {
@@ -149,6 +159,7 @@ impl<T> Store for T where
         + HourlyRateRepository
         + ProfileRepository
         + CalculationRepository
+        + CompanyRepository
         + Send
         + Sync
 {

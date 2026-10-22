@@ -171,4 +171,11 @@ export class TauriPlatformAdapter implements PlatformAdapter {
   exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
     return call("export_result_excel", { result, company });
   }
+
+  getCompanyInfo(): Promise<CompanyInfo> {
+    return call("get_company_info");
+  }
+  saveCompanyInfo(info: CompanyInfo): Promise<void> {
+    return call("save_company_info", { info });
+  }
 }

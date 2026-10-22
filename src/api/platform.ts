@@ -92,4 +92,8 @@ export interface PlatformAdapter {
    */
   exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
   exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
+
+  // -- Firmendaten ---------------------------------------------------------------
+  getCompanyInfo(): Promise<CompanyInfo>;
+  saveCompanyInfo(info: CompanyInfo): Promise<void>;
 }

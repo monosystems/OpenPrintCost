@@ -342,17 +342,22 @@ pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
 // Export
 // ---------------------------------------------------------------------------
 
-/// Firmendaten für den Reportkopf (Block 7 liefert die Oberfläche dazu).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CompanyInfoDto {
-    /// Firmenname.
-    pub name: String,
-    /// Straße und Hausnummer.
-    pub street: String,
-    /// PLZ und Ort.
-    pub zip_city: String,
-    /// E-Mail-Adresse.
-    pub email: String,
+/// Liest die Firmendaten (leere Werte, wenn noch nichts gespeichert wurde).
+#[tauri::command]
+pub fn get_company_info(state: State<'_, AppState>) -> CommandResult<opc_store::CompanyInfo> {
+    state.store.get_company_info().map_err(CommandError::from)
+}
+
+/// Speichert die Firmendaten.
+#[tauri::command]
+pub fn save_company_info(
+    state: State<'_, AppState>,
+    info: opc_store::CompanyInfo,
+) -> CommandResult<()> {
+    state
+        .store
+        .save_company_info(&info)
+        .map_err(CommandError::from)
 }
 
 /// Rendert das Ergebnis als PDF und speichert es über den Dateidialog.
@@ -362,7 +367,7 @@ pub struct CompanyInfoDto {
 pub fn export_result_pdf(
     app: tauri::AppHandle,
     result: CalculationResult,
-    company: CompanyInfoDto,
+    company: opc_store::CompanyInfo,
 ) -> CommandResult<Option<String>> {
     let bytes =
         opc_export::render_pdf(&result, &to_company(&company)).map_err(CommandError::from)?;
@@ -382,7 +387,7 @@ pub fn export_result_pdf(
 pub fn export_result_excel(
     app: tauri::AppHandle,
     result: CalculationResult,
-    company: CompanyInfoDto,
+    company: opc_store::CompanyInfo,
 ) -> CommandResult<Option<String>> {
     let bytes =
         opc_export::render_excel(&result, &to_company(&company)).map_err(CommandError::from)?;
@@ -395,8 +400,8 @@ pub fn export_result_excel(
     )
 }
 
-/// Übersetzt das Transport-DTO in die Export-Firmendaten.
-fn to_company(company: &CompanyInfoDto) -> opc_export::CompanyInfo {
+/// Übersetzt die gespeicherte Firma in die Export-Firmendaten.
+fn to_company(company: &opc_store::CompanyInfo) -> opc_export::CompanyInfo {
     opc_export::CompanyInfo {
         name: company.name.clone(),
         street: company.street.clone(),

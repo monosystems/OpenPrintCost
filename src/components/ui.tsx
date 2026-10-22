@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { de } from "../i18n/de";
 
 /** Kleines UI-Kit für die Stammdatenverwaltung (dunkles Schema). */
 
@@ -126,7 +127,7 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Fehlermeldung schließen"
+        aria-label={de.errors.dismiss}
         className="shrink-0 rounded px-2 py-1 text-sm text-red-300 hover:bg-red-900"
       >
         ✕
@@ -152,7 +153,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Schließen"
+            aria-label={de.common.close}
             className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           >
             ✕
@@ -182,7 +183,7 @@ export function ConfirmDialog({
       <p className="mb-6 text-sm text-slate-300">{message}</p>
       <div className="flex justify-end gap-3">
         <SecondaryButton type="button" onClick={onCancel}>
-          Abbrechen
+          {de.common.cancel}
         </SecondaryButton>
         <DangerButton type="button" onClick={onConfirm}>
           {confirmLabel}
