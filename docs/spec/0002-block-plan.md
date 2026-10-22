@@ -9,7 +9,7 @@ mit eigenem Verifikations-Gate.
 | Block | Inhalt | Risiko | Gate |
 |---|---|---|---|
 | **1** | Fundament + `opc-core` Rechenkern (Domänenmodell, Formeln, Maschinenstundensatz) | hoch (Formeln) | `cargo test` grün, Festwert-Tests |
-| **2** | `opc-store` SQLite-Persistenz + Migrationen + Tauri-Commands | mittel | DB-Tests + `cargo test` |
+| **2** | `opc-store` Persistenz als **Port** + SQLite-Adapter (UUID + `account_id`) + Migrationen + Tauri-Commands | hoch (SaaS-Nahtstelle) | DB-Tests + `cargo test` |
 | **3** | `opc-io` GCode-Parser + STL-Volumen + Datei-Import | hoch (Parser) | Parser-Fixture-Tests |
 | **4** | Frontend-Grundgerüst + Stammdatenverwaltung (Drucker/Material/Arbeitsschritte/Stundensatz) | mittel | Vitest + Build |
 | **5** | Frontend-Kalkulationsblatt + Ergebnisdarstellung | mittel | Vitest + Playwright |
@@ -18,6 +18,27 @@ mit eigenem Verifikations-Gate.
 
 Block 1 und 3 sind die fachlich riskanten Blöcke. Block 1 enthält **keine** UI und
 **keine** Datenbank — reine, sofort prüfbare Rechenlogik.
+
+---
+
+## SaaS-Nahtstellen je Block (Basis: Spec 0001 Abschnitt 11)
+
+Ziel: **Basisversion kostenlos + Pro-Version mit Zusatzfunktionen (Open-Core)**,
+später ausbaubar zu einer SaaS-Stufe. Jeder Block zahlt seinen vorhersehbaren
+Anteil an die Nahtstellen, damit ein späterer Ausbau ohne Architekturumbau möglich bleibt.
+
+| Block | SaaS-Verpflichtung |
+|---|---|
+| 1 | UUID v4 als ID, `account_id` je Entität, keine SQL-leakenden Typen |
+| 2 | `opc-store` als **Port** (Domain-API); SQLite-Adapter wird später durch einen Postgres-Adapter ergänzt, ohne Aufrufstellen zu ändern |
+| 3 | `opc-io` bleibt pure (bytes/strings in, Struktur out) |
+| 4 | Frontend kennt **nicht** Tauri direkt, sondern einen `PlatformAdapter`; Browser-E2E ist dann dieselbe Architektur wie späteres Web-Frontend |
+| 5 | Pro-zu-Gate: Kalkulationsgrenzen (z. B. Anzahl Projekte) sind Feature-Flags, nicht verstreute `if` |
+| 6 | Export-Routinen sind pure Rust → später serverseitig direkt wiederverwendbar (kein Frontend-Export) |
+| 7 | Feature-Flag-Enum (`Feature::Pro`) statt verstreuter Checks lokalisiert derivierte Lizenzlogik |
+
+**Bewusst ausgelagert** (nicht im MVP): Auth, Mandanten, RLS, Stripe-Billing,
+Lizenzschlüssel, Lizenzserver, Cloud-Sync.
 
 ---
 

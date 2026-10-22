@@ -96,6 +96,11 @@ STL-Parser, kein PDF/Excel-Export, kein `opc-store`, kein `opc-io`.
     `DivisionByZero` (Feldname im Fehler), `InvalidInput`, `Arithmetic`.
 11. Keine `#[ignore]`, keine `todo!()`, kein `unimplemented!()`, keine
     `unwrap()`/`expect()` in Produktionspfaden (Panics sind in `Result` zu wandeln).
+12. **SaaS-Nahtstelle (Spec 0001 Abschnitt 11):** jede Entität (`Printer`,
+    `Material`, `Workstep`, `HourlyRate`, `CalculationInput`-Dateien) trägt
+    `id: Uuid` (UUID v4) und `account_id: Uuid`. `CalculationResult`-Positionen
+    referenzieren die Entitäts-UUID. Kein `INTEGER`-Primärschlüssel.
+    `Uuid`-Dependency mit `features = ["v4", "serde"]`.
 
 ## Festwert-Tests (Sollwerte — verbindlich)
 

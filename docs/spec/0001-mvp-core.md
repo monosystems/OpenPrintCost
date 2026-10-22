@@ -205,3 +205,41 @@ Angewandte Migrationen werden nie geändert, nur fortgeschrieben.
   und Reihenfolge orientieren sich daran, Umsetzung ist eigenständig.
 - GCode-Parser `GcodeParserSharp`: **Apache-2.0** → gleiches Vorgehen.
 - Website der Referenz wird zum 31.12.2026 eingestellt.
+
+## 11. SaaS-Nahtstellen (verbindlich für Blöcke 1–5)
+
+Der Kalkulator ist als Open-Core angelegt: **Basisversion kostenlos, Pro-Version
+mit Zusatzfunktionen** (Open-Core-Modell). Der Desktop-Client bleibt das
+lokale Produkt; eine spätere SaaS-Stufe ist eine **additive Server-Schicht**,
+kein Umbau der Desktop-App. Damit der Ausbau später ohne Umbau möglich bleibt,
+gelten ab Block 1 verbindlich:
+
+| Invariante | Warum | Verifiziert |
+|---|---|---|
+| IDs sind **UUID v4**, nie `INTEGER AUTOINCREMENT` | Lokale SQLite-IDs sind beim späteren Postgres-/Cloud-Sync nicht stabil und kollidieren. Postgres-`numeric`-IDs und Sync-Schemas setzen UUID voraus. | — |
+| Jede Entität trägt ein **`account_id: Uuid`** (in der Desktop-DB fest `00000000-0000-0000-0000-000000000001` = `LOCAL`) | Server-Schema muss nur **RLS-Policies** ergänzen, keine Spaltenmigration. Basis für kostenlose lokale Nutzer und zahlende Cloud-Mandanten. | — |
+| `opc-core` ist **pure** (kein IO, kein Clock, kein State) | Erlaubt späteren Einsatz in Rust-Backend **und** im Browser. | `cargo build --target wasm32-unknown-unknown` verifiziert 2026-10-21 (`rust_decimal` + `serde` + `uuid` kompilieren nach WASM, 5.0 MB Debug). |
+| `opc-store` ist ein **Port** (Domain-API ohne SQL-Leak) | Ein Postgres-Adapter implementiert denselben Port, ohne Aufrufstellen zu ändern. | Spec 0002 Block 2 |
+| Frontend kennt **kein Tauri direkt**, nur ein `PlatformAdapter` | Dieselbe UI kann später gegen HTTP ohne Umbau laufen. | Spec 0002 Block 4 |
+| Pro-Features werden per **Feature-Flag-Enum** definiert, **nie** durch verstreute `if`-Checks | Entitlements müssen einmalig, zentral und testbar geschehen. Serverdurchsetzung später ohne Umbau. | — |
+
+**Bewusst ausgelagert (nicht im MVP):** Auth, Account-Modell, Mandanten, RLS,
+Stripe-Billing, Lizenzschlüssel, Lizenzserver, Cloud-Sync. Diese Kategorien
+bestimmen den SaaS-Ausbau, sind aber für die Grundversion teuer und spekulativ.
+Die oben genannten Invarianten sind der Preis, der **jetzt** gezahlt wird, damit
+jener spätere Umbau nicht nötig wird.
+
+### 11.1 Lizenzmodell – offene Entscheidung vor Block 1
+
+Der Core ist Eigenimplementierung, keine GPL-Ableitung — die Lizenz ist damit
+wählbar und geschäftskritisch für ein Open-Core-Modell:
+
+- **MIT / Apache-2.0**: maximal offen. Jeder Dritte kann selbst hosten; das
+  SaaS-Geschäftsmodell muss über cloud-exklusive Features (Teams, Sync, Integrationen)
+  abgegrenzt werden, nicht über Code-Zugang.
+- **AGPL-3.0** für die Kernkomponenten: ein Dritter, der den Code gehostet anbietet,
+  muss seine Änderungen offenlegen. Schützt ein SaaS-Geschäftsmodell, hat aber
+  höhere Onboarding-Hürden für Community-Mitarbeit.
+
+Die Lizenz ist **Block-1-blockend**: sie wird einmalig im `LICENSE`-File und im
+Projekt-README festgehalten, bevor der erste Quell-Commit entsteht.
