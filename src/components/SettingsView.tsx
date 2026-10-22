@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { de } from "../i18n/de";
+import { useLocale } from "../i18n";
 import type { CompanyInfo } from "../api/types";
 import { ErrorBanner, Field, PrimaryButton, TextInput } from "./ui";
 
 const APP_VERSION = "0.1.0";
 
 export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t } = useLocale();
   const [company, setCompany] = useState<CompanyInfo>({ name: "", street: "", zip_city: "", email: "" });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,9 +17,9 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
       setCompany(await adapter.getCompanyInfo());
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.companyLoad);
+      setError(error instanceof Error ? error.message : t.errors.companyLoad);
     }
-  }, [adapter]);
+  }, [adapter, t]);
 
   useEffect(() => {
     void reload();
@@ -36,7 +37,7 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
       setError(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.companySave);
+      setError(error instanceof Error ? error.message : t.errors.companySave);
     }
   };
 
@@ -46,54 +47,54 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
   };
 
   return (
-    <section aria-label={de.settings.title}>
+    <section aria-label={t.settings.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.settings.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.settings.title}</h2>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-slate-400">
-          {de.settings.companyTitle}
+          {t.settings.companyTitle}
         </h3>
-        <p className="mb-4 text-xs text-slate-500">{de.settings.companyHint}</p>
+        <p className="mb-4 text-xs text-slate-500">{t.settings.companyHint}</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label={de.settings.name}>
+          <Field label={t.settings.name}>
             <TextInput value={company.name} onChange={(e) => set("name", e.target.value)} />
           </Field>
-          <Field label={de.settings.email}>
+          <Field label={t.settings.email}>
             <TextInput value={company.email} onChange={(e) => set("email", e.target.value)} />
           </Field>
-          <Field label={de.settings.street}>
+          <Field label={t.settings.street}>
             <TextInput value={company.street} onChange={(e) => set("street", e.target.value)} />
           </Field>
-          <Field label={de.settings.zipCity}>
+          <Field label={t.settings.zipCity}>
             <TextInput value={company.zip_city} onChange={(e) => set("zip_city", e.target.value)} />
           </Field>
         </div>
         <div className="mt-4 flex items-center gap-3">
           <PrimaryButton type="button" onClick={() => void save()}>
-            {de.common.save}
+            {t.common.save}
           </PrimaryButton>
           {saved ? (
-            <p role="status" className="text-sm text-emerald-400">{de.settings.saved}</p>
+            <p role="status" className="text-sm text-emerald-400">{t.settings.saved}</p>
           ) : null}
         </div>
       </div>
 
       <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-          {de.settings.environmentTitle}
+          {t.settings.environmentTitle}
         </h3>
         <DatabasePath adapter={adapter} />
       </div>
 
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-          {de.settings.aboutTitle}
+          {t.settings.aboutTitle}
         </h3>
-        <p className="mb-2 text-sm text-slate-300">{de.settings.aboutText}</p>
+        <p className="mb-2 text-sm text-slate-300">{t.settings.aboutText}</p>
         <p className="text-xs text-slate-500">Version {APP_VERSION}</p>
       </div>
     </section>
@@ -101,18 +102,19 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
 }
 
 function DatabasePath({ adapter }: { adapter: PlatformAdapter }) {
-  const [path, setPath] = useState<string>(de.app.unknown);
+  const { t } = useLocale();
+  const [path, setPath] = useState<string>(t.app.unknown);
 
   useEffect(() => {
     adapter
       .getDatabasePath()
       .then(setPath)
-      .catch(() => setPath(de.app.unknown));
-  }, [adapter]);
+      .catch(() => setPath(t.app.unknown));
+  }, [adapter, t]);
 
   return (
     <p className="text-sm text-slate-300" title={path}>
-      {de.app.database}: {path}
+      {t.app.database}: {path}
     </p>
   );
 }

@@ -5,34 +5,34 @@ import { MockPlatformAdapter } from "../api/mockAdapter";
 import { ProfilesView } from "./ProfilesView";
 
 describe("ProfilesView", () => {
-  it("legt ein Profil über das Formular an", async () => {
+  it("creates a profile via the form", async () => {
     const adapter = new MockPlatformAdapter();
     const user = userEvent.setup();
     render(<ProfilesView adapter={adapter} />);
-    await waitFor(() => expect(screen.queryByText("Wird geladen …")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Loading …")).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: "Neues Profil" }));
-    await user.type(screen.getByPlaceholderText("z. B. Standard 19 %"), "Standard 19 %");
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    await user.type(screen.getByPlaceholderText("e.g. Standard 19%"), "Standard 19 %");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.getByText("Standard 19 %")).toBeInTheDocument());
     expect(await adapter.listCalculationProfiles()).toHaveLength(1);
   });
 
-  it("lehnt einen leeren Namen ab", async () => {
+  it("rejects an empty name", async () => {
     const adapter = new MockPlatformAdapter();
     const user = userEvent.setup();
     render(<ProfilesView adapter={adapter} />);
-    await waitFor(() => expect(screen.queryByText("Wird geladen …")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Loading …")).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: "Neues Profil" }));
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Bezeichnung/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/enter a name/);
     expect(await adapter.listCalculationProfiles()).toHaveLength(0);
   });
 
-  it("löscht erst nach Bestätigung", async () => {
+  it("deletes only after confirmation", async () => {
     const adapter = new MockPlatformAdapter();
     await adapter.saveCalculationProfile({
       id: "22222222-2222-2222-2222-222222222222",
@@ -57,11 +57,11 @@ describe("ProfilesView", () => {
     render(<ProfilesView adapter={adapter} />);
     const item = await screen.findByText("Alt");
     const row = item.closest("li");
-    if (!row) throw new Error("Zeile fehlt");
+    if (!row) throw new Error("Row missing");
 
-    await user.click(within(row).getByRole("button", { name: "Löschen" }));
+    await user.click(within(row).getByRole("button", { name: "Delete" }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Löschen" }));
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.queryByText("Alt")).not.toBeInTheDocument());
     expect(await adapter.listCalculationProfiles()).toHaveLength(0);

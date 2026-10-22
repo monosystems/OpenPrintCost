@@ -1,40 +1,35 @@
+import type { Locale } from "../i18n";
+
 /**
- * Anzeigeformatierung: deutsche Zahlen mit Dezimalkomma.
+ * Display formatting: decimal strings become locale-grouped numbers.
  *
- * Eingaben und Transporte bleiben Strings; erst hier wird für die Anzeige
- * formatiert. `Intl.NumberFormat` versteht nur `number` — die Werte werden
- * dafür in `Number` umgewandelt. Das ist reine Anzeige und berührt die
- * exakten Beträge nicht.
+ * Inputs and transports stay strings; only display formatting happens here.
+ * `Intl.NumberFormat` only understands `number` — values are converted to
+ * `Number` for that. This is display only and never touches exact amounts.
  */
 
-/** Formatiert einen Dezimal-String mit genau 2 Nachkommastellen (Geld). */
-export function formatMoney(value: string): string {
-  return formatDecimal(value, 2);
+const numberLocales: Record<Locale, string> = { en: "en-US", de: "de-DE" };
+
+/** Formats a decimal string with exactly 2 decimals (money). */
+export function formatMoney(value: string, locale: Locale = "en"): string {
+  return formatDecimal(value, 2, undefined, locale);
 }
 
-/** Formatiert einen Dezimal-String mit bis zu 4 Nachkommastellen (Mengen). */
-export function formatQuantity(value: string): string {
-  return formatDecimal(value, 4, 4);
+/** Formats a decimal string with up to 4 decimals (quantities). */
+export function formatQuantity(value: string, locale: Locale = "en"): string {
+  return formatDecimal(value, 4, 4, locale);
 }
 
-function formatDecimal(value: string, min: number, max?: number): string {
+function formatDecimal(value: string, min: number, max?: number, locale: Locale = "en"): string {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return value;
-  return new Intl.NumberFormat("de-DE", {
+  return new Intl.NumberFormat(numberLocales[locale], {
     minimumFractionDigits: min,
     maximumFractionDigits: max ?? min,
   }).format(numeric);
 }
 
-/** Prüft, ob ein String eine gültige Dezimalzahl ist (Punkt als Trenner). */
+/** Checks whether a string is a valid decimal number (dot separator). */
 export function isDecimalString(value: string): boolean {
   return /^-?\d+(\.\d+)?$/.test(value.trim());
 }
-
-import { de } from "../i18n/de";
-
-/**
- * Anzeigenamen der Aufzählungen — aus dem Wörterbuch, damit kein deutscher
- * Text in der Formatierungsschicht steht.
- */
-export const labels = de.domain;

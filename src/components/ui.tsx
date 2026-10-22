@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
-import { de } from "../i18n/de";
+import { useStrings } from "../i18n";
 
-/** Kleines UI-Kit für die Stammdatenverwaltung (dunkles Schema). */
+/** Small UI kit for master-data management (dark theme). */
 
 const inputClass =
   "w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm " +
@@ -121,13 +121,14 @@ export function EmptyState({ message }: { message: string }) {
 }
 
 export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  const t = useStrings();
   return (
     <div role="alert" className="mb-4 flex items-start justify-between gap-4 rounded-md border border-red-900 bg-red-950/60 px-4 py-3">
       <p className="text-sm text-red-200">{message}</p>
       <button
         type="button"
         onClick={onDismiss}
-        aria-label={de.errors.dismiss}
+        aria-label={t.errors.dismiss}
         className="shrink-0 rounded px-2 py-1 text-sm text-red-300 hover:bg-red-900"
       >
         ✕
@@ -145,6 +146,7 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useStrings();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-6 shadow-xl">
@@ -153,7 +155,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label={de.common.close}
+            aria-label={t.common.close}
             className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           >
             ✕
@@ -178,12 +180,13 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useStrings();
   return (
     <Modal title={title} onClose={onCancel}>
       <p className="mb-6 text-sm text-slate-300">{message}</p>
       <div className="flex justify-end gap-3">
         <SecondaryButton type="button" onClick={onCancel}>
-          {de.common.cancel}
+          {t.common.cancel}
         </SecondaryButton>
         <DangerButton type="button" onClick={onConfirm}>
           {confirmLabel}

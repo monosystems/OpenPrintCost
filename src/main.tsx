@@ -7,9 +7,9 @@ import { TauriPlatformAdapter } from "./api/tauriAdapter";
 import "./styles.css";
 
 /**
- * Adapterwahl: In der Tauri-App läuft der echte Adapter; mit
- * `VITE_MOCK_API=1` läuft die Oberfläche ohne Tauri-Binary im Browser
- * (Entwicklung, Tests, E2E).
+ * Adapter choice: the real adapter runs in the Tauri app; with
+ * `VITE_MOCK_API=1` the UI runs without a Tauri binary in the browser
+ * (development, tests, E2E).
  */
 function createAdapter(): PlatformAdapter {
   if (import.meta.env.VITE_MOCK_API === "1") {
@@ -20,7 +20,7 @@ function createAdapter(): PlatformAdapter {
 
 const root = document.getElementById("root");
 if (!root) {
-  throw new Error("Root-Element fehlt.");
+  throw new Error("Root element missing.");
 }
 
 createRoot(root).render(

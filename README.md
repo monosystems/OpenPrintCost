@@ -40,9 +40,9 @@ including failure-rate costing, margin, and tax.
   estimates and geometric fallbacks are distinguishable.
 - **Free and open.** [Apache-2.0](LICENSE), commercial use allowed.
 
-> **UI language:** the app UI is currently German. All strings live in one
-> catalog (`src/i18n/de.ts`) shaped for additional locales — an English
-> catalog (`en.ts`) is the next step. Contributions welcome.
+> **UI language:** English by default (auto-detected from the browser, switchable
+> to German in the header). All strings live in `src/i18n/` (`en.ts`, `de.ts`)
+> — no hardcoded user-facing strings in components.
 
 ## Features
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
-import { de } from "../i18n/de";
+import { useLocale, useStrings, type Strings } from "../i18n";
 import {
   emptyCompany,
   newId,
@@ -32,10 +32,10 @@ import {
   TextInput,
 } from "./ui";
 
-function defaultProfile(): CalculationProfile {
+function defaultProfile(t: Strings): CalculationProfile {
   return {
     id: newId(),
-    name: de.profiles.title,
+    name: t.profiles.title,
     fail_rate_percent: "0",
     tax_rate_percent: "19",
     margin_percent: "0",
@@ -67,14 +67,14 @@ function emptyFile(): CalculationFileInput {
   };
 }
 
-function emptyCalculation(printer: Printer): CalculationInput {
+function emptyCalculation(printer: Printer, t: Strings): CalculationInput {
   return {
     id: newId(),
     project_name: "",
     notes: null,
     created_at: null,
     printer: { ...printer },
-    profile: defaultProfile(),
+    profile: defaultProfile(t),
     hourly_rate: null,
     worksteps: [],
     additional_items: [],
@@ -86,6 +86,7 @@ function emptyCalculation(printer: Printer): CalculationInput {
 const emptyDecimal = (value: string | null) => value ?? "";
 
 export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t, locale } = useLocale();
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [allWorksteps, setAllWorksteps] = useState<Workstep[]>([]);
@@ -115,7 +116,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setSaved(s);
       setCompany(c);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.baseLoad);
+      setError(error instanceof Error ? error.message : t.errors.baseLoad);
     }
   }, [adapter]);
 
@@ -129,12 +130,12 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
   const newCalculation = () => {
     if (printers.length === 0) {
-      fail(de.errors.printerRequired);
+      fail(t.errors.printerRequired);
       return;
     }
     const first = printers[0];
     if (!first) return;
-    setCurrent(emptyCalculation(first));
+    setCurrent(emptyCalculation(first, t));
     setResult(null);
   };
 
@@ -145,7 +146,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setResult(null);
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : de.errors.calculationLoad);
+      fail(error instanceof Error ? error.message : t.errors.calculationLoad);
     }
   };
 
@@ -158,32 +159,32 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setSaved(list);
     } catch (error) {
       setDeletingSaved(null);
-      fail(error instanceof Error ? error.message : de.errors.calculationDelete);
+      fail(error instanceof Error ? error.message : t.errors.calculationDelete);
     }
   };
 
   const calculate = async () => {
     if (!current) return;
     if (current.project_name.trim() === "") {
-      fail(de.errors.projectRequired);
+      fail(t.errors.projectRequired);
       return;
     }
     if (current.files.length === 0) {
-      fail(de.errors.fileRequired);
+      fail(t.errors.fileRequired);
       return;
     }
     try {
       setResult(await adapter.calculate(current));
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : de.errors.calculate);
+      fail(error instanceof Error ? error.message : t.errors.calculate);
     }
   };
 
   const save = async () => {
     if (!current) return;
     if (current.project_name.trim() === "") {
-      fail(de.errors.projectRequired);
+      fail(t.errors.projectRequired);
       return;
     }
     try {
@@ -191,7 +192,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setSaved(await adapter.listCalculations());
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : de.errors.calculationSave);
+      fail(error instanceof Error ? error.message : t.errors.calculationSave);
     }
   };
 
@@ -203,11 +204,11 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
           ? await adapter.exportResultPdf(result, company)
           : await adapter.exportResultExcel(result, company);
       setImportHint(
-        path ? de.calculation.exportSaved(path) : de.calculation.exportCancelled,
+        path ? t.calculation.exportSaved(path) : t.calculation.exportCancelled,
       );
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : de.errors.exportFailed);
+      fail(error instanceof Error ? error.message : t.errors.exportFailed);
     }
   };
 
@@ -252,15 +253,15 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
         updateFile(fileId, { print_time_hours: time });
         setImportHint(
           info.detected_slicer
-            ? de.calculation.importTaken(info.detected_slicer ?? "?", info.used_comments ? de.calculation.commentTime : de.calculation.simulatedTime)
-            : de.calculation.fileTimeTaken,
+            ? t.calculation.importTaken(info.detected_slicer ?? "?", info.used_comments ? t.calculation.commentTime : t.calculation.simulatedTime)
+            : t.calculation.fileTimeTaken,
         );
       } else if (kind === "stl" && "volume_cm3" in info) {
         updateFile(fileId, { volume_cm3: info.volume_cm3 });
-        setImportHint(de.calculation.trianglesTaken(info.triangle_count));
+        setImportHint(t.calculation.trianglesTaken(info.triangle_count));
       }
     } catch (error) {
-      fail(error instanceof Error ? error.message : de.errors.importFailed);
+      fail(error instanceof Error ? error.message : t.errors.importFailed);
     }
   };
 
@@ -282,11 +283,11 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
     );
 
   return (
-    <section aria-label={de.calculation.title}>
+    <section aria-label={t.calculation.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.calculation.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.calculation.title}</h2>
         <PrimaryButton type="button" onClick={newCalculation}>
-          {de.calculation.newButton}
+          {t.calculation.newButton}
         </PrimaryButton>
       </div>
 
@@ -300,7 +301,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       {saved.length > 0 ? (
         <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
           <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-            {de.calculation.savedTitle}
+            {t.calculation.savedTitle}
           </h3>
           <ul className="space-y-1">
             {saved.map((entry) => (
@@ -312,13 +313,13 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                 >
                   {entry.project_name}
                   <span className="ml-2 text-xs text-slate-500">
-                    {de.calculation.savedMeta(entry.file_count, entry.total_quantity)}
+                    {t.calculation.savedMeta(entry.file_count, entry.total_quantity)}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeletingSaved(entry)}
-                  aria-label={de.calculation.deleteSavedLabel(entry.project_name)}
+                  aria-label={t.calculation.deleteSavedLabel(entry.project_name)}
                   className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
                 >
                   ✕
@@ -330,24 +331,24 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       ) : null}
 
       {!current ? (
-        <EmptyState message={de.calculation.empty} />
+        <EmptyState message={t.calculation.empty} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label={`${de.calculation.projectName} *`}>
+            <Field label={`${t.calculation.projectName} *`}>
               <TextInput
                 value={current.project_name}
                 onChange={(e) => update({ project_name: e.target.value })}
-                placeholder={de.calculation.projectExample}
+                placeholder={t.calculation.projectExample}
               />
             </Field>
-            <Field label={de.calculation.notes}>
+            <Field label={t.calculation.notes}>
               <TextInput
                 value={current.notes ?? ""}
                 onChange={(e) => update({ notes: e.target.value ? e.target.value : null })}
               />
             </Field>
-            <Field label={de.calculation.printer}>
+            <Field label={t.calculation.printer}>
               <Select
                 value={current.printer.id}
                 onChange={(id) => {
@@ -357,7 +358,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                 options={printers.map((p) => ({ value: p.id, label: p.model }))}
               />
             </Field>
-            <Field label={de.calculation.hourlyRate}>
+            <Field label={t.calculation.hourlyRate}>
               <Select
                 value={current.hourly_rate?.id ?? ""}
                 onChange={(id) => {
@@ -365,7 +366,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                   update({ hourly_rate: found ? { ...found } : null });
                 }}
                 options={[
-                  { value: "", label: de.calculation.hourlyRateNone },
+                  { value: "", label: t.calculation.hourlyRateNone },
                   ...rates.map((r) => ({ value: r.id, label: r.name })),
                 ]}
               />
@@ -379,13 +380,13 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">{de.calculation.filesTitle}</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">{t.calculation.filesTitle}</h3>
               <SecondaryButton type="button" onClick={() => update({ files: [...current.files, emptyFile()] })}>
-                {de.calculation.addFile}
+                {t.calculation.addFile}
               </SecondaryButton>
             </div>
             {current.files.length === 0 ? (
-              <EmptyState message={de.calculation.noFiles} />
+              <EmptyState message={t.calculation.noFiles} />
             ) : (
               <ul className="space-y-3">
                 {current.files.map((file) => (
@@ -408,10 +409,10 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
             <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-              Arbeitsschritte
+              {t.calculation.workstepsTitle}
             </h3>
             {allWorksteps.length === 0 ? (
-              <p className="text-sm text-slate-500">{de.worksteps.noneAvailable}</p>
+              <p className="text-sm text-slate-500">{t.worksteps.noneAvailable}</p>
             ) : (
               <ul className="space-y-1">
                 {allWorksteps.map((workstep) => {
@@ -427,7 +428,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                         />
                         {workstep.name}
                         <span className="text-xs text-slate-500">
-                          ({formatMoney(workstep.price)} €)
+                          ({formatMoney(workstep.price, locale)} €)
                         </span>
                       </label>
                     </li>
@@ -449,18 +450,18 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <PrimaryButton type="button" onClick={() => void calculate()}>
-              {de.calculation.calculate}
+              {t.calculation.calculate}
             </PrimaryButton>
             <SecondaryButton type="button" onClick={() => void save()}>
-              {de.calculation.save}
+              {t.calculation.save}
             </SecondaryButton>
             {result ? (
               <>
                 <SecondaryButton type="button" onClick={() => void exportFile("pdf")}>
-                  {de.calculation.exportPdf}
+                  {t.calculation.exportPdf}
                 </SecondaryButton>
                 <SecondaryButton type="button" onClick={() => void exportFile("xlsx")}>
-                  {de.calculation.exportExcel}
+                  {t.calculation.exportExcel}
                 </SecondaryButton>
               </>
             ) : null}
@@ -472,9 +473,9 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deletingSaved ? (
         <ConfirmDialog
-          title={de.common.confirmTitle(de.calculation.one)}
-          message={de.common.confirmDeleteMessage(deletingSaved.project_name)}
-          confirmLabel={de.common.delete}
+          title={t.common.confirmTitle(t.calculation.one)}
+          message={t.common.confirmDeleteMessage(deletingSaved.project_name)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDeleteSaved()}
           onCancel={() => setDeletingSaved(null)}
         />
@@ -484,7 +485,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
 }
 
 // ---------------------------------------------------------------------------
-// Profil (inline — die Verwaltung benannter Profile gehört zu Block 7)
+// Profile (inline — managing named profiles lives here for now)
 // ---------------------------------------------------------------------------
 
 function ProfileForm({
@@ -494,6 +495,7 @@ function ProfileForm({
   profile: CalculationProfile;
   onChange: (patch: Partial<CalculationProfile>) => void;
 }) {
+  const t = useStrings();
   const set = (key: keyof CalculationProfile, value: string | boolean) =>
     onChange({ [key]: value } as Partial<CalculationProfile>);
   const num = (
@@ -519,41 +521,41 @@ function ProfileForm({
   return (
     <fieldset className="mt-6 rounded-lg border border-slate-800 p-4">
       <legend className="px-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        Kalkulationsprofil
+        {t.calculation.profileLegend}
       </legend>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {num(de.profiles.failRate, "fail_rate_percent")}
-        {num(de.profiles.tax, "tax_rate_percent")}
-        {num(de.profiles.margin, "margin_percent")}
-        {num(de.profiles.handlingFee, "handling_fee")}
-        {num(de.profiles.energyPrice, "energy_price_per_kwh")}
-        {num(de.profiles.powerLevel, "power_level_percent")}
-        {num(de.profiles.printTimeFactor, "print_time_factor")}
-        <Field label={de.profiles.handlingScope}>
+        {num(t.profiles.failRate, "fail_rate_percent")}
+        {num(t.profiles.tax, "tax_rate_percent")}
+        {num(t.profiles.margin, "margin_percent")}
+        {num(t.profiles.handlingFee, "handling_fee")}
+        {num(t.profiles.energyPrice, "energy_price_per_kwh")}
+        {num(t.profiles.powerLevel, "power_level_percent")}
+        {num(t.profiles.printTimeFactor, "print_time_factor")}
+        <Field label={t.profiles.handlingScope}>
           <Select
             value={profile.handling_fee_scope}
             onChange={(v) => onChange({ handling_fee_scope: v as "per-file" | "once" })}
             options={[
-              { value: "once", label: de.profiles.once },
-              { value: "per-file", label: de.profiles.perFile },
+              { value: "once", label: t.profiles.once },
+              { value: "per-file", label: t.profiles.perFile },
             ]}
           />
         </Field>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
-        {check(de.profiles.applyEnergy, "apply_energy_costs")}
-        {check(de.profiles.combine, "combine_materials")}
-        {check(de.profiles.multiplyTime, "multiply_print_time_with_quantity")}
-        {check(de.profiles.excludeMachine, "exclude_machine_from_margin")}
-        {check(de.profiles.excludeMaterial, "exclude_material_from_margin")}
-        {check(de.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
+        {check(t.profiles.applyEnergy, "apply_energy_costs")}
+        {check(t.profiles.combine, "combine_materials")}
+        {check(t.profiles.multiplyTime, "multiply_print_time_with_quantity")}
+        {check(t.profiles.excludeMachine, "exclude_machine_from_margin")}
+        {check(t.profiles.excludeMaterial, "exclude_material_from_margin")}
+        {check(t.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
       </div>
     </fieldset>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Datei-Karte
+// File card
 // ---------------------------------------------------------------------------
 
 function FileCard({
@@ -573,6 +575,8 @@ function FileCard({
   onRemoveMaterial: (index: number) => void;
   onImport: (kind: "gcode" | "stl") => void;
 }) {
+  const t = useStrings();
+  const { locale } = useLocale();
   const [materialPick, setMaterialPick] = useState("");
   const num = (value: string | null) => emptyDecimal(value);
 
@@ -582,20 +586,20 @@ function FileCard({
         <TextInput
           value={file.file_name}
           onChange={(e) => onChange({ file_name: e.target.value })}
-          placeholder={de.calculation.fileNamePlaceholder}
-          aria-label={de.calculation.fileNameAria}
+          placeholder={t.calculation.fileNamePlaceholder}
+          aria-label={t.calculation.fileNameAria}
         />
         <button
           type="button"
           onClick={onRemove}
-          aria-label={de.calculation.removeFileLabel(file.file_name || de.calculation.unnamedFile)}
+          aria-label={t.calculation.removeFileLabel(file.file_name || t.calculation.unnamedFile)}
           className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
         >
           ✕
         </button>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Field label={de.calculation.quantity}>
+        <Field label={t.calculation.quantity}>
           <TextInput
             value={String(file.quantity)}
             inputMode="numeric"
@@ -605,40 +609,40 @@ function FileCard({
             }}
           />
         </Field>
-        <Field label={de.calculation.printTime}>
+        <Field label={t.calculation.printTime}>
           <DecimalInput value={file.print_time_hours} onChange={(v) => onChange({ print_time_hours: v })} />
         </Field>
-        <Field label={de.calculation.volume}>
+        <Field label={t.calculation.volume}>
           <DecimalInput value={num(file.volume_cm3)} onChange={(v) => onChange({ volume_cm3: v ? v : null })} />
         </Field>
-        <Field label={de.calculation.weight}>
+        <Field label={t.calculation.weight}>
           <DecimalInput value={num(file.weight_g)} onChange={(v) => onChange({ weight_g: v ? v : null })} />
         </Field>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <SecondaryButton type="button" onClick={() => onImport("gcode")}>
-          {de.calculation.importGcode}
+          {t.calculation.importGcode}
         </SecondaryButton>
         <SecondaryButton type="button" onClick={() => onImport("stl")}>
-          {de.calculation.importStl}
+          {t.calculation.importStl}
         </SecondaryButton>
       </div>
       <div className="mt-3">
-        <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{de.calculation.fileMaterials}</h4>
+        <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{t.calculation.fileMaterials}</h4>
         {file.materials.length === 0 ? (
-          <p className="mb-2 text-xs text-slate-500">{de.calculation.noFileMaterials}</p>
+          <p className="mb-2 text-xs text-slate-500">{t.calculation.noFileMaterials}</p>
         ) : (
           <ul className="mb-2 space-y-1">
             {file.materials.map((entry, index) => (
               <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-slate-200">
                   {entry.material.name}
-                  <span className="ml-2 text-xs text-slate-500">{formatMoney(entry.material.price)} €</span>
+                  <span className="ml-2 text-xs text-slate-500">{formatMoney(entry.material.price, locale)} €</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => onRemoveMaterial(index)}
-                  aria-label={`Material ${entry.material.name} entfernen`}
+                  aria-label={t.calculation.removeMaterialLabel(entry.material.name)}
                   className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
                 >
                   ✕
@@ -653,10 +657,10 @@ function FileCard({
               value={materialPick}
               onChange={setMaterialPick}
               options={[
-                { value: "", label: de.calculation.materialPick },
+                { value: "", label: t.calculation.materialPick },
                 ...materials.map((m) => ({ value: m.id, label: m.name })),
               ]}
-              aria-label={de.calculation.materialAria}
+              aria-label={t.calculation.materialAria}
             />
             <SecondaryButton
               type="button"
@@ -666,11 +670,11 @@ function FileCard({
                 setMaterialPick("");
               }}
             >
-              {de.common.add}
+              {t.common.add}
             </SecondaryButton>
           </div>
         ) : (
-          <p className="text-xs text-slate-500">{de.calculation.noMaterialsHint}</p>
+          <p className="text-xs text-slate-500">{t.calculation.noMaterialsHint}</p>
         )}
       </div>
     </li>
@@ -678,7 +682,7 @@ function FileCard({
 }
 
 // ---------------------------------------------------------------------------
-// Zusatzartikel
+// Additional items
 // ---------------------------------------------------------------------------
 
 function ItemEditor({
@@ -690,6 +694,8 @@ function ItemEditor({
   files: CalculationFileInput[];
   onChange: (items: AdditionalItem[]) => void;
 }) {
+  const t = useStrings();
+  const { locale } = useLocale();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("0");
   const [quantity, setQuantity] = useState("1");
@@ -712,24 +718,24 @@ function ItemEditor({
   return (
     <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        {de.calculation.itemsTitle}
+        {t.calculation.itemsTitle}
       </h3>
       {items.length > 0 ? (
         <ul className="mb-3 space-y-1">
           {items.map((item, index) => (
             <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="text-slate-200">
-                {item.name} · {item.quantity} × {formatMoney(item.price)} €
+                {item.name} · {item.quantity} × {formatMoney(item.price, locale)} €
                 <span className="ml-2 text-xs text-slate-500">
                   {item.file_id
-                    ? `${de.calculation.itemFilePrefix}: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
-                    : de.common.project}
+                    ? `${t.calculation.itemFilePrefix}: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
+                    : t.common.project}
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
-                aria-label={de.calculation.removeItemLabel(item.name)}
+                aria-label={t.calculation.removeItemLabel(item.name)}
                 className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
               >
                 ✕
@@ -739,20 +745,20 @@ function ItemEditor({
         </ul>
       ) : null}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={de.common.namePlaceholder} aria-label={de.calculation.itemName} />
-        <DecimalInput value={price} onChange={setPrice} aria-label={de.calculation.itemPrice} />
-        <DecimalInput value={quantity} onChange={setQuantity} aria-label={de.calculation.itemQuantity} />
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t.common.namePlaceholder} aria-label={t.calculation.itemName} />
+        <DecimalInput value={price} onChange={setPrice} aria-label={t.calculation.itemPrice} />
+        <DecimalInput value={quantity} onChange={setQuantity} aria-label={t.calculation.itemQuantity} />
         <Select
           value={fileId}
           onChange={setFileId}
           options={[
-            { value: "", label: de.common.project },
-            ...files.map((f) => ({ value: f.id, label: f.file_name || de.calculation.unnamedFile })),
+            { value: "", label: t.common.project },
+            ...files.map((f) => ({ value: f.id, label: f.file_name || t.calculation.unnamedFile })),
           ]}
-          aria-label={de.calculation.itemTarget}
+          aria-label={t.calculation.itemTarget}
         />
         <SecondaryButton type="button" disabled={!valid} onClick={add}>
-          {de.common.add}
+          {t.common.add}
         </SecondaryButton>
       </div>
     </div>
@@ -760,7 +766,7 @@ function ItemEditor({
 }
 
 // ---------------------------------------------------------------------------
-// Prozentuale Zuschläge
+// Percentage surcharges
 // ---------------------------------------------------------------------------
 
 function SurchargeEditor({
@@ -770,6 +776,7 @@ function SurchargeEditor({
   surcharges: CustomSurcharge[];
   onChange: (surcharges: CustomSurcharge[]) => void;
 }) {
+  const t = useStrings();
   const [name, setName] = useState("");
   const [percent, setPercent] = useState("0");
   const [timing, setTiming] = useState<SurchargeTiming>("before-margin");
@@ -786,7 +793,7 @@ function SurchargeEditor({
   return (
     <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        {de.calculation.surchargesTitle}
+        {t.calculation.surchargesTitle}
       </h3>
       {surcharges.length > 0 ? (
         <ul className="mb-3 space-y-1">
@@ -795,13 +802,13 @@ function SurchargeEditor({
               <span className="text-slate-200">
                 {surcharge.name} · {surcharge.percent} %
                 <span className="ml-2 text-xs text-slate-500">
-                  {surcharge.timing === "before-margin" ? de.calculation.beforeMargin : de.calculation.afterMargin}
+                  {surcharge.timing === "before-margin" ? t.calculation.beforeMargin : t.calculation.afterMargin}
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => onChange(surcharges.filter((_, i) => i !== index))}
-                aria-label={de.calculation.removeSurchargeLabel(surcharge.name)}
+                aria-label={t.calculation.removeSurchargeLabel(surcharge.name)}
                 className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
               >
                 ✕
@@ -811,19 +818,19 @@ function SurchargeEditor({
         </ul>
       ) : null}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={de.common.namePlaceholder} aria-label={de.calculation.surchargeName} />
-        <DecimalInput value={percent} onChange={setPercent} aria-label={de.calculation.surchargePercent} />
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t.common.namePlaceholder} aria-label={t.calculation.surchargeName} />
+        <DecimalInput value={percent} onChange={setPercent} aria-label={t.calculation.surchargePercent} />
         <Select
           value={timing}
           onChange={(v) => setTiming(v as SurchargeTiming)}
           options={[
-            { value: "before-margin", label: de.calculation.beforeMargin },
-            { value: "after-margin", label: de.calculation.afterMargin },
+            { value: "before-margin", label: t.calculation.beforeMargin },
+            { value: "after-margin", label: t.calculation.afterMargin },
           ]}
-          aria-label={de.calculation.surchargeTiming}
+          aria-label={t.calculation.surchargeTiming}
         />
         <SecondaryButton type="button" disabled={!valid} onClick={add}>
-          {de.common.add}
+          {t.common.add}
         </SecondaryButton>
       </div>
     </div>

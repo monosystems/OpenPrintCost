@@ -1,9 +1,9 @@
 /**
- * Der Plattform-Port: die einzige Stelle, über die die Oberfläche mit der
- * Außenwelt (Tauri-Backend oder Mock) spricht.
+ * The platform port: the single place through which the UI talks to the
+ * outside world (Tauri backend or mock).
  *
- * Regel: Keine Komponente außer `tauriAdapter.ts` darf `@tauri-apps/api`
- * importieren. Tests und Browser-Entwicklung laufen gegen `mockAdapter.ts`.
+ * Rule: no component except `tauriAdapter.ts` may import `@tauri-apps/api`.
+ * Tests and browser development run against `mockAdapter.ts`.
  */
 import type {
   CalculationInput,
@@ -22,7 +22,7 @@ import type {
   WorkstepCategory,
 } from "./types";
 
-/** Fehler über die Plattformgrenze — immer mit deutscher Meldung. */
+/** Error across the platform boundary — always with an English message. */
 export class AdapterError extends Error {
   constructor(message: string) {
     super(message);
@@ -31,19 +31,19 @@ export class AdapterError extends Error {
 }
 
 export interface PlatformAdapter {
-  // -- Drucker -------------------------------------------------------------
+  // -- Printers -------------------------------------------------------------
   listPrinters(): Promise<Printer[]>;
   getPrinter(id: Uuid): Promise<Printer>;
   savePrinter(printer: Printer): Promise<void>;
   deletePrinter(id: Uuid): Promise<void>;
 
-  // -- Material ------------------------------------------------------------
+  // -- Materials ------------------------------------------------------------
   listMaterials(): Promise<Material[]>;
   getMaterial(id: Uuid): Promise<Material>;
   saveMaterial(material: Material): Promise<void>;
   deleteMaterial(id: Uuid): Promise<void>;
 
-  // -- Arbeitsschritte -----------------------------------------------------
+  // -- Work steps -----------------------------------------------------
   listWorkstepCategories(): Promise<WorkstepCategory[]>;
   saveWorkstepCategory(category: WorkstepCategory): Promise<void>;
   deleteWorkstepCategory(id: Uuid): Promise<void>;
@@ -52,34 +52,34 @@ export interface PlatformAdapter {
   saveWorkstep(workstep: Workstep): Promise<void>;
   deleteWorkstep(id: Uuid): Promise<void>;
 
-  // -- Maschinenstundensätze -------------------------------------------------
+  // -- Machine hourly rates -------------------------------------------------
   listHourlyRates(): Promise<HourlyRate[]>;
   getHourlyRate(id: Uuid): Promise<HourlyRate>;
   saveHourlyRate(rate: HourlyRate): Promise<void>;
   deleteHourlyRate(id: Uuid): Promise<void>;
 
-  // -- Umgebung --------------------------------------------------------------
+  // -- Environment --------------------------------------------------------------
   getDatabasePath(): Promise<string>;
 
-  // -- Kalkulationsprofile ---------------------------------------------------
+  // -- Calculation profiles ---------------------------------------------------
   listCalculationProfiles(): Promise<CalculationProfile[]>;
   getCalculationProfile(id: Uuid): Promise<CalculationProfile>;
   saveCalculationProfile(profile: CalculationProfile): Promise<void>;
   deleteCalculationProfile(id: Uuid): Promise<void>;
 
-  // -- Kalkulationen -----------------------------------------------------------
+  // -- Calculations -----------------------------------------------------------
   listCalculations(): Promise<CalculationSummary[]>;
   getCalculation(id: Uuid): Promise<StoredCalculation>;
   saveCalculation(calculation: CalculationInput): Promise<void>;
   deleteCalculation(id: Uuid): Promise<void>;
 
-  // -- Berechnung --------------------------------------------------------------
+  // -- Calculation --------------------------------------------------------------
   calculate(calculation: CalculationInput): Promise<CalculationResult>;
 
-  // -- Datei-Import --------------------------------------------------------------
+  // -- File import --------------------------------------------------------------
   /**
-   * Öffnet einen Dateidialog und liefert den gewählten Pfad (oder `null`
-   * bei Abbruch). Nur im Tauri-Betrieb; der Mock liefert immer `null`.
+   * Opens a file dialog and returns the chosen path (or `null` on
+   * cancellation). Tauri runtime only; the mock always returns `null`.
    */
   pickImportFile(kind: "gcode" | "stl"): Promise<string | null>;
   importGcodeFile(path: string): Promise<GcodeInfo>;
@@ -87,13 +87,13 @@ export interface PlatformAdapter {
 
   // -- Export ------------------------------------------------------------------
   /**
-   * Rendert das Ergebnis und speichert es über den Dateidialog.
-   * Gibt den Pfad zurück — oder `null` bei Abbruch des Dialogs.
+   * Renders the result and saves it via the file dialog.
+   * Returns the path — or `null` when the dialog is cancelled.
    */
   exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
   exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
 
-  // -- Firmendaten ---------------------------------------------------------------
+  // -- Company info ---------------------------------------------------------------
   getCompanyInfo(): Promise<CompanyInfo>;
   saveCompanyInfo(info: CompanyInfo): Promise<void>;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString, labels } from "../api/format";
-import { de } from "../i18n/de";
+import { formatMoney, isDecimalString } from "../api/format";
+import { useLocale, type Strings } from "../i18n";
 import { newId, type HourlyRate, type TimeBasis } from "../api/types";
 import {
   ConfirmDialog,
@@ -39,35 +39,35 @@ function emptyRate(): HourlyRate {
 
 type Errors = Partial<Record<string, string>>;
 
-const REQUIRED: ReadonlyArray<readonly [keyof HourlyRate, string]> = [
-  ["machine_hours", de.rates.machineHours],
-  ["replacement_cost", de.rates.replacement],
-  ["service_life_years", de.rates.serviceLife],
-  ["interest_rate_percent", de.rates.interest],
-  ["maintenance_fixed", `${de.rates.maintenanceFixed} (fix)`],
-  ["rent_fixed", `${de.rates.rentFixed} (fix)`],
-  ["electricity_fixed", `${de.rates.electricityFixed} (fix)`],
-  ["additional_fixed", `${de.rates.additionalFixed} (fix)`],
-  ["maintenance_variable", `${de.rates.maintenanceVariable} (variabel)`],
-  ["electricity_variable", `${de.rates.electricityVariable} (variabel)`],
-  ["additional_variable", `${de.rates.additionalVariable} (variabel)`],
-];
-
-function validate(rate: HourlyRate): Errors {
+function validate(rate: HourlyRate, t: Strings): Errors {
+  const required: ReadonlyArray<readonly [keyof HourlyRate, string]> = [
+    ["machine_hours", t.rates.machineHours],
+    ["replacement_cost", t.rates.replacement],
+    ["service_life_years", t.rates.serviceLife],
+    ["interest_rate_percent", t.rates.interest],
+    ["maintenance_fixed", `${t.rates.maintenanceFixed} (fix)`],
+    ["rent_fixed", `${t.rates.rentFixed} (fix)`],
+    ["electricity_fixed", `${t.rates.electricityFixed} (fix)`],
+    ["additional_fixed", `${t.rates.additionalFixed} (fix)`],
+    ["maintenance_variable", `${t.rates.maintenanceVariable} (variabel)`],
+    ["electricity_variable", `${t.rates.electricityVariable} (variabel)`],
+    ["additional_variable", `${t.rates.additionalVariable} (variabel)`],
+  ];
   const errors: Errors = {};
-  if (rate.name.trim() === "") errors.name = de.validation.required(de.validation.designation);
-  for (const [key, label] of REQUIRED) {
+  if (rate.name.trim() === "") errors.name = t.validation.required(t.validation.designation);
+  for (const [key, label] of required) {
     if (!isDecimalString(rate[key] as string)) {
-      errors[key] = de.validation.decimal(label);
+      errors[key] = t.validation.decimal(label);
     }
   }
   if (rate.fixed_rate_override !== null && rate.fixed_rate_override !== "" && !isDecimalString(rate.fixed_rate_override)) {
-    errors.fixed_rate_override = de.validation.decimalOrEmpty("Freier Stundensatz");
+    errors.fixed_rate_override = t.validation.decimalOrEmpty(t.rates.fixedOverride);
   }
   return errors;
 }
 
 export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t, locale } = useLocale();
   const [rates, setRates] = useState<HourlyRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,11 +81,11 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
       setRates(await adapter.listHourlyRates());
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.ratesLoad);
+      setError(error instanceof Error ? error.message : t.errors.ratesLoad);
     } finally {
       setLoading(false);
     }
-  }, [adapter]);
+  }, [adapter, t]);
 
   useEffect(() => {
     void reload();
@@ -98,7 +98,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
 
   const save = async () => {
     if (!editing) return;
-    const errors = validate(editing);
+    const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
     const cleaned: HourlyRate = {
@@ -113,7 +113,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.rateSave);
+      setError(error instanceof Error ? error.message : t.errors.rateSave);
     }
   };
 
@@ -125,7 +125,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : de.errors.rateDelete);
+      setError(error instanceof Error ? error.message : t.errors.rateDelete);
     }
   };
 
@@ -133,20 +133,20 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
   return (
-    <section aria-label={de.rates.title}>
+    <section aria-label={t.rates.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.rates.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.rates.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
-          {de.rates.newButton}
+          {t.rates.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{de.common.loading}</p>
+        <p className="text-sm text-slate-400">{t.common.loading}</p>
       ) : rates.length === 0 ? (
-        <EmptyState message={de.rates.empty} />
+        <EmptyState message={t.rates.empty} />
       ) : (
         <ul className="space-y-2">
           {rates.map((rate) => (
@@ -157,18 +157,18 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
               <div>
                 <p className="font-medium text-slate-100">{rate.name}</p>
                 <p className="text-xs text-slate-400">
-                  {labels.timeBasis[rate.time_basis]} · {formatMoney(rate.machine_hours)} h
+                  {t.domain.timeBasis[rate.time_basis]} · {formatMoney(rate.machine_hours, locale)} h
                   {rate.fixed_rate_override
-                    ? ` · ${de.rates.free}: ${formatMoney(rate.fixed_rate_override)} €/h`
+                    ? ` · ${t.rates.free}: ${formatMoney(rate.fixed_rate_override, locale)} €/h`
                     : ""}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...rate }); setFormErrors({}); }}>
-                  {de.common.edit}
+                  {t.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(rate)}>
-                  {de.common.delete}
+                  {t.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -177,52 +177,52 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={rates.some((r) => r.id === editing.id) ? de.rates.editTitle : de.rates.newTitle} onClose={() => setEditing(null)}>
+        <Modal title={rates.some((r) => r.id === editing.id) ? t.rates.editTitle : t.rates.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <Field label={`${de.rates.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={de.rates.nameExample} />
+              <Field label={`${t.rates.name} *`} error={formErrors.name}>
+                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.rates.nameExample} />
               </Field>
             </div>
-            <Field label={de.rates.timeBasis}>
+            <Field label={t.rates.timeBasis}>
               <Select
                 value={editing.time_basis}
                 onChange={(v) => set("time_basis", v as TimeBasis)}
-                options={Object.entries(labels.timeBasis).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(t.domain.timeBasis).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label={`${de.rates.machineHours} *`} error={formErrors.machine_hours}>
+            <Field label={`${t.rates.machineHours} *`} error={formErrors.machine_hours}>
               <DecimalInput value={editing.machine_hours} onChange={(v) => set("machine_hours", v)} />
             </Field>
-            <Field label={`${de.rates.replacement} *`} error={formErrors.replacement_cost}>
+            <Field label={`${t.rates.replacement} *`} error={formErrors.replacement_cost}>
               <DecimalInput value={editing.replacement_cost} onChange={(v) => set("replacement_cost", v)} />
             </Field>
-            <Field label={`${de.rates.serviceLife} *`} error={formErrors.service_life_years}>
+            <Field label={`${t.rates.serviceLife} *`} error={formErrors.service_life_years}>
               <DecimalInput value={editing.service_life_years} onChange={(v) => set("service_life_years", v)} />
             </Field>
-            <Field label={`${de.rates.interest} *`} error={formErrors.interest_rate_percent}>
+            <Field label={`${t.rates.interest} *`} error={formErrors.interest_rate_percent}>
               <DecimalInput value={editing.interest_rate_percent} onChange={(v) => set("interest_rate_percent", v)} />
             </Field>
-            <Field label={de.rates.fixedOverride} error={formErrors.fixed_rate_override}>
+            <Field label={t.rates.fixedOverride} error={formErrors.fixed_rate_override}>
               <DecimalInput value={editing.fixed_rate_override ?? ""} onChange={(v) => set("fixed_rate_override", v)} />
             </Field>
           </div>
 
           <fieldset className="mt-4 rounded-lg border border-slate-800 p-4">
             <legend className="px-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-              {de.rates.fixedGroup} {editing.time_basis === "per-year" ? de.rates.perYear : de.rates.perMonth} (€)
+              {t.rates.fixedGroup} {editing.time_basis === "per-year" ? t.rates.perYear : t.rates.perMonth} (€)
             </legend>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label={`${de.rates.maintenanceFixed} *`} error={formErrors.maintenance_fixed}>
+              <Field label={`${t.rates.maintenanceFixed} *`} error={formErrors.maintenance_fixed}>
                 <DecimalInput value={editing.maintenance_fixed} onChange={(v) => set("maintenance_fixed", v)} />
               </Field>
-              <Field label={`${de.rates.rentFixed} *`} error={formErrors.rent_fixed}>
+              <Field label={`${t.rates.rentFixed} *`} error={formErrors.rent_fixed}>
                 <DecimalInput value={editing.rent_fixed} onChange={(v) => set("rent_fixed", v)} />
               </Field>
-              <Field label={`${de.rates.electricityFixed} *`} error={formErrors.electricity_fixed}>
+              <Field label={`${t.rates.electricityFixed} *`} error={formErrors.electricity_fixed}>
                 <DecimalInput value={editing.electricity_fixed} onChange={(v) => set("electricity_fixed", v)} />
               </Field>
-              <Field label={`${de.rates.additionalFixed} *`} error={formErrors.additional_fixed}>
+              <Field label={`${t.rates.additionalFixed} *`} error={formErrors.additional_fixed}>
                 <DecimalInput value={editing.additional_fixed} onChange={(v) => set("additional_fixed", v)} />
               </Field>
             </div>
@@ -230,16 +230,16 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
 
           <fieldset className="mt-4 rounded-lg border border-slate-800 p-4">
             <legend className="px-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-              {de.rates.variableGroup}
+              {t.rates.variableGroup}
             </legend>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label={`${de.rates.maintenanceVariable} *`} error={formErrors.maintenance_variable}>
+              <Field label={`${t.rates.maintenanceVariable} *`} error={formErrors.maintenance_variable}>
                 <DecimalInput value={editing.maintenance_variable} onChange={(v) => set("maintenance_variable", v)} />
               </Field>
-              <Field label={`${de.rates.electricityVariable} *`} error={formErrors.electricity_variable}>
+              <Field label={`${t.rates.electricityVariable} *`} error={formErrors.electricity_variable}>
                 <DecimalInput value={editing.electricity_variable} onChange={(v) => set("electricity_variable", v)} />
               </Field>
-              <Field label={`${de.rates.additionalVariable} *`} error={formErrors.additional_variable}>
+              <Field label={`${t.rates.additionalVariable} *`} error={formErrors.additional_variable}>
                 <DecimalInput value={editing.additional_variable} onChange={(v) => set("additional_variable", v)} />
               </Field>
             </div>
@@ -247,10 +247,10 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
 
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {de.common.cancel}
+              {t.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              {de.common.save}
+              {t.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -258,9 +258,9 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title={de.common.confirmTitle(de.rates.one)}
-          message={de.common.confirmDeleteMessage(deleting.name)}
-          confirmLabel={de.common.delete}
+          title={t.common.confirmTitle(t.rates.one)}
+          message={t.common.confirmDeleteMessage(deleting.name)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />

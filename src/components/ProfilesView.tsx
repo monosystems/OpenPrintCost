@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { isDecimalString } from "../api/format";
-import { de } from "../i18n/de";
+import { useLocale, type Strings } from "../i18n";
 import { newId, type CalculationProfile } from "../api/types";
 import {
   ConfirmDialog,
@@ -40,28 +40,31 @@ function emptyProfile(): CalculationProfile {
 
 type Errors = Partial<Record<string, string>>;
 
-const DECIMALS: ReadonlyArray<readonly [keyof CalculationProfile, string]> = [
-  ["fail_rate_percent", de.profiles.failRate],
-  ["tax_rate_percent", de.profiles.tax],
-  ["margin_percent", de.profiles.margin],
-  ["handling_fee", de.profiles.handlingFee],
-  ["energy_price_per_kwh", de.profiles.energyPrice],
-  ["power_level_percent", de.profiles.powerLevel],
-  ["print_time_factor", de.profiles.printTimeFactor],
-];
+function decimals(t: Strings): ReadonlyArray<readonly [keyof CalculationProfile, string]> {
+  return [
+    ["fail_rate_percent", t.profiles.failRate],
+    ["tax_rate_percent", t.profiles.tax],
+    ["margin_percent", t.profiles.margin],
+    ["handling_fee", t.profiles.handlingFee],
+    ["energy_price_per_kwh", t.profiles.energyPrice],
+    ["power_level_percent", t.profiles.powerLevel],
+    ["print_time_factor", t.profiles.printTimeFactor],
+  ];
+}
 
-function validate(profile: CalculationProfile): Errors {
+function validate(profile: CalculationProfile, t: Strings): Errors {
   const errors: Errors = {};
-  if (profile.name.trim() === "") errors.name = de.validation.required(de.validation.designation);
-  for (const [key, label] of DECIMALS) {
+  if (profile.name.trim() === "") errors.name = t.validation.required(t.validation.designation);
+  for (const [key, label] of decimals(t)) {
     if (!isDecimalString(profile[key] as string)) {
-      errors[key] = de.validation.decimal(label);
+      errors[key] = t.validation.decimal(label);
     }
   }
   return errors;
 }
 
 export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t } = useLocale();
   const [profiles, setProfiles] = useState<CalculationProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,11 +78,11 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
       setProfiles(await adapter.listCalculationProfiles());
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.profilesLoad);
+      setError(error instanceof Error ? error.message : t.errors.profilesLoad);
     } finally {
       setLoading(false);
     }
-  }, [adapter]);
+  }, [adapter, t]);
 
   useEffect(() => {
     void reload();
@@ -87,7 +90,7 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
 
   const save = async () => {
     if (!editing) return;
-    const errors = validate(editing);
+    const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
     try {
@@ -95,7 +98,7 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.profileSave);
+      setError(error instanceof Error ? error.message : t.errors.profileSave);
     }
   };
 
@@ -107,7 +110,7 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : de.errors.profileDelete);
+      setError(error instanceof Error ? error.message : t.errors.profileDelete);
     }
   };
 
@@ -127,20 +130,20 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
   );
 
   return (
-    <section aria-label={de.profiles.title}>
+    <section aria-label={t.profiles.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.profiles.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.profiles.title}</h2>
         <PrimaryButton type="button" onClick={() => { setEditing(emptyProfile()); setFormErrors({}); }}>
-          {de.profiles.newButton}
+          {t.profiles.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{de.common.loading}</p>
+        <p className="text-sm text-slate-400">{t.common.loading}</p>
       ) : profiles.length === 0 ? (
-        <EmptyState message={de.profiles.empty} />
+        <EmptyState message={t.profiles.empty} />
       ) : (
         <ul className="space-y-2">
           {profiles.map((profile) => (
@@ -157,10 +160,10 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...profile }); setFormErrors({}); }}>
-                  {de.common.edit}
+                  {t.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(profile)}>
-                  {de.common.delete}
+                  {t.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -169,43 +172,43 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={profiles.some((p) => p.id === editing.id) ? de.profiles.editTitle : de.profiles.newTitle} onClose={() => setEditing(null)}>
+        <Modal title={profiles.some((p) => p.id === editing.id) ? t.profiles.editTitle : t.profiles.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="col-span-2 md:col-span-4">
-              <Field label={`${de.profiles.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={de.profiles.nameExample} />
+              <Field label={`${t.profiles.name} *`} error={formErrors.name}>
+                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.profiles.nameExample} />
               </Field>
             </div>
-            {DECIMALS.map(([key, label]) => (
+            {decimals(t).map(([key, label]) => (
               <Field key={key} label={label} error={formErrors[key]}>
                 <DecimalInput value={editing[key] as string} onChange={(v) => set(key, v)} />
               </Field>
             ))}
-            <Field label={de.profiles.handlingScope}>
+            <Field label={t.profiles.handlingScope}>
               <Select
                 value={editing.handling_fee_scope}
                 onChange={(v) => set("handling_fee_scope", v as "per-file" | "once")}
                 options={[
-                  { value: "once", label: de.profiles.once },
-                  { value: "per-file", label: de.profiles.perFile },
+                  { value: "once", label: t.profiles.once },
+                  { value: "per-file", label: t.profiles.perFile },
                 ]}
               />
             </Field>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
-            {check(de.profiles.applyEnergy, "apply_energy_costs")}
-            {check(de.profiles.combine, "combine_materials")}
-            {check(de.profiles.multiplyTime, "multiply_print_time_with_quantity")}
-            {check(de.profiles.excludeMachine, "exclude_machine_from_margin")}
-            {check(de.profiles.excludeMaterial, "exclude_material_from_margin")}
-            {check(de.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
+            {check(t.profiles.applyEnergy, "apply_energy_costs")}
+            {check(t.profiles.combine, "combine_materials")}
+            {check(t.profiles.multiplyTime, "multiply_print_time_with_quantity")}
+            {check(t.profiles.excludeMachine, "exclude_machine_from_margin")}
+            {check(t.profiles.excludeMaterial, "exclude_material_from_margin")}
+            {check(t.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {de.common.cancel}
+              {t.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              {de.common.save}
+              {t.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -213,9 +216,9 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title={de.common.confirmTitle(de.profiles.one)}
-          message={de.common.confirmDeleteMessage(deleting.name)}
-          confirmLabel={de.common.delete}
+          title={t.common.confirmTitle(t.profiles.one)}
+          message={t.common.confirmDeleteMessage(deleting.name)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />

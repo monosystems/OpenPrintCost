@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString, labels } from "../api/format";
-import { de } from "../i18n/de";
+import { formatMoney, isDecimalString } from "../api/format";
+import { useLocale, type Strings } from "../i18n";
 import {
   newId,
   type Workstep,
@@ -38,22 +38,23 @@ function emptyWorkstep(category: WorkstepCategory): Workstep {
 
 type Errors = Partial<Record<string, string>>;
 
-function validate(workstep: Workstep): Errors {
+function validate(workstep: Workstep, t: Strings): Errors {
   const errors: Errors = {};
-  if (workstep.name.trim() === "") errors.name = de.validation.required(de.validation.designation);
+  if (workstep.name.trim() === "") errors.name = t.validation.required(t.validation.designation);
   for (const [key, label] of [
-    ["price", de.worksteps.price],
-    ["quantity", de.worksteps.quantity],
-    ["duration_hours", de.worksteps.duration],
+    ["price", t.worksteps.price],
+    ["quantity", t.worksteps.quantity],
+    ["duration_hours", t.worksteps.duration],
   ] as const) {
     if (!isDecimalString(workstep[key])) {
-      errors[key] = de.validation.decimal(label);
+      errors[key] = t.validation.decimal(label);
     }
   }
   return errors;
 }
 
 export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t, locale } = useLocale();
   const [worksteps, setWorksteps] = useState<Workstep[]>([]);
   const [categories, setCategories] = useState<WorkstepCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,11 +76,11 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setCategories(loadedCategories);
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.workstepsLoad);
+      setError(error instanceof Error ? error.message : t.errors.workstepsLoad);
     } finally {
       setLoading(false);
     }
-  }, [adapter]);
+  }, [adapter, t]);
 
   useEffect(() => {
     void reload();
@@ -88,7 +89,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
   const openNew = () => {
     const first = categories[0];
     if (!first) {
-      setError(de.errors.categoryRequired);
+      setError(t.errors.categoryRequired);
       return;
     }
     setEditing(emptyWorkstep(first));
@@ -97,7 +98,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
   const save = async () => {
     if (!editing) return;
-    const errors = validate(editing);
+    const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
     try {
@@ -105,7 +106,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.workstepSave);
+      setError(error instanceof Error ? error.message : t.errors.workstepSave);
     }
   };
 
@@ -117,7 +118,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : de.errors.workstepDelete);
+      setError(error instanceof Error ? error.message : t.errors.workstepDelete);
     }
   };
 
@@ -129,7 +130,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       setNewCategory("");
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.categorySave);
+      setError(error instanceof Error ? error.message : t.errors.categorySave);
     }
   };
 
@@ -141,7 +142,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeletingCategory(null);
-      setError(error instanceof Error ? error.message : de.errors.categoryDelete);
+      setError(error instanceof Error ? error.message : t.errors.categoryDelete);
     }
   };
 
@@ -149,20 +150,20 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
   return (
-    <section aria-label={de.worksteps.title}>
+    <section aria-label={t.worksteps.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.worksteps.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.worksteps.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
-          {de.worksteps.newButton}
+          {t.worksteps.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">{de.worksteps.categories}</h3>
+        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">{t.worksteps.categories}</h3>
         {categories.length === 0 ? (
-          <p className="mb-3 text-sm text-slate-500">{de.worksteps.noCategories}</p>
+          <p className="mb-3 text-sm text-slate-500">{t.worksteps.noCategories}</p>
         ) : (
           <ul className="mb-3 flex flex-wrap gap-2">
             {categories.map((category) => (
@@ -174,7 +175,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
                 <button
                   type="button"
                   onClick={() => setDeletingCategory(category)}
-                  aria-label={de.worksteps.deleteCategoryLabel(category.name)}
+                  aria-label={t.worksteps.deleteCategoryLabel(category.name)}
                   className="rounded px-1 text-slate-400 hover:bg-slate-700 hover:text-red-300"
                 >
                   ✕
@@ -187,19 +188,19 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
           <TextInput
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
-            placeholder={de.worksteps.newCategoryPlaceholder}
-            aria-label={de.worksteps.category}
+            placeholder={t.worksteps.newCategoryPlaceholder}
+            aria-label={t.worksteps.category}
           />
           <SecondaryButton type="button" onClick={() => void addCategory()}>
-            {de.common.add}
+            {t.common.add}
           </SecondaryButton>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400">{de.common.loading}</p>
+        <p className="text-sm text-slate-400">{t.common.loading}</p>
       ) : worksteps.length === 0 ? (
-        <EmptyState message={de.worksteps.empty} />
+        <EmptyState message={t.worksteps.empty} />
       ) : (
         <ul className="space-y-2">
           {worksteps.map((workstep) => (
@@ -210,16 +211,16 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
               <div>
                 <p className="font-medium text-slate-100">{workstep.name}</p>
                 <p className="text-xs text-slate-400">
-                  {workstep.category.name} · {labels.calculationType[workstep.calculation_type]} ·{" "}
-                  {formatMoney(workstep.price)} €
+                  {workstep.category.name} · {t.domain.calculationType[workstep.calculation_type]} ·{" "}
+                  {formatMoney(workstep.price, locale)} €
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...workstep, category: { ...workstep.category } }); setFormErrors({}); }}>
-                  {de.common.edit}
+                  {t.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(workstep)}>
-                  {de.common.delete}
+                  {t.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -228,14 +229,14 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={worksteps.some((w) => w.id === editing.id) ? de.worksteps.editTitle : de.worksteps.newTitle} onClose={() => setEditing(null)}>
+        <Modal title={worksteps.some((w) => w.id === editing.id) ? t.worksteps.editTitle : t.worksteps.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <Field label={`${de.worksteps.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={de.worksteps.nameExample} />
+              <Field label={`${t.worksteps.name} *`} error={formErrors.name}>
+                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.worksteps.nameExample} />
               </Field>
             </div>
-            <Field label={de.worksteps.category}>
+            <Field label={t.worksteps.category}>
               <Select
                 value={editing.category.id}
                 onChange={(id) => {
@@ -245,38 +246,38 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
                 options={categories.map((c) => ({ value: c.id, label: c.name }))}
               />
             </Field>
-            <Field label={de.worksteps.calculationType}>
+            <Field label={t.worksteps.calculationType}>
               <Select
                 value={editing.calculation_type}
                 onChange={(v) => set("calculation_type", v as WorkstepCalculationType)}
-                options={Object.entries(labels.calculationType).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(t.domain.calculationType).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label={`${de.worksteps.price} (€) *`} error={formErrors.price}>
+            <Field label={`${t.worksteps.price} (€) *`} error={formErrors.price}>
               <DecimalInput value={editing.price} onChange={(v) => set("price", v)} />
             </Field>
-            <Field label={`${de.worksteps.quantity} *`} error={formErrors.quantity}>
+            <Field label={`${t.worksteps.quantity} *`} error={formErrors.quantity}>
               <DecimalInput value={editing.quantity} onChange={(v) => set("quantity", v)} />
             </Field>
             {editing.calculation_type === "per-hour" ? (
-              <Field label={`${de.worksteps.duration} (Stunden) *`} error={formErrors.duration_hours}>
+              <Field label={`${t.worksteps.duration} (Stunden) *`} error={formErrors.duration_hours}>
                 <DecimalInput value={editing.duration_hours} onChange={(v) => set("duration_hours", v)} />
               </Field>
             ) : null}
-            <Field label={de.worksteps.timing}>
+            <Field label={t.worksteps.timing}>
               <Select
                 value={editing.timing}
                 onChange={(v) => set("timing", v as WorkstepTiming)}
-                options={Object.entries(labels.timing).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(t.domain.timing).map(([value, label]) => ({ value, label }))}
               />
             </Field>
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {de.common.cancel}
+              {t.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              {de.common.save}
+              {t.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -284,9 +285,9 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title={de.common.confirmTitle(de.worksteps.one)}
-          message={de.common.confirmDeleteMessage(deleting.name)}
-          confirmLabel={de.common.delete}
+          title={t.common.confirmTitle(t.worksteps.one)}
+          message={t.common.confirmDeleteMessage(deleting.name)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />
@@ -294,9 +295,9 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deletingCategory ? (
         <ConfirmDialog
-          title={de.worksteps.deleteCategoryTitle}
-          message={de.worksteps.deleteCategoryMessage(deletingCategory.name)}
-          confirmLabel={de.common.delete}
+          title={t.worksteps.deleteCategoryTitle}
+          message={t.worksteps.deleteCategoryMessage(deletingCategory.name)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDeleteCategory()}
           onCancel={() => setDeletingCategory(null)}
         />

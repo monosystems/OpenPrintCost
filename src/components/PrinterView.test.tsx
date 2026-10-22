@@ -7,55 +7,55 @@ import { PrinterView } from "./PrinterView";
 async function renderView(adapter = new MockPlatformAdapter()) {
   const user = userEvent.setup();
   render(<PrinterView adapter={adapter} />);
-  await waitFor(() => expect(screen.queryByText("Wird geladen …")).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByText("Loading …")).not.toBeInTheDocument());
   return { user, adapter };
 }
 
 describe("PrinterView", () => {
-  it("zeigt den Leerzustand ohne Drucker", async () => {
+  it("shows the empty state without printers", async () => {
     await renderView();
-    expect(screen.getByText(/Noch keine Drucker angelegt/)).toBeInTheDocument();
+    expect(screen.getByText(/No printers yet/)).toBeInTheDocument();
   });
 
-  it("legt einen Drucker über das Formular an", async () => {
+  it("creates a printer via the form", async () => {
     const { user, adapter } = await renderView();
 
-    await user.click(screen.getByRole("button", { name: "Neuer Drucker" }));
-    await user.type(screen.getByPlaceholderText("z. B. Prusa MK4S"), "Prusa MK4S");
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.click(screen.getByRole("button", { name: "New printer" }));
+    await user.type(screen.getByPlaceholderText("e.g. Prusa MK4S"), "Prusa MK4S");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.getByText("Prusa MK4S")).toBeInTheDocument());
     expect(await adapter.listPrinters()).toHaveLength(1);
   });
 
-  it("lehnt ein leeres Modell mit Fehlermeldung ab", async () => {
+  it("rejects an empty model with an error", async () => {
     const { user, adapter } = await renderView();
 
-    await user.click(screen.getByRole("button", { name: "Neuer Drucker" }));
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.click(screen.getByRole("button", { name: "New printer" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Modellbezeichnung/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/model name/i);
     expect(await adapter.listPrinters()).toHaveLength(0);
   });
 
-  it("lehnt ungültige Zahlen ab", async () => {
+  it("rejects invalid numbers", async () => {
     const { user } = await renderView();
 
-    await user.click(screen.getByRole("button", { name: "Neuer Drucker" }));
-    await user.type(screen.getByPlaceholderText("z. B. Prusa MK4S"), "Test");
-    const leistung = screen.getByLabelText("Leistung (W) *");
+    await user.click(screen.getByRole("button", { name: "New printer" }));
+    await user.type(screen.getByPlaceholderText("e.g. Prusa MK4S"), "Test");
+    const leistung = screen.getByLabelText("Power (W) *");
     await user.clear(leistung);
-    await user.type(leistung, "zwölf");
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.type(leistung, "twelve");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Zahl mit Punkt/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/number with a dot/);
   });
 
-  it("löscht erst nach Bestätigung", async () => {
+  it("deletes only after confirmation", async () => {
     const adapter = new MockPlatformAdapter();
     await adapter.savePrinter({
       id: "11111111-1111-1111-1111-111111111111",
-      model: "Altgerät",
+      model: "Old device",
       manufacturer: null,
       process: "fdm",
       material_family: "filament",
@@ -70,22 +70,22 @@ describe("PrinterView", () => {
     });
     const user = userEvent.setup();
     render(<PrinterView adapter={adapter} />);
-    const item = await screen.findByText("Altgerät");
+    const item = await screen.findByText("Old device");
     const row = item.closest("li");
-    if (!row) throw new Error("Zeile fehlt");
+    if (!row) throw new Error("Row missing");
 
-    // Abbrechen lässt alles unverändert.
-    await user.click(within(row).getByRole("button", { name: "Löschen" }));
+    // Cancel leaves everything unchanged.
+    await user.click(within(row).getByRole("button", { name: "Delete" }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
-    expect(screen.queryByText("Altgerät")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Old device")).toBeInTheDocument();
     expect(await adapter.listPrinters()).toHaveLength(1);
 
-    // Bestätigen löscht.
-    await user.click(within(row).getByRole("button", { name: "Löschen" }));
+    // Confirming deletes.
+    await user.click(within(row).getByRole("button", { name: "Delete" }));
     const dialogAgain = await screen.findByRole("dialog");
-    await user.click(within(dialogAgain).getByRole("button", { name: "Löschen" }));
-    await waitFor(() => expect(screen.queryByText("Altgerät")).not.toBeInTheDocument());
+    await user.click(within(dialogAgain).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByText("Old device")).not.toBeInTheDocument());
     expect(await adapter.listPrinters()).toHaveLength(0);
   });
 });

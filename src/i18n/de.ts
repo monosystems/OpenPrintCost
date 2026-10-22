@@ -38,6 +38,7 @@ export const de = {
     database: "Datenbank",
     unknown: "unbekannt",
     navLabel: "Bereiche",
+    language: "Sprache",
   },
   common: {
     new: "Neu",

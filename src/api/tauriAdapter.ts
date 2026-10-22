@@ -1,9 +1,9 @@
 /**
- * Der Tauri-Adapter: die einzige Datei mit `@tauri-apps/api`-Import.
+ * The Tauri adapter: the only file with an `@tauri-apps/api` import.
  *
- * Jede Methode ruft genau einen Tauri-Command auf (siehe
- * `src-tauri/src/commands.rs`). IDs laufen als UUID-Text, Beträge als
- * String — exakt wie die Rust-Seite sie erwartet.
+ * Each method calls exactly one Tauri command (see
+ * `src-tauri/src/commands.rs`). IDs travel as UUID text, amounts as
+ * strings — exactly as the Rust side expects.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -25,7 +25,7 @@ import type {
   WorkstepCategory,
 } from "./types";
 
-/** Übersetzt einen Backend-Fehler in einen `AdapterError`. */
+/** Maps a backend error to an `AdapterError`. */
 function toError(error: unknown): AdapterError {
   if (error instanceof AdapterError) return error;
   if (typeof error === "string") return new AdapterError(error);
@@ -35,7 +35,7 @@ function toError(error: unknown): AdapterError {
       return new AdapterError(withMessage.message);
     }
   }
-  return new AdapterError("Unbekannter Fehler bei der Datenübertragung.");
+  return new AdapterError("Unknown data transfer error.");
 }
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {

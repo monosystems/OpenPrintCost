@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PlatformAdapter } from "./api/platform";
-import { de } from "./i18n/de";
+import { LanguageProvider, useLocale, type Locale } from "./i18n";
 import { ProfilesView } from "./components/ProfilesView";
 import { SettingsView } from "./components/SettingsView";
 import { CalculationView } from "./components/CalculationView";
@@ -11,17 +11,18 @@ import { WorkstepView } from "./components/WorkstepView";
 
 type Tab = "calculation" | "printers" | "materials" | "worksteps" | "rates" | "profiles" | "settings";
 
-const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
-  { id: "calculation", label: de.app.tabs.calculation },
-  { id: "printers", label: de.app.tabs.printers },
-  { id: "materials", label: de.app.tabs.materials },
-  { id: "worksteps", label: de.app.tabs.worksteps },
-  { id: "rates", label: de.app.tabs.rates },
-  { id: "profiles", label: de.app.tabs.profiles },
-  { id: "settings", label: de.app.tabs.settings },
-];
-
 export function App({ adapter }: { adapter: PlatformAdapter }) {
+  return (
+    <LanguageProvider>
+      <Shell adapter={adapter} />
+    </LanguageProvider>
+  );
+}
+
+const LOCALES: ReadonlyArray<Locale> = ["en", "de"];
+
+function Shell({ adapter }: { adapter: PlatformAdapter }) {
+  const { t, locale, setLocale } = useLocale();
   const [tab, setTab] = useState<Tab>("calculation");
   const [databasePath, setDatabasePath] = useState<string>("…");
 
@@ -29,17 +30,46 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
     adapter
       .getDatabasePath()
       .then(setDatabasePath)
-      .catch(() => setDatabasePath(de.app.unknown));
-  }, [adapter]);
+      .catch(() => setDatabasePath(t.app.unknown));
+  }, [adapter, t]);
+
+  const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
+    { id: "calculation", label: t.app.tabs.calculation },
+    { id: "printers", label: t.app.tabs.printers },
+    { id: "materials", label: t.app.tabs.materials },
+    { id: "worksteps", label: t.app.tabs.worksteps },
+    { id: "rates", label: t.app.tabs.rates },
+    { id: "profiles", label: t.app.tabs.profiles },
+    { id: "settings", label: t.app.tabs.settings },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900">
-        <div className="mx-auto max-w-6xl px-4 py-4">
-          <h1 className="text-xl font-bold">{de.app.title}</h1>
-          <p className="text-sm text-slate-400">{de.app.subtitle}</p>
+        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4 px-4 py-4">
+          <div>
+            <h1 className="text-xl font-bold">{t.app.title}</h1>
+            <p className="text-sm text-slate-400">{t.app.subtitle}</p>
+          </div>
+          <div role="group" aria-label={t.app.language} className="flex shrink-0 gap-1">
+            {LOCALES.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setLocale(code)}
+                aria-pressed={locale === code}
+                className={`rounded-md px-2 py-1 text-xs font-medium uppercase transition-colors ${
+                  locale === code
+                    ? "bg-sky-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                {code}
+              </button>
+            ))}
+          </div>
         </div>
-        <nav aria-label={de.app.navLabel} className="mx-auto max-w-6xl px-4">
+        <nav aria-label={t.app.navLabel} className="mx-auto max-w-6xl px-4">
           <ul className="flex gap-1">
             {TABS.map((entry) => (
               <li key={entry.id}>
@@ -74,7 +104,7 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
       <footer className="border-t border-slate-800 bg-slate-900">
         <div className="mx-auto max-w-6xl px-4 py-3">
           <p className="text-xs text-slate-500" title={databasePath}>
-            {de.app.database}: {databasePath}
+            {t.app.database}: {databasePath}
           </p>
         </div>
       </footer>

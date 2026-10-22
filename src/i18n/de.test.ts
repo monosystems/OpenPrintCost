@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { de } from "./de";
 
 /**
- * Strukturtest des Wörterbuchs: Jeder Eintrag ist ein nicht-leerer String
- * (oder eine Funktion/verschachteltes Objekt derselben Form). Fängt
- * versehentlich geleerte Texte ab.
+ * Structural test of the dictionary: every entry is a non-empty string
+ * (or a function/nested object of the same shape). Catches accidentally
+ * emptied texts. Cross-locale parity with `en` is covered in
+ * `locales.test.tsx`.
  */
 function assertFilled(value: unknown, path: string): void {
   if (typeof value === "string") {
-    expect(value.length, `leerer Text: ${path}`).toBeGreaterThan(0);
+    expect(value.length, `empty text: ${path}`).toBeGreaterThan(0);
     return;
   }
   if (typeof value === "function") return;
@@ -18,15 +19,15 @@ function assertFilled(value: unknown, path: string): void {
     }
     return;
   }
-  throw new Error(`unerwarteter Wörterbuch-Eintrag: ${path}`);
+  throw new Error(`unexpected dictionary entry: ${path}`);
 }
 
-describe("i18n Wörterbuch", () => {
-  it("enthält nur gefüllte Texte", () => {
+describe("i18n dictionary", () => {
+  it("contains only filled texts", () => {
     assertFilled(de, "de");
   });
 
-  it("deckt alle Bereiche ab", () => {
+  it("covers all sections", () => {
     expect(Object.keys(de)).toEqual(
       expect.arrayContaining([
         "app",

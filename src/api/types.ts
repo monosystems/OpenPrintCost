@@ -3,8 +3,8 @@
  *
  * Regeln:
  * - Feldnamen bleiben `snake_case` wie im JSON der Commands.
- * - Geldbeträge und Messwerte sind **Strings** (Rust-`Decimal` wird als
- *   String serialisiert). Niemals `number` für Geld/Mengen verwenden.
+ * - Money amounts and measurements are **strings** (Rust `Decimal` is
+ *   serialized as string). Never use `number` for money/quantities.
  * - Enums sind kebab-case-Strings wie im Rust-`serde`.
  * - `Option<T>` wird zu `T | null`.
  */
@@ -84,7 +84,7 @@ export interface HourlyRate {
   fixed_rate_override: DecimalString | null;
 }
 
-/** Erzeugt eine zufällige UUID v4 (Browser-nativ). */
+/** Creates a random UUID v4 (browser-native). */
 export function newId(): Uuid {
   return crypto.randomUUID();
 }
@@ -261,8 +261,8 @@ export interface StlInfo {
 // ---------------------------------------------------------------------------
 
 /**
- * Firmendaten für den Reportkopf. Die Oberfläche dazu gehört zu Block 7 —
- * bis dahin wird eine leere `CompanyInfo` übergeben.
+ * Company info for the report header. The UI for it lives in Settings —
+ * an empty `CompanyInfo` is passed until then.
  */
 export interface CompanyInfo {
   name: string;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString, labels } from "../api/format";
-import { de } from "../i18n/de";
+import { formatMoney, isDecimalString } from "../api/format";
+import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
 import {
   ConfirmDialog,
@@ -37,31 +37,32 @@ function emptyPrinter(): Printer {
 
 type Errors = Partial<Record<string, string>>;
 
-function validate(printer: Printer): Errors {
+function validate(printer: Printer, t: Strings): Errors {
   const errors: Errors = {};
-  if (printer.model.trim() === "") errors.model = de.validation.required(de.validation.modelName);
+  if (printer.model.trim() === "") errors.model = t.validation.required(t.validation.modelName);
   for (const [key, label] of [
-    ["power_watts", de.printers.power],
-    ["build_volume_mm3", de.printers.volume],
-    ["purchase_price", de.printers.price],
+    ["power_watts", t.printers.power],
+    ["build_volume_mm3", t.printers.volume],
+    ["purchase_price", t.printers.price],
   ] as const) {
-    if (!isDecimalString(printer[key])) errors[key] = de.validation.decimal(label);
+    if (!isDecimalString(printer[key])) errors[key] = t.validation.decimal(label);
   }
   for (const [key, label] of [
-    ["hourly_rate", de.printers.hourlyRate],
-    ["nozzle_wear_cost", de.printers.nozzle],
-    ["build_plate_wear_cost", de.printers.plate],
-    ["material_change_cost", de.printers.materialChange],
+    ["hourly_rate", t.printers.hourlyRate],
+    ["nozzle_wear_cost", t.printers.nozzle],
+    ["build_plate_wear_cost", t.printers.plate],
+    ["material_change_cost", t.printers.materialChange],
   ] as const) {
     const value = printer[key];
     if (value !== null && value !== "" && !isDecimalString(value)) {
-      errors[key] = de.validation.decimalOrEmpty(label);
+      errors[key] = t.validation.decimalOrEmpty(label);
     }
   }
   return errors;
 }
 
 export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
+  const { t, locale } = useLocale();
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,11 +76,11 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
       setPrinters(await adapter.listPrinters());
       setError(null);
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.printersLoad);
+      setError(error instanceof Error ? error.message : t.errors.printersLoad);
     } finally {
       setLoading(false);
     }
-  }, [adapter]);
+  }, [adapter, t]);
 
   useEffect(() => {
     void reload();
@@ -92,7 +93,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
   const save = async () => {
     if (!editing) return;
-    const errors = validate(editing);
+    const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
     const cleaned: Printer = {
@@ -113,7 +114,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
       setEditing(null);
       await reload();
     } catch (error) {
-      setError(error instanceof Error ? error.message : de.errors.printerSave);
+      setError(error instanceof Error ? error.message : t.errors.printerSave);
     }
   };
 
@@ -125,7 +126,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
       await reload();
     } catch (error) {
       setDeleting(null);
-      setError(error instanceof Error ? error.message : de.errors.printerDelete);
+      setError(error instanceof Error ? error.message : t.errors.printerDelete);
     }
   };
 
@@ -133,20 +134,20 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
   return (
-    <section aria-label={de.printers.title}>
+    <section aria-label={t.printers.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{de.printers.title}</h2>
+        <h2 className="text-xl font-semibold text-slate-100">{t.printers.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
-          {de.printers.newButton}
+          {t.printers.newButton}
         </PrimaryButton>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{de.common.loading}</p>
+        <p className="text-sm text-slate-400">{t.common.loading}</p>
       ) : printers.length === 0 ? (
-        <EmptyState message={de.printers.empty} />
+        <EmptyState message={t.printers.empty} />
       ) : (
         <ul className="space-y-2">
           {printers.map((printer) => (
@@ -157,17 +158,17 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
               <div>
                 <p className="font-medium text-slate-100">{printer.model}</p>
                 <p className="text-xs text-slate-400">
-                  {labels.process[printer.process]} · {labels.family[printer.material_family]} ·{" "}
-                  {formatMoney(printer.power_watts)} W
-                  {printer.hourly_rate ? ` · ${formatMoney(printer.hourly_rate)} €/h` : ""}
+                  {t.domain.process[printer.process]} · {t.domain.family[printer.material_family]} ·{" "}
+                  {formatMoney(printer.power_watts, locale)} W
+                  {printer.hourly_rate ? ` · ${formatMoney(printer.hourly_rate, locale)} €/h` : ""}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <SecondaryButton type="button" onClick={() => { setEditing({ ...printer }); setFormErrors({}); }}>
-                  {de.common.edit}
+                  {t.common.edit}
                 </SecondaryButton>
                 <DangerButton type="button" onClick={() => setDeleting(printer)}>
-                  {de.common.delete}
+                  {t.common.delete}
                 </DangerButton>
               </div>
             </li>
@@ -176,56 +177,56 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={printers.some((p) => p.id === editing.id) ? de.printers.editTitle : de.printers.newTitle} onClose={() => setEditing(null)}>
+        <Modal title={printers.some((p) => p.id === editing.id) ? t.printers.editTitle : t.printers.newTitle} onClose={() => setEditing(null)}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label={`${de.printers.model} *`} error={formErrors.model}>
-              <TextInput value={editing.model} onChange={(e) => set("model", e.target.value)} placeholder={de.printers.modelExample} />
+            <Field label={`${t.printers.model} *`} error={formErrors.model}>
+              <TextInput value={editing.model} onChange={(e) => set("model", e.target.value)} placeholder={t.printers.modelExample} />
             </Field>
-            <Field label={de.printers.manufacturer}>
-              <TextInput value={editing.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} placeholder={de.printers.manufacturerExample} />
+            <Field label={t.printers.manufacturer}>
+              <TextInput value={editing.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} placeholder={t.printers.manufacturerExample} />
             </Field>
-            <Field label={de.printers.process}>
+            <Field label={t.printers.process}>
               <Select
                 value={editing.process}
                 onChange={(v) => set("process", v as PrintProcess)}
-                options={Object.entries(labels.process).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(t.domain.process).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label={de.printers.materialFamily}>
+            <Field label={t.printers.materialFamily}>
               <Select
                 value={editing.material_family}
                 onChange={(v) => set("material_family", v as MaterialFamily)}
-                options={Object.entries(labels.family).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(t.domain.family).map(([value, label]) => ({ value, label }))}
               />
             </Field>
-            <Field label={`${de.printers.power} *`} error={formErrors.power_watts}>
+            <Field label={`${t.printers.power} *`} error={formErrors.power_watts}>
               <DecimalInput value={editing.power_watts} onChange={(v) => set("power_watts", v)} />
             </Field>
-            <Field label={`${de.printers.volume} *`} error={formErrors.build_volume_mm3}>
+            <Field label={`${t.printers.volume} *`} error={formErrors.build_volume_mm3}>
               <DecimalInput value={editing.build_volume_mm3} onChange={(v) => set("build_volume_mm3", v)} />
             </Field>
-            <Field label={`${de.printers.price} *`} error={formErrors.purchase_price}>
+            <Field label={`${t.printers.price} *`} error={formErrors.purchase_price}>
               <DecimalInput value={editing.purchase_price} onChange={(v) => set("purchase_price", v)} />
             </Field>
-            <Field label={de.printers.hourlyRate} error={formErrors.hourly_rate}>
+            <Field label={t.printers.hourlyRate} error={formErrors.hourly_rate}>
               <DecimalInput value={editing.hourly_rate ?? ""} onChange={(v) => set("hourly_rate", v)} />
             </Field>
-            <Field label={de.printers.nozzle} error={formErrors.nozzle_wear_cost}>
+            <Field label={t.printers.nozzle} error={formErrors.nozzle_wear_cost}>
               <DecimalInput value={editing.nozzle_wear_cost ?? ""} onChange={(v) => set("nozzle_wear_cost", v)} />
             </Field>
-            <Field label={de.printers.plate} error={formErrors.build_plate_wear_cost}>
+            <Field label={t.printers.plate} error={formErrors.build_plate_wear_cost}>
               <DecimalInput value={editing.build_plate_wear_cost ?? ""} onChange={(v) => set("build_plate_wear_cost", v)} />
             </Field>
-            <Field label={de.printers.materialChange} error={formErrors.material_change_cost}>
+            <Field label={t.printers.materialChange} error={formErrors.material_change_cost}>
               <DecimalInput value={editing.material_change_cost ?? ""} onChange={(v) => set("material_change_cost", v)} />
             </Field>
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {de.common.cancel}
+              {t.common.cancel}
             </SecondaryButton>
             <PrimaryButton type="button" onClick={() => void save()}>
-              {de.common.save}
+              {t.common.save}
             </PrimaryButton>
           </div>
         </Modal>
@@ -233,9 +234,9 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
       {deleting ? (
         <ConfirmDialog
-          title={de.common.confirmTitle(de.printers.one)}
-          message={de.common.confirmDeleteMessage(deleting.model)}
-          confirmLabel={de.common.delete}
+          title={t.common.confirmTitle(t.printers.one)}
+          message={t.common.confirmDeleteMessage(deleting.model)}
+          confirmLabel={t.common.delete}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setDeleting(null)}
         />

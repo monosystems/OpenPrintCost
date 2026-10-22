@@ -23,7 +23,7 @@ function printer(): Printer {
 function calculation(usedPrinter: Printer): CalculationInput {
   return {
     id: newId(),
-    project_name: "Gehäuse",
+    project_name: "Enclosure",
     notes: null,
     created_at: null,
     printer: usedPrinter,
@@ -53,8 +53,8 @@ function calculation(usedPrinter: Printer): CalculationInput {
   };
 }
 
-describe("MockPlatformAdapter (Kalkulationen)", () => {
-  it("speichert, listet, lädt und löscht Kalkulationen", async () => {
+describe("MockPlatformAdapter (calculations)", () => {
+  it("saves, lists, loads, and deletes calculations", async () => {
     const adapter = new MockPlatformAdapter();
     const usedPrinter = printer();
     await adapter.saveCalculation(calculation(usedPrinter));
@@ -63,43 +63,43 @@ describe("MockPlatformAdapter (Kalkulationen)", () => {
     expect(list).toHaveLength(1);
     const entry = list[0];
     if (!entry) throw new Error("Eintrag fehlt");
-    expect(entry).toMatchObject({ project_name: "Gehäuse", file_count: 0 });
+    expect(entry).toMatchObject({ project_name: "Enclosure", file_count: 0 });
 
     const loaded = await adapter.getCalculation(entry.id);
     expect(loaded.document.printer.model).toBe("MK4");
 
     await adapter.deleteCalculation(entry.id);
     expect(await adapter.listCalculations()).toHaveLength(0);
-    await expect(adapter.getCalculation(entry.id)).rejects.toThrow(/nicht gefunden/);
+    await expect(adapter.getCalculation(entry.id)).rejects.toThrow(/was not found/);
   });
 
-  it("speichert einen Schnappschuss — spätere Änderungen wirken nicht", async () => {
+  it("stores a snapshot — later changes have no effect", async () => {
     const adapter = new MockPlatformAdapter();
     const input = calculation(printer());
     await adapter.saveCalculation(input);
 
-    // Das übergebene Objekt wird danach verändert …
-    input.project_name = "Verändert";
+    // The passed object is modified afterwards …
+    input.project_name = "Changed";
 
     const list = await adapter.listCalculations();
     const entry = list[0];
     if (!entry) throw new Error("Eintrag fehlt");
     const loaded = await adapter.getCalculation(entry.id);
-    expect(loaded.document.project_name).toBe("Gehäuse");
-    expect(loaded.project_name).toBe("Gehäuse");
+    expect(loaded.document.project_name).toBe("Enclosure");
+    expect(loaded.project_name).toBe("Enclosure");
   });
 
-  it("liefert ein darstellbares Demo-Ergebnis", async () => {
+  it("returns a renderable demo result", async () => {
     const adapter = new MockPlatformAdapter();
     const usedPrinter = printer();
     const input = calculation(usedPrinter);
 
     const result = await adapter.calculate(input);
-    expect(result.project_name).toBe("Gehäuse");
+    expect(result.project_name).toBe("Enclosure");
     expect(result.positions.some((p) => p.group === "total")).toBe(true);
   });
 
-  it("rundet Firmendaten durch den Mock", async () => {
+  it("round-trips company info through the mock", async () => {
     const adapter = new MockPlatformAdapter();
     expect(await adapter.getCompanyInfo()).toMatchObject({ name: "" });
 
@@ -112,7 +112,7 @@ describe("MockPlatformAdapter (Kalkulationen)", () => {
     expect(await adapter.getCompanyInfo()).toMatchObject({ name: "Muster GmbH" });
   });
 
-  it("liefert Demo-Importdaten und Demo-Exportpfade", async () => {    const adapter = new MockPlatformAdapter();
+  it("returns demo import data and demo export paths", async () => {    const adapter = new MockPlatformAdapter();
     const gcode = await adapter.importGcodeFile("demo");
     expect(gcode.used_comments).toBe(true);
     expect(gcode.time_from_comments_hours).toBe("2.5");

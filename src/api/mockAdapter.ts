@@ -1,13 +1,13 @@
 /**
- * Der Mock-Adapter: eine In-Memory-Implementierung des `PlatformAdapter`.
+ * The mock adapter: an in-memory implementation of `PlatformAdapter`.
  *
- * Zwecke:
- * - Browser-Entwicklung ohne Tauri-Binary (`VITE_MOCK_API=1`),
- * - Komponententests (Vitest + Testing Library).
+ * Purposes:
+ * - Browser development without a Tauri binary (`VITE_MOCK_API=1`),
+ * - component tests (Vitest + Testing Library).
  *
- * Die Semantik entspricht dem Rust-Backend: `NotFound`-Fehler bei
- * unbekannten IDs, verwaiste Kategorien sind nicht löschbar (`InUse`),
- * Listen sind alphabetisch sortiert.
+ * Semantics match the Rust backend: `NotFound` errors for unknown IDs,
+ * categories in use cannot be deleted (`InUse`), lists are sorted
+ * alphabetically.
  */
 import { AdapterError, type PlatformAdapter } from "./platform";
 import type {
@@ -29,7 +29,7 @@ import type {
 } from "./types";
 
 function notFound(entity: string, id: Uuid): AdapterError {
-  return new AdapterError(`${entity} mit dieser ID wurde nicht gefunden (${id}).`);
+  return new AdapterError(`${entity} with this ID was not found (${id}).`);
 }
 
 export class MockPlatformAdapter implements PlatformAdapter {
@@ -41,23 +41,23 @@ export class MockPlatformAdapter implements PlatformAdapter {
   private profiles = new Map<Uuid, CalculationProfile>();
   private calculations = new Map<Uuid, { stored: StoredCalculation; updatedAt: string }>();
 
-  // -- Drucker -------------------------------------------------------------
+  // -- Printers -------------------------------------------------------------
   async listPrinters(): Promise<Printer[]> {
     return [...this.printers.values()].sort((a, b) => a.model.localeCompare(b.model));
   }
   async getPrinter(id: Uuid): Promise<Printer> {
     const found = this.printers.get(id);
-    if (!found) throw notFound("Drucker", id);
+    if (!found) throw notFound("Printer", id);
     return structuredClone(found);
   }
   async savePrinter(printer: Printer): Promise<void> {
     this.printers.set(printer.id, structuredClone(printer));
   }
   async deletePrinter(id: Uuid): Promise<void> {
-    if (!this.printers.delete(id)) throw notFound("Drucker", id);
+    if (!this.printers.delete(id)) throw notFound("Printer", id);
   }
 
-  // -- Material ------------------------------------------------------------
+  // -- Materials ------------------------------------------------------------
   async listMaterials(): Promise<Material[]> {
     return [...this.materials.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -73,7 +73,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     if (!this.materials.delete(id)) throw notFound("Material", id);
   }
 
-  // -- Arbeitsschritte -----------------------------------------------------
+  // -- Work steps -----------------------------------------------------
   async listWorkstepCategories(): Promise<WorkstepCategory[]> {
     return [...this.categories.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -84,62 +84,62 @@ export class MockPlatformAdapter implements PlatformAdapter {
     const inUse = [...this.worksteps.values()].some((w) => w.category.id === id);
     if (inUse) {
       throw new AdapterError(
-        "Diese Kategorie wird noch verwendet und kann nicht gelöscht werden.",
+        "This category is still in use and cannot be deleted.",
       );
     }
-    if (!this.categories.delete(id)) throw notFound("Kategorie", id);
+    if (!this.categories.delete(id)) throw notFound("Category", id);
   }
   async listWorksteps(): Promise<Workstep[]> {
     return [...this.worksteps.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
   async getWorkstep(id: Uuid): Promise<Workstep> {
     const found = this.worksteps.get(id);
-    if (!found) throw notFound("Arbeitsschritt", id);
+    if (!found) throw notFound("Work step", id);
     return structuredClone(found);
   }
   async saveWorkstep(workstep: Workstep): Promise<void> {
     if (!this.categories.has(workstep.category.id)) {
-      throw notFound("Kategorie", workstep.category.id);
+      throw notFound("Category", workstep.category.id);
     }
     this.worksteps.set(workstep.id, structuredClone(workstep));
   }
   async deleteWorkstep(id: Uuid): Promise<void> {
-    if (!this.worksteps.delete(id)) throw notFound("Arbeitsschritt", id);
+    if (!this.worksteps.delete(id)) throw notFound("Work step", id);
   }
 
-  // -- Maschinenstundensätze -------------------------------------------------
+  // -- Machine hourly rates -------------------------------------------------
   async listHourlyRates(): Promise<HourlyRate[]> {
     return [...this.rates.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
   async getHourlyRate(id: Uuid): Promise<HourlyRate> {
     const found = this.rates.get(id);
-    if (!found) throw notFound("Stundensatz", id);
+    if (!found) throw notFound("Hourly rate", id);
     return structuredClone(found);
   }
   async saveHourlyRate(rate: HourlyRate): Promise<void> {
     this.rates.set(rate.id, structuredClone(rate));
   }
   async deleteHourlyRate(id: Uuid): Promise<void> {
-    if (!this.rates.delete(id)) throw notFound("Stundensatz", id);
+    if (!this.rates.delete(id)) throw notFound("Hourly rate", id);
   }
 
-  // -- Kalkulationsprofile ---------------------------------------------------
+  // -- Calculation profiles ---------------------------------------------------
   async listCalculationProfiles(): Promise<CalculationProfile[]> {
     return [...this.profiles.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
   async getCalculationProfile(id: Uuid): Promise<CalculationProfile> {
     const found = this.profiles.get(id);
-    if (!found) throw notFound("Kalkulationsprofil", id);
+    if (!found) throw notFound("Calculation profile", id);
     return structuredClone(found);
   }
   async saveCalculationProfile(profile: CalculationProfile): Promise<void> {
     this.profiles.set(profile.id, structuredClone(profile));
   }
   async deleteCalculationProfile(id: Uuid): Promise<void> {
-    if (!this.profiles.delete(id)) throw notFound("Kalkulationsprofil", id);
+    if (!this.profiles.delete(id)) throw notFound("Calculation profile", id);
   }
 
-  // -- Kalkulationen -----------------------------------------------------------
+  // -- Calculations -----------------------------------------------------------
   async listCalculations(): Promise<CalculationSummary[]> {
     return [...this.calculations.values()]
       .map(({ stored, updatedAt }) => ({
@@ -154,7 +154,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
   }
   async getCalculation(id: Uuid): Promise<StoredCalculation> {
     const found = this.calculations.get(id);
-    if (!found) throw notFound("Kalkulation", id);
+    if (!found) throw notFound("Calculation", id);
     return structuredClone(found.stored);
   }
   async saveCalculation(calculation: CalculationInput): Promise<void> {
@@ -172,13 +172,13 @@ export class MockPlatformAdapter implements PlatformAdapter {
     });
   }
   async deleteCalculation(id: Uuid): Promise<void> {
-    if (!this.calculations.delete(id)) throw notFound("Kalkulation", id);
+    if (!this.calculations.delete(id)) throw notFound("Calculation", id);
   }
 
-  // -- Berechnung --------------------------------------------------------------
+  // -- Calculation --------------------------------------------------------------
   /**
-   * Demo-Berechnung für Oberfläche und Tests: spiegelt die Eingabe in ein
-   * plausibles Ergebnis (keine echte Engine — die läuft in `opc-core`).
+   * Demo calculation for UI and tests: mirrors the input into a
+   * plausible result (no real engine — that lives in `opc-core`).
    */
   async calculate(calculation: CalculationInput): Promise<CalculationResult> {
     const positions: CostPosition[] = [];
@@ -203,7 +203,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     positions.push({
       id: crypto.randomUUID(),
       group: "total",
-      label: "Gesamtkosten",
+      label: "Total cost",
       detail: `${total} €`,
       quantity: null,
       unit: null,
@@ -235,9 +235,9 @@ export class MockPlatformAdapter implements PlatformAdapter {
     };
   }
 
-  // -- Datei-Import --------------------------------------------------------------
+  // -- File import --------------------------------------------------------------
   async pickImportFile(_kind: "gcode" | "stl"): Promise<string | null> {
-    // Kein nativer Dialog im Browser — die Demo-Daten kommen direkt.
+    // No native dialog in the browser — demo data is returned directly.
     return null;
   }
   async importGcodeFile(_path: string): Promise<GcodeInfo> {
@@ -261,7 +261,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     };
   }
 
-  // -- Umgebung --------------------------------------------------------------
+  // -- Environment --------------------------------------------------------------
   async getDatabasePath(): Promise<string> {
     return ":memory: (Mock)";
   }
@@ -277,7 +277,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     return "mock-report.xlsx";
   }
 
-  // -- Firmendaten ---------------------------------------------------------------
+  // -- Company info ---------------------------------------------------------------
   private company: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
 
   async getCompanyInfo(): Promise<CompanyInfo> {

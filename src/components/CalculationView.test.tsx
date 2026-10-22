@@ -39,87 +39,87 @@ function seed(adapter: MockPlatformAdapter) {
 }
 
 describe("CalculationView", () => {
-  it("rechnet eine Kalkulation und zeigt das Ergebnis", async () => {
+  it("calculates and shows the result", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "Neue Kalkulation" }));
-    await user.type(screen.getByPlaceholderText("z. B. Gehäuse-Serie"), "Gehäuse-Test");
-    await user.click(screen.getByRole("button", { name: "Datei hinzufügen" }));
+    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Enclosure-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
 
-    const fileCard = (await screen.findByLabelText("Dateiname")).closest("li");
-    if (!fileCard) throw new Error("Dateikarte fehlt");
-    await user.type(within(fileCard).getByLabelText("Dateiname"), "Gehäuse.stl");
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.type(within(fileCard).getByLabelText("File name"), "Enclosure.stl");
 
-    const materialSelect = within(fileCard).getByLabelText("Material wählen");
-    // Material per Option wählen:
+    const materialSelect = within(fileCard).getByLabelText("Choose material");
+    // Select the material via option:
     const options = within(materialSelect).getAllByRole("option");
     const petg = options.find((o) => o.textContent === "PETG");
-    if (!petg) throw new Error("PETG fehlt");
+    if (!petg) throw new Error("PETG missing");
     await user.selectOptions(materialSelect, (petg as HTMLOptionElement).value);
-    await user.click(within(fileCard).getByRole("button", { name: "Hinzufügen" }));
+    await user.click(within(fileCard).getByRole("button", { name: "Add" }));
     await waitFor(() =>
       expect(
-        within(fileCard).getByRole("button", { name: "Material PETG entfernen" }),
+        within(fileCard).getByRole("button", { name: "Remove material PETG" }),
       ).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "Berechnen" }));
-    await waitFor(() => expect(screen.getByText(/Ergebnis:/)).toBeInTheDocument());
-    expect(screen.getByText("Gesamtkosten", { selector: "h4" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
+    expect(screen.getByText("Total cost", { selector: "h4" })).toBeInTheDocument();
   });
 
-  it("übernimmt die GCode-Druckzeit aus dem Import", async () => {
+  it("takes the G-code print time from the import", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "Neue Kalkulation" }));
-    await user.click(screen.getByRole("button", { name: "Datei hinzufügen" }));
+    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
 
-    const fileCard = (await screen.findByLabelText("Dateiname")).closest("li");
-    if (!fileCard) throw new Error("Dateikarte fehlt");
-    await user.click(within(fileCard).getByRole("button", { name: "GCode importieren" }));
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
 
     await waitFor(() =>
-      expect(within(fileCard).getByLabelText("Druckzeit (h)")).toHaveValue("2.5"),
+      expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2.5"),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent(/PrusaSlicer erkannt/);
+    expect(await screen.findByRole("status")).toHaveTextContent(/PrusaSlicer detected/);
   });
 
-  it("exportiert das Ergebnis und zeigt den Pfad", async () => {
+  it("exports the result and shows the path", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "Neue Kalkulation" }));
-    await user.type(screen.getByPlaceholderText("z. B. Gehäuse-Serie"), "Export-Test");
-    await user.click(screen.getByRole("button", { name: "Datei hinzufügen" }));
-    await user.click(screen.getByRole("button", { name: "Berechnen" }));
-    await waitFor(() => expect(screen.getByText(/Ergebnis:/)).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Export-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
     expect(await screen.findByRole("status")).toHaveTextContent("mock-report.pdf");
 
-    await user.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    await user.click(screen.getByRole("button", { name: "Export Excel" }));
     expect(await screen.findByRole("status")).toHaveTextContent("mock-report.xlsx");
 
-    // Der Company-Import ist nur für Typen da — kein ungenutzter Import.
+    // The company import is only for types — no unused import.
     expect(emptyCompany.name).toBe("");
   });
 
-  it("verlangt Projektname und Datei vor der Berechnung", async () => {
+  it("verlangt Project name und Datei vor der Berechnung", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "Neue Kalkulation" }));
-    await user.click(screen.getByRole("button", { name: "Berechnen" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Projektname/);
+    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/project name/i);
   });
 });

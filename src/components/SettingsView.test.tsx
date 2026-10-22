@@ -5,32 +5,32 @@ import { MockPlatformAdapter } from "../api/mockAdapter";
 import { SettingsView } from "./SettingsView";
 
 describe("SettingsView", () => {
-  it("zeigt und speichert Firmendaten", async () => {
+  it("shows and saves company info", async () => {
     const adapter = new MockPlatformAdapter();
     const user = userEvent.setup();
     render(<SettingsView adapter={adapter} />);
 
-    await user.type(screen.getByLabelText("Firmenname"), "Muster GmbH");
-    await user.type(screen.getByLabelText("E-Mail"), "info@example.invalid");
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.type(screen.getByLabelText("Company name"), "Example Ltd");
+    await user.type(screen.getByLabelText("Email"), "info@example.invalid");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("gespeichert"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("saved"));
     expect(await adapter.getCompanyInfo()).toMatchObject({
-      name: "Muster GmbH",
+      name: "Example Ltd",
       email: "info@example.invalid",
     });
   });
 
-  it("lädt gespeicherte Firmendaten", async () => {
+  it("loads saved company info", async () => {
     const adapter = new MockPlatformAdapter();
     await adapter.saveCompanyInfo({
-      name: "Bestehend",
-      street: "Weg 1",
-      zip_city: "12345 Ort",
+      name: "Existing",
+      street: "Main St 1",
+      zip_city: "12345 Town",
       email: "",
     });
     render(<SettingsView adapter={adapter} />);
 
-    await waitFor(() => expect(screen.getByLabelText("Firmenname")).toHaveValue("Bestehend"));
+    await waitFor(() => expect(screen.getByLabelText("Company name")).toHaveValue("Existing"));
   });
 });

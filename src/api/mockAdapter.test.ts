@@ -21,7 +21,7 @@ function printer(model: string): Printer {
 }
 
 describe("MockPlatformAdapter", () => {
-  it("legt Drucker an, liest sie und sortiert alphabetisch", async () => {
+  it("creates printers, reads them, and sorts alphabetically", async () => {
     const adapter = new MockPlatformAdapter();
     await adapter.savePrinter(printer("Zebra"));
     await adapter.savePrinter(printer("Alpha"));
@@ -33,7 +33,7 @@ describe("MockPlatformAdapter", () => {
     expect(await adapter.getPrinter(first.id)).toMatchObject({ model: "Alpha" });
   });
 
-  it("aktualisiert statt zu verdoppeln", async () => {
+  it("updates instead of duplicating", async () => {
     const adapter = new MockPlatformAdapter();
     const first = printer("MK3");
     await adapter.savePrinter(first);
@@ -46,30 +46,30 @@ describe("MockPlatformAdapter", () => {
     expect(only.model).toBe("MK4");
   });
 
-  it("meldet NotFound bei unbekannten IDs", async () => {
+  it("reports NotFound for unknown IDs", async () => {
     const adapter = new MockPlatformAdapter();
-    await expect(adapter.getPrinter(newId())).rejects.toThrow(/nicht gefunden/);
-    await expect(adapter.deletePrinter(newId())).rejects.toThrow(/nicht gefunden/);
-    await expect(adapter.deleteMaterial(newId())).rejects.toThrow(/nicht gefunden/);
+    await expect(adapter.getPrinter(newId())).rejects.toThrow(/was not found/);
+    await expect(adapter.deletePrinter(newId())).rejects.toThrow(/was not found/);
+    await expect(adapter.deleteMaterial(newId())).rejects.toThrow(/was not found/);
   });
 
-  it("gibt gespeicherte Objekte als Kopie zurück", async () => {
+  it("returns stored objects as copies", async () => {
     const adapter = new MockPlatformAdapter();
     const first = printer("MK3");
     await adapter.savePrinter(first);
 
     const loaded = await adapter.getPrinter(first.id);
-    loaded.model = "verändert";
+    loaded.model = "changed";
     expect((await adapter.getPrinter(first.id)).model).toBe("MK3");
   });
 
-  it("verhindert das Löschen benutzter Kategorien", async () => {
+  it("prevents deleting categories in use", async () => {
     const adapter = new MockPlatformAdapter();
-    const category = { id: newId(), name: "Nachbearbeitung", color: null };
+    const category = { id: newId(), name: "Post-processing", color: null };
     await adapter.saveWorkstepCategory(category);
     await adapter.saveWorkstep({
       id: newId(),
-      name: "Entstutzung",
+      name: "Support removal",
       category,
       calculation_type: "per-piece",
       price: "0.5",
@@ -78,22 +78,22 @@ describe("MockPlatformAdapter", () => {
       timing: "other",
     });
 
-    await expect(adapter.deleteWorkstepCategory(category.id)).rejects.toThrow(/noch verwendet/);
+    await expect(adapter.deleteWorkstepCategory(category.id)).rejects.toThrow(/still in use/);
   });
 
-  it("lehnt Arbeitsschritte mit unbekannter Kategorie ab", async () => {
+  it("rejects work steps with unknown category", async () => {
     const adapter = new MockPlatformAdapter();
     await expect(
       adapter.saveWorkstep({
         id: newId(),
-        name: "Waisenkind",
-        category: { id: newId(), name: "Unbekannt", color: null },
+        name: "Orphan",
+        category: { id: newId(), name: "Unknown", color: null },
         calculation_type: "per-piece",
         price: "1",
         quantity: "1",
         duration_hours: "0",
         timing: "other",
       }),
-    ).rejects.toThrow(/nicht gefunden/);
+    ).rejects.toThrow(/was not found/);
   });
 });

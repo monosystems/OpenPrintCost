@@ -1,5 +1,5 @@
 import { formatMoney } from "../api/format";
-import { de } from "../i18n/de";
+import { useLocale, type Strings } from "../i18n";
 import type {
   CalculationFileInput,
   CalculationResult,
@@ -21,19 +21,21 @@ const GROUP_ORDER: CostGroup[] = [
   "total",
 ];
 
-const GROUP_LABELS: Record<CostGroup, string> = {
-  material: de.resultGroups.material,
-  machine: de.resultGroups.machine,
-  energy: de.resultGroups.energy,
-  "process-surcharge": de.resultGroups.processSurcharge,
-  worksteps: de.resultGroups.worksteps,
-  "additional-items": de.resultGroups.additionalItems,
-  "handling-fee": de.resultGroups.handlingFee,
-  "custom-surcharge": de.resultGroups.customSurcharge,
-  margin: de.resultGroups.margin,
-  tax: de.resultGroups.tax,
-  total: de.resultGroups.total,
-};
+function groupLabels(t: Strings): Record<CostGroup, string> {
+  return {
+    material: t.resultGroups.material,
+    machine: t.resultGroups.machine,
+    energy: t.resultGroups.energy,
+    "process-surcharge": t.resultGroups.processSurcharge,
+    worksteps: t.resultGroups.worksteps,
+    "additional-items": t.resultGroups.additionalItems,
+    "handling-fee": t.resultGroups.handlingFee,
+    "custom-surcharge": t.resultGroups.customSurcharge,
+    margin: t.resultGroups.margin,
+    tax: t.resultGroups.tax,
+    total: t.resultGroups.total,
+  };
+}
 
 function fileNameOf(position: CostPosition, files: CalculationFileInput[]): string | null {
   if (!position.file_id) return null;
@@ -47,14 +49,16 @@ export function CalculationResultView({
   result: CalculationResult;
   files: CalculationFileInput[];
 }) {
+  const { t, locale } = useLocale();
+  const labels = groupLabels(t);
   const groups = GROUP_ORDER.filter((group) =>
     result.positions.some((position) => position.group === group),
   );
 
   return (
-    <section aria-label={de.calculation.resultTitle} className="mt-8">
+    <section aria-label={t.calculation.resultTitle} className="mt-8">
       <h3 className="mb-4 text-lg font-semibold text-slate-100">
-        {de.calculation.resultTitle}: {result.project_name}
+        {t.calculation.resultTitle}: {result.project_name}
       </h3>
 
       {groups.map((group) => {
@@ -71,10 +75,10 @@ export function CalculationResultView({
               }`}
             >
               <h4 className={`text-sm font-semibold ${isTotal ? "text-sky-300" : "text-slate-200"}`}>
-                {GROUP_LABELS[group]}
+                {labels[group]}
               </h4>
               <span className={`text-sm font-semibold ${isTotal ? "text-sky-300" : "text-slate-200"}`}>
-                {formatMoney(subtotal.toFixed(2))} €
+                {formatMoney(subtotal.toFixed(2), locale)} €
               </span>
             </div>
             {!isTotal ? (
@@ -88,18 +92,18 @@ export function CalculationResultView({
                           {position.label}
                           {position.is_fail_rate ? (
                             <span className="ml-2 rounded bg-amber-950 px-1.5 py-0.5 text-xs text-amber-300">
-                              {de.calculation.failRateBadge}
+                              {t.calculation.failRateBadge}
                             </span>
                           ) : null}
                         </p>
                         <p className="truncate text-xs text-slate-500">
-                          {[position.detail, file ? `${de.calculation.resultFilePrefix}: ${file}` : null]
+                          {[position.detail, file ? `${t.calculation.resultFilePrefix}: ${file}` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
                       </div>
                       <span className="shrink-0 text-sm tabular-nums text-slate-100">
-                        {formatMoney(position.amount)} €
+                        {formatMoney(position.amount, locale)} €
                       </span>
                     </li>
                   );
@@ -112,20 +116,20 @@ export function CalculationResultView({
 
       <dl className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-xs text-slate-500">{de.calculation.sums.base}</dt>
-          <dd className="font-semibold text-slate-100">{formatMoney(result.base_total)} €</dd>
+          <dt className="text-xs text-slate-500">{t.calculation.sums.base}</dt>
+          <dd className="font-semibold text-slate-100">{formatMoney(result.base_total, locale)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">{de.calculation.sums.margin}</dt>
-          <dd className="font-semibold text-slate-100">{formatMoney(result.margin_total)} €</dd>
+          <dt className="text-xs text-slate-500">{t.calculation.sums.margin}</dt>
+          <dd className="font-semibold text-slate-100">{formatMoney(result.margin_total, locale)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">{de.calculation.sums.tax}</dt>
-          <dd className="font-semibold text-slate-100">{formatMoney(result.tax_total)} €</dd>
+          <dt className="text-xs text-slate-500">{t.calculation.sums.tax}</dt>
+          <dd className="font-semibold text-slate-100">{formatMoney(result.tax_total, locale)} €</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">{de.calculation.sums.total}</dt>
-          <dd className="font-semibold text-sky-400">{formatMoney(result.total)} €</dd>
+          <dt className="text-xs text-slate-500">{t.calculation.sums.total}</dt>
+          <dd className="font-semibold text-sky-400">{formatMoney(result.total, locale)} €</dd>
         </div>
       </dl>
     </section>
