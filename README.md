@@ -1,78 +1,163 @@
-# OpenPrintCost
+<p align="center">
+  <h1 align="center">OpenPrintCost</h1>
+  <p align="center">
+    Free, local-first cost calculator for 3D printing jobs.
+    <br />
+    Material · machine time · energy · labor · margin · tax — transparently itemized, exportable as PDF and Excel.
+  </p>
+  <p align="center">
+    <a href="https://github.com/monosystems/OpenPrintCost/actions/workflows/ci.yml"><img src="https://github.com/monosystems/OpenPrintCost/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="https://github.com/monosystems/OpenPrintCost/releases"><img src="https://img.shields.io/github/v/release/monosystems/OpenPrintCost" alt="Release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0" /></a>
+  </p>
+  <p align="center">
+    <a href="https://github.com/monosystems/OpenPrintCost/releases"><strong>Download</strong></a>
+    ·
+    <a href="#quickstart">Quickstart</a>
+    ·
+    <a href="#how-it-works">How it works</a>
+    ·
+    <a href="#development">Development</a>
+    ·
+    <a href="CONTRIBUTING.md">Contributing</a>
+  </p>
+</p>
 
-**Kostenkalkulation für 3D-Druck-Aufträge — frei, lokal, quelloffen.**
+## What is this?
 
-OpenPrintCost berechnet, was ein 3D-Druck-Auftrag wirklich kostet: Material,
-Maschinenzeit, Energie, Arbeitsschritte, Verbrauchsmittel, Marge und Steuer —
-nachvollziehbar aufgeschlüsselt und als PDF/Excel exportierbar.
+OpenPrintCost answers one question: **what does a 3D print job really cost?**
 
-Die fachliche Ausrichtung folgt dem 3D-Druckkosten-Kalkulator von
-Andreas Reitberger (ar3dp.de). Die Implementierung ist eine **eigenständige
-Eigenentwicklung** unter Apache-2.0-Lizenz; es wurde kein GPL-Code übernommen.
-Die Formelsemantik richtet sich an der Apache-2.0-Bibliothek
-[`3dPrintCostCalculatorSharp`](https://github.com/AndreasReitberger/3dPrintCostCalculatorSharp)
-aus, die Kommentarformate an
-[`GcodeParserSharp`](https://github.com/AndreasReitberger/GcodeParserSharp).
+You define printers, materials, work steps, and hourly rates once. Then, per
+job, you import G-code or STL files, assign materials, add labor and
+surcharges — and get an auditable breakdown per file and for the whole project,
+including failure-rate costing, margin, and tax.
 
-![CI](https://github.com/monosystems/OpenPrintCost/actions/workflows/ci.yml/badge.svg)
+- **Local-first, no account.** No login, no license key, no network calls.
+  Your data lives in a SQLite file in the app directory.
+- **Exact money math.** All amounts are `Decimal` (never `f64`); rounding
+  happens only for display. Amounts are stored as `TEXT` in SQLite.
+- **Traceable.** Every position shows which file it came from; slicer time
+  estimates and geometric fallbacks are distinguishable.
+- **Free and open.** [Apache-2.0](LICENSE), commercial use allowed.
 
-## Funktionen
+> **UI language:** the app UI is currently German. All strings live in one
+> catalog (`src/i18n/de.ts`) shaped for additional locales — an English
+> catalog (`en.ts`) is the next step. Contributions welcome.
 
-* **Stammdaten** — Drucker (Verfahren, Leistung, Verschleißkosten),
-  Materialien (Dichte, Verpackung, Preis), Arbeitsschritte + Kategorien,
-  Maschinenstundensätze (Abschreibung, Zins, Fix-/Variablenkosten),
-  Kalkulationsprofile.
-* **Kalkulationsblatt** — Dateien manuell oder per **GCode-/STL-Import**
-  (PrusaSlicer, OrcaSlicer, BambuStudio, Cura, Simplify3D, IdeaMaker,
-  CraftWare; Kommentarzeit gewinnt, sonst geometrische Simulation),
-  Materialzuordnung, Arbeitsschritte, Zusatzartikel, Zuschläge, Marge,
-  Steuer — alles je Datei plus Projektebene.
-* **Er Ergebnis** — gruppierte Positionen mit Datei-Zuordnung und
-  Fehlerrate-Kennzeichnung, Summen (Basis/Marge/Steuer/Gesamt).
-* **Export** — PDF-Report und Excel-Arbeitsmappe (Positionen, Dateien,
-  Übersicht) über den Dateidialog.
-* **Lokal ohne Konto** — keine Anmeldung, kein Lizenzschlüssel, kein
-  Netzzugriff. SQLite-Datei im Benutzerverzeichnis der App.
-* **Exakt** — alle Geldbeträge als `Decimal` (kein `f64`), gerundet wird erst
-  bei der Anzeige.
+## Features
 
-## Installation
+**Master data (define once, reuse everywhere)**
 
-Fertige Pakete liegen unter
+- Printers (process, power draw, wear costs)
+- Materials (density, spool/packaging, price)
+- Work steps + categories (per-hour, per-piece, per-order; before/after print)
+- Machine hourly rates (depreciation, interest, fixed/variable costs)
+- Calculation profiles
+
+**Job costing (per file + project level)**
+
+- Import **G-code or STL**. Supported slicers: PrusaSlicer, OrcaSlicer,
+  Bambu Studio, Cura, Simplify3D, IdeaMaker, CraftWare.
+- Time source priority: **slicer comment wins**, otherwise geometric
+  simulation from moves and filament use.
+- Material assignment, work steps, extra items, surcharges, margin, and tax —
+  per file and for the whole project.
+- Failure-rate costing and grouped line items with file attribution.
+
+**Export**
+
+- PDF report and Excel workbook (positions, files, summary) via file dialog.
+
+## Screenshots
+
+> TODO: add screenshots (`docs/screenshot-calculation.png`,
+> `docs/screenshot-report.png`). Contributions welcome — see
+> [#issues](https://github.com/monosystems/OpenPrintCost/issues).
+
+## Download
+
+Prebuilt packages are published under
 [GitHub Releases](https://github.com/monosystems/OpenPrintCost/releases):
 
-| System | Paket |
+| OS | Package |
 |---|---|
-| Linux | `.deb` (Debian/Ubuntu) oder `.AppImage` |
-| Windows | `.msi`-Installer |
+| Linux | `.deb` (Debian/Ubuntu) or `.AppImage` |
+| Windows | `.msi` installer |
 | macOS (Apple Silicon) | `.dmg` |
 
-Intel-Macs bauen aus den Quellen (siehe unten).
+Intel Macs: build from source (see [Development](#development)).
 
-## Entwicklung
+## Quickstart
 
-Voraussetzungen: aktuelle Rust-Toolchain (stable), Node.js 22+, systemweit —
-je nach OS zusätzlich die Tauri-Systembibliotheken:
+1. Install the app from
+   [Releases](https://github.com/monosystems/OpenPrintCost/releases) and open it.
+2. Add a **printer** (power in W, wear costs) and a **material** (density,
+   spool weight, price).
+3. On the **Calculation** tab, import a G-code or STL file, assign the
+   material, and add work steps as needed.
+4. Set margin and tax, check the grouped result, and export **PDF** or
+   **Excel**.
 
-| OS | Pakete |
+No configuration files, no server, no sign-up.
+
+## How it works
+
+```text
+G-code / STL → opc-io (parse + simulate) → opc-core (pure costing) → PDF / Excel
+                        SQLite (opc-store) ← Tauri shell (src-tauri) ← React UI (src/)
+```
+
+- **Import:** slicer comments (`; estimated printing time`, filament used,
+  etc.) take precedence. If absent, `opc-io` simulates from moves, extrusion,
+  and travel so you still get a time and volume estimate.
+- **Costing:** `opc-core` is the single source of truth — the frontend never
+  computes prices. Money is `Decimal` throughout, serialized as string;
+  IDs are UUID v4.
+- **Persistence:** `opc-store` exposes a trait (`Port`) with SQLite and
+  in-memory adapters. Migrations are append-only.
+- **Purity rule:** `opc-core`, `opc-io`, and `opc-export` are pure (no IO,
+  no clock, no global state) and compile to `wasm32-unknown-unknown`.
+
+**On correctness:** formula semantics follow the Apache-2.0 library
+[`3dPrintCostCalculatorSharp`](https://github.com/AndreasReitberger/3dPrintCostCalculatorSharp)
+(and comment formats follow
+[`GcodeParserSharp`](https://github.com/AndreasReitberger/GcodeParserSharp)).
+Known reference bugs — notably double-counted material on multi-material
+files — were **deliberately not reproduced**. See `docs-intern/spec 0001 §10`.
+
+## Tech stack
+
+- [Tauri v2](https://tauri.app) shell + SQLite store
+- Rust workspace: `opc-core` (costing), `opc-store` (persistence),
+  `opc-io` (file import), `opc-export` (PDF/Excel)
+- React + TypeScript + Vite + Tailwind CSS frontend (Talks to Tauri only
+  through one `PlatformAdapter`)
+
+## Development
+
+Prerequisites: current stable Rust toolchain, Node.js 22. For the Tauri
+desktop build you additionally need the OS webview libraries:
+
+| OS | Packages |
 |---|---|
 | Ubuntu/Debian | `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev` |
-| Windows | WebView2 (vorinstalliert), [Rust](https://rustup.rs), Node.js |
+| Windows | WebView2 (preinstalled), [Rust](https://rustup.rs), Node.js |
 | macOS | Xcode Command Line Tools, Rust, Node.js |
 
 ```bash
 git clone https://github.com/monosystems/OpenPrintCost
 cd OpenPrintCost
+npm install
 
-# Oberfläche (Browser, ohne Tauri-Binary — Mock statt Backend):
+# Fast UI iteration (browser, mock backend instead of Tauri):
 VITE_MOCK_API=1 npm run dev     # → http://localhost:1420
 
-# Desktop-App (braucht die Systembibliotheken von oben):
-npm install && npm run build
+# Full desktop app (requires the system libraries above):
+npm run build
 cargo build -p openprintcost
 ```
 
-Gates vor jedem Commit (siehe [CONTRIBUTING.md](CONTRIBUTING.md)):
+Gates before every commit (see [CONTRIBUTING.md](CONTRIBUTING.md)):
 
 ```bash
 npm run typecheck && npm run lint && npm test -- --run && npm run build
@@ -81,49 +166,32 @@ cargo clippy --all-targets -- -D warnings
 cargo test --locked
 ```
 
-Die Tauri-Crate baut lokal nur mit den Systembibliotheken; ohne sie läuft
-alles außer `cargo build/clippy -p openprintcost` — dafür gibt es ein
-Docker-Image (`Dockerfile` siehe Verlauf, Ubuntu 24.04 + webkit2gtk).
+Note: the Tauri crate builds locally only **with** the system libraries.
+Without them everything except `cargo build/clippy -p openprintcost` still
+runs — CI covers the Tauri job (see `Dockerfile` history, Ubuntu 24.04 +
+webkit2gtk).
 
-## Architektur
+The detailed technical spec (formula contract, block diagrams, reference
+audits) lives in `docs-intern/` and is **not part of the public repository**.
+Code, README, build, and release pipeline are complete to build,
+understand, and extend the app.
 
-```text
-crates/opc-core/    Rechenkern — pure Kostenberechnung (Decimal, UUID, Result statt Panic)
-crates/opc-store/   Persistenz — Port (Traits) + SQLite-Adapter + In-Memory-Adapter
-crates/opc-io/      Datei-Import — GCode-Parser + STL-Volumen (pure, ohne IO)
-crates/opc-export/  Export — PDF + Excel als pure Funktionen (Bytes rein/raus)
-src-tauri/          Tauri-Hülle — 35 Commands über Arc<dyn Store>, sonst keine Logik
-src/                React + TypeScript + Tailwind — kennt Tauri nur über einen PlatformAdapter
-```
+## Contributing
 
-Zentrale Invarianten:
+Contributions are welcome — please open an issue first for larger changes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup, quality gates,
+and commit conventions, plus the issue/PR templates.
 
-* `opc-core`, `opc-io` und `opc-export` sind **pure** (kein IO, kein Clock,
-  kein globaler Zustand) und kompilieren nach `wasm32-unknown-unknown`.
-* Geld ausschließlich `Decimal`, serialisiert als String.
-* IDs sind UUID v4; Geldbeträge liegen in SQLite als `TEXT` (kein `REAL`).
-* Das Frontend rechnet nicht — einzige Wahrheit ist `opc-core`.
+## Acknowledgments
 
-## Dokumentation
+Domain guidance by the 3D-printing cost calculator of
+[Andreas Reitberger (ar3dp.de)](https://ar3dp.de). This project is an
+**independent implementation** under Apache-2.0 — no GPL code was used.
+Formula semantics and G-code comment formats are inspired by the Apache-2.0
+projects `3dPrintCostCalculatorSharp` and `GcodeParserSharp` (see links
+above).
 
-Die ausführliche technische Spezifikation (Formelvertrag, Blockpläne,
-Referenz-Audits) liegt unter `docs-intern/` und ist **nicht Teil des
-öffentlichen Repositories**. Was du hier siehst — Code, README,
-CONTRIBUTING, Build- und Release-Pipeline — ist vollständig und genügt,
-um die App zu bauen, zu verstehen und zu erweitern.
+## License
 
-**Hinweis zu den Formeln:** Die Formelsemantik orientiert sich an der
-Apache-2.0-Bibliothek `3dPrintCostCalculatorSharp`. Bekannte Fehler der
-Referenz (insbesondere die doppelte Materialberechnung bei Multi-Material-
-Dateien) wurden **nicht** nachgebildet. Details in Spec 0001, Abschnitt 10.
-
-## Mitmachen
-
-Beiträge sind willkommen — siehe [CONTRIBUTING.md](CONTRIBUTING.md) und die
-Issue-/PR-Templates. Bitte erst ein Issue anlegen, bevor du größere
-Änderungen beginnst.
-
-## Lizenz
-
-[Apache-2.0](LICENSE) — mit ausdrücklichem Patentschutz und uneingeschränkter
-kommerzieller Nutzbarkeit.
+[Apache-2.0](LICENSE) — with explicit patent grant and unrestricted
+commercial use.
