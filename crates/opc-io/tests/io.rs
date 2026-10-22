@@ -306,6 +306,35 @@ fn relativpositionierung_wirkt_auf_alle_achsen() {
 }
 
 #[test]
+fn mengen_verlassen_die_crate_als_decimal_string() {
+    let info = parse_gcode("G1 X10 F1200\n").expect("muss parsen");
+    let json = serde_json::to_string(&info).expect("muss serialisieren");
+
+    assert!(
+        json.contains("\"simulated_time_hours\":\""),
+        "Decimal muss als String serialisiert werden: {json}"
+    );
+
+    let info = parse_stl(&to_binary_stl(&cube_triangles(10.0))).expect("muss parsen");
+    let json = serde_json::to_string(&info).expect("muss serialisieren");
+    assert!(
+        json.contains("\"volume_cm3\":\"1\""),
+        "Volumen muss exakt als String serialisiert werden: {json}"
+    );
+}
+
+#[test]
+fn unlesbare_woerter_vergiften_die_simulation_nicht() {
+    // "X" ohne Wert und "Eabc" werden ignoriert; die Fahrt zählt trotzdem.
+    let info =
+        parse_gcode("G1 X10 Y0 F1200\nG1 X Y0\nG1 Eabc\nG1 X20 Y0 E2\n").expect("muss parsen");
+
+    // 10 mm + 10 mm bei F1200 = 1 s; E = 2 mm.
+    assert_eq!(info.simulated_time_hours, dec!(1) / dec!(3600));
+    assert_eq!(info.filaments[0].length_mm, dec!(2));
+}
+
+#[test]
 fn leere_eingabe_ist_ein_fehler() {
     let error = parse_gcode("  \n").expect_err("muss fehlschlagen");
     assert_eq!(error, opc_io::IoError::Empty);

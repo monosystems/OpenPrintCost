@@ -10,9 +10,10 @@
 
 use crate::error::{IoError, IoResult};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 /// Ein Dreieck als drei Eckpunkte in Millimetern.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Triangle {
     /// Erster Eckpunkt (x, y, z) in mm.
     pub a: [f64; 3],
@@ -40,7 +41,7 @@ impl Triangle {
 }
 
 /// Ergebnis einer STL-Analyse.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StlInfo {
     /// Volumen in cm³ (Betrag der Tetraeder-Summe).
     pub volume_cm3: Decimal,
@@ -96,7 +97,9 @@ fn parse_binary(bytes: &[u8]) -> IoResult<Vec<Triangle>> {
             message: format!("Binär-STL ist zu kurz ({} Byte)", bytes.len()),
         });
     }
-    let count = u32::from_le_bytes(bytes[80..84].try_into().expect("4 Byte")) as usize;
+    let count = u32::from_le_bytes(bytes[80..84].try_into().map_err(|_| IoError::Corrupt {
+        message: "Binär-STL-Kopf ist unlesbar".to_string(),
+    })?) as usize;
     let expected = 84 + count * 50;
     if bytes.len() < expected {
         return Err(IoError::Corrupt {
@@ -109,10 +112,12 @@ fn parse_binary(bytes: &[u8]) -> IoResult<Vec<Triangle>> {
 
     let mut triangles = Vec::with_capacity(count.min(1_000_000));
     let mut offset = 84;
-    for _ in 0..count {
+    for triangle_index in 0..count {
         let mut floats = [0f32; 12];
         for (index, chunk) in bytes[offset..offset + 48].chunks(4).enumerate() {
-            floats[index] = f32::from_le_bytes(chunk.try_into().expect("4 Byte"));
+            floats[index] = f32::from_le_bytes(chunk.try_into().map_err(|_| IoError::Corrupt {
+                message: format!("Binär-STL: Dreieck {triangle_index} ist abgeschnitten"),
+            })?);
         }
         triangles.push(Triangle {
             a: [

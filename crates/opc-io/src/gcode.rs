@@ -608,7 +608,9 @@ fn simulate(text: &str) -> Simulation {
                 // Setzt Positionen; ohne Argumente wird die E-Referenz genullt.
                 let mut any = false;
                 for part in parts {
-                    let (axis, value) = split_axis(part);
+                    let Some((axis, value)) = split_axis(part) else {
+                        continue;
+                    };
                     match axis {
                         'X' => {
                             x = value;
@@ -640,7 +642,11 @@ fn simulate(text: &str) -> Simulation {
                 let mut has_extrusion = false;
 
                 for part in parts {
-                    let (axis, value) = split_axis(part);
+                    // Unlesbare Wörter (z. B. "X" ohne Wert) werden ignoriert,
+                    // damit ein einzelner Fehler nicht den Rest vergiftet.
+                    let Some((axis, value)) = split_axis(part) else {
+                        continue;
+                    };
                     match axis {
                         'X' => {
                             target.0 = if xyz_absolute { value } else { x + value };
@@ -708,9 +714,15 @@ fn simulate(text: &str) -> Simulation {
 }
 
 /// Zerlegt ein Wort wie `X12.5` in Achse und Wert.
-fn split_axis(word: &str) -> (char, f64) {
+///
+/// Gibt `None` zurück, wenn das Wort keine Zahl trägt — der Aufrufer
+/// ignoriert es, statt `NaN` in die Positionsführung zu tragen.
+fn split_axis(word: &str) -> Option<(char, f64)> {
     let mut chars = word.chars();
-    let axis = chars.next().unwrap_or(' ').to_ascii_uppercase();
-    let value = chars.as_str().parse::<f64>().unwrap_or(f64::NAN);
-    (axis, value)
+    let axis = chars.next()?.to_ascii_uppercase();
+    if !axis.is_ascii_alphabetic() {
+        return None;
+    }
+    let value = chars.as_str().parse::<f64>().ok()?;
+    Some((axis, value))
 }
