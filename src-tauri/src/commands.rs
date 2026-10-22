@@ -308,3 +308,32 @@ pub fn calculate(calculation: CalculationInput) -> CommandResult<CalculationResu
 pub fn database_path(state: State<'_, AppState>) -> CommandResult<String> {
     Ok(state.database_path.to_string_lossy().to_string())
 }
+
+// ---------------------------------------------------------------------------
+// Datei-Import
+// ---------------------------------------------------------------------------
+
+/// Liest eine GCode-Datei vom Pfad und liefert Druckzeit + Filamentverbrauch.
+///
+/// Das Backend liest die Datei selbst, damit Binär- und Großdateien nicht
+/// durch die JSON-Grenze müssen (Spec 0009).
+#[tauri::command]
+pub fn import_gcode_file(path: String) -> CommandResult<opc_io::GcodeInfo> {
+    let text = std::fs::read_to_string(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{path}' konnte nicht gelesen werden: {error}"
+        ))
+    })?;
+    opc_io::parse_gcode(&text).map_err(CommandError::from)
+}
+
+/// Liest eine STL-Datei vom Pfad und liefert Volumen + Dreieckszahl.
+#[tauri::command]
+pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
+    let bytes = std::fs::read(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{path}' konnte nicht gelesen werden: {error}"
+        ))
+    })?;
+    opc_io::parse_stl(&bytes).map_err(CommandError::from)
+}

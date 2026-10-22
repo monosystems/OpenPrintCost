@@ -6,11 +6,19 @@
  * String — exakt wie die Rust-Seite sie erwartet.
  */
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { AdapterError, type PlatformAdapter } from "./platform";
 import type {
+  CalculationInput,
+  CalculationProfile,
+  CalculationResult,
+  CalculationSummary,
+  GcodeInfo,
   HourlyRate,
   Material,
   Printer,
+  StoredCalculation,
+  StlInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -101,5 +109,58 @@ export class TauriPlatformAdapter implements PlatformAdapter {
 
   getDatabasePath(): Promise<string> {
     return call("database_path");
+  }
+
+  listCalculationProfiles(): Promise<CalculationProfile[]> {
+    return call("list_calculation_profiles");
+  }
+  getCalculationProfile(id: Uuid): Promise<CalculationProfile> {
+    return call("get_calculation_profile", { id });
+  }
+  saveCalculationProfile(profile: CalculationProfile): Promise<void> {
+    return call("save_calculation_profile", { profile });
+  }
+  deleteCalculationProfile(id: Uuid): Promise<void> {
+    return call("delete_calculation_profile", { id });
+  }
+
+  listCalculations(): Promise<CalculationSummary[]> {
+    return call("list_calculations");
+  }
+  getCalculation(id: Uuid): Promise<StoredCalculation> {
+    return call("get_calculation", { id });
+  }
+  saveCalculation(calculation: CalculationInput): Promise<void> {
+    return call("save_calculation", { calculation });
+  }
+  deleteCalculation(id: Uuid): Promise<void> {
+    return call("delete_calculation", { id });
+  }
+
+  calculate(calculation: CalculationInput): Promise<CalculationResult> {
+    return call("calculate", { calculation });
+  }
+
+  async pickImportFile(kind: "gcode" | "stl"): Promise<string | null> {
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [
+          kind === "gcode"
+            ? { name: "GCode", extensions: ["gcode", "gco", "g"] }
+            : { name: "STL", extensions: ["stl"] },
+        ],
+      });
+      return typeof selected === "string" ? selected : null;
+    } catch (error) {
+      throw toError(error);
+    }
+  }
+  importGcodeFile(path: string): Promise<GcodeInfo> {
+    return call("import_gcode_file", { path });
+  }
+  importStlFile(path: string): Promise<StlInfo> {
+    return call("import_stl_file", { path });
   }
 }

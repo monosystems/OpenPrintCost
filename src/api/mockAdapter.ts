@@ -11,9 +11,17 @@
  */
 import { AdapterError, type PlatformAdapter } from "./platform";
 import type {
+  CalculationInput,
+  CalculationProfile,
+  CalculationResult,
+  CalculationSummary,
+  CostPosition,
+  GcodeInfo,
   HourlyRate,
   Material,
   Printer,
+  StoredCalculation,
+  StlInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -29,6 +37,8 @@ export class MockPlatformAdapter implements PlatformAdapter {
   private categories = new Map<Uuid, WorkstepCategory>();
   private worksteps = new Map<Uuid, Workstep>();
   private rates = new Map<Uuid, HourlyRate>();
+  private profiles = new Map<Uuid, CalculationProfile>();
+  private calculations = new Map<Uuid, { stored: StoredCalculation; updatedAt: string }>();
 
   // -- Drucker -------------------------------------------------------------
   async listPrinters(): Promise<Printer[]> {
@@ -115,5 +125,143 @@ export class MockPlatformAdapter implements PlatformAdapter {
   // -- Umgebung --------------------------------------------------------------
   async getDatabasePath(): Promise<string> {
     return ":memory: (Mock)";
+  }
+
+  // -- Kalkulationsprofile ---------------------------------------------------
+  async listCalculationProfiles(): Promise<CalculationProfile[]> {
+    return [...this.profiles.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  async getCalculationProfile(id: Uuid): Promise<CalculationProfile> {
+    const found = this.profiles.get(id);
+    if (!found) throw notFound("Kalkulationsprofil", id);
+    return structuredClone(found);
+  }
+  async saveCalculationProfile(profile: CalculationProfile): Promise<void> {
+    this.profiles.set(profile.id, structuredClone(profile));
+  }
+  async deleteCalculationProfile(id: Uuid): Promise<void> {
+    if (!this.profiles.delete(id)) throw notFound("Kalkulationsprofil", id);
+  }
+
+  // -- Kalkulationen -----------------------------------------------------------
+  async listCalculations(): Promise<CalculationSummary[]> {
+    return [...this.calculations.values()]
+      .map(({ stored, updatedAt }) => ({
+        id: stored.id,
+        project_name: stored.project_name,
+        created_at: stored.created_at,
+        updated_at: updatedAt,
+        file_count: stored.document.files.length,
+        total_quantity: stored.document.files.reduce((sum, file) => sum + file.quantity, 0),
+      }))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+  async getCalculation(id: Uuid): Promise<StoredCalculation> {
+    const found = this.calculations.get(id);
+    if (!found) throw notFound("Kalkulation", id);
+    return structuredClone(found.stored);
+  }
+  async saveCalculation(calculation: CalculationInput): Promise<void> {
+    const now = new Date().toISOString();
+    const existing = this.calculations.get(calculation.id);
+    this.calculations.set(calculation.id, {
+      stored: {
+        id: calculation.id,
+        project_name: calculation.project_name,
+        created_at: existing?.stored.created_at ?? now,
+        updated_at: now,
+        document: structuredClone(calculation),
+      },
+      updatedAt: now,
+    });
+  }
+  async deleteCalculation(id: Uuid): Promise<void> {
+    if (!this.calculations.delete(id)) throw notFound("Kalkulation", id);
+  }
+
+  // -- Berechnung --------------------------------------------------------------
+  /**
+   * Demo-Berechnung für Oberfläche und Tests: spiegelt die Eingabe in ein
+   * plausibles Ergebnis (keine echte Engine — die läuft in `opc-core`).
+   */
+  async calculate(calculation: CalculationInput): Promise<CalculationResult> {
+    const positions: CostPosition[] = [];
+    for (const file of calculation.files) {
+      for (const entry of file.materials) {
+        positions.push({
+          id: crypto.randomUUID(),
+          group: "material",
+          label: entry.material.name,
+          detail: "Demo",
+          quantity: "1",
+          unit: "g",
+          amount: "1.00",
+          file_id: file.id,
+          source_id: entry.material.id,
+          is_fail_rate: false,
+          excluded_from_margin: false,
+        });
+      }
+    }
+    const total = positions.length.toFixed(2);
+    positions.push({
+      id: crypto.randomUUID(),
+      group: "total",
+      label: "Gesamtkosten",
+      detail: `${total} €`,
+      quantity: null,
+      unit: null,
+      amount: total,
+      file_id: null,
+      source_id: null,
+      is_fail_rate: false,
+      excluded_from_margin: false,
+    });
+    return {
+      id: calculation.id,
+      project_name: calculation.project_name,
+      created_at: calculation.created_at,
+      positions,
+      base_total: total,
+      margin_total: "0",
+      tax_total: "0",
+      total,
+      machine_hour_rate: "0",
+      files: calculation.files.map((file) => ({
+        file_id: file.id,
+        file_name: file.file_name,
+        quantity: file.quantity,
+        print_time_hours: file.print_time_hours,
+        print_time_hours_fail: "0",
+        material_g: "0",
+        material_g_fail: "0",
+      })),
+    };
+  }
+
+  // -- Datei-Import --------------------------------------------------------------
+  async pickImportFile(_kind: "gcode" | "stl"): Promise<string | null> {
+    // Kein nativer Dialog im Browser — die Demo-Daten kommen direkt.
+    return null;
+  }
+  async importGcodeFile(_path: string): Promise<GcodeInfo> {
+    return {
+      time_from_comments_hours: "2.5",
+      simulated_time_hours: "2.6",
+      used_comments: true,
+      filaments: [{ length_mm: "1200", diameter_mm: "1.75", volume_mm3: "2886.34" }],
+      layer_count: 120,
+      detected_slicer: "PrusaSlicer",
+    };
+  }
+  async importStlFile(_path: string): Promise<StlInfo> {
+    return {
+      volume_cm3: "12.4",
+      triangle_count: 512,
+      bounding_box_mm: [
+        [0, 0, 0],
+        [40, 30, 25],
+      ],
+    };
   }
 }

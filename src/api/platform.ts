@@ -6,9 +6,16 @@
  * importieren. Tests und Browser-Entwicklung laufen gegen `mockAdapter.ts`.
  */
 import type {
+  CalculationInput,
+  CalculationProfile,
+  CalculationResult,
+  CalculationSummary,
+  GcodeInfo,
   HourlyRate,
   Material,
   Printer,
+  StoredCalculation,
+  StlInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -52,4 +59,28 @@ export interface PlatformAdapter {
 
   // -- Umgebung --------------------------------------------------------------
   getDatabasePath(): Promise<string>;
+
+  // -- Kalkulationsprofile ---------------------------------------------------
+  listCalculationProfiles(): Promise<CalculationProfile[]>;
+  getCalculationProfile(id: Uuid): Promise<CalculationProfile>;
+  saveCalculationProfile(profile: CalculationProfile): Promise<void>;
+  deleteCalculationProfile(id: Uuid): Promise<void>;
+
+  // -- Kalkulationen -----------------------------------------------------------
+  listCalculations(): Promise<CalculationSummary[]>;
+  getCalculation(id: Uuid): Promise<StoredCalculation>;
+  saveCalculation(calculation: CalculationInput): Promise<void>;
+  deleteCalculation(id: Uuid): Promise<void>;
+
+  // -- Berechnung --------------------------------------------------------------
+  calculate(calculation: CalculationInput): Promise<CalculationResult>;
+
+  // -- Datei-Import --------------------------------------------------------------
+  /**
+   * Öffnet einen Dateidialog und liefert den gewählten Pfad (oder `null`
+   * bei Abbruch). Nur im Tauri-Betrieb; der Mock liefert immer `null`.
+   */
+  pickImportFile(kind: "gcode" | "stl"): Promise<string | null>;
+  importGcodeFile(path: string): Promise<GcodeInfo>;
+  importStlFile(path: string): Promise<StlInfo>;
 }

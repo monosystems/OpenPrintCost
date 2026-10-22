@@ -42,6 +42,12 @@ impl From<opc_core::CalcError> for CommandError {
     }
 }
 
+impl From<opc_io::IoError> for CommandError {
+    fn from(error: opc_io::IoError) -> Self {
+        Self::new(error.to_string())
+    }
+}
+
 impl From<uuid::Error> for CommandError {
     fn from(error: uuid::Error) -> Self {
         Self::new(format!("Ungültige ID: {error}"))

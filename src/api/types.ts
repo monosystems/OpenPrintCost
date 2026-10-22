@@ -88,3 +88,171 @@ export interface HourlyRate {
 export function newId(): Uuid {
   return crypto.randomUUID();
 }
+
+// ---------------------------------------------------------------------------
+// Kalkulation (Eingabe)
+// ---------------------------------------------------------------------------
+
+export type HandlingFeeScope = "per-file" | "once";
+export type SurchargeTiming = "before-margin" | "after-margin";
+
+export interface CalculationProfile {
+  id: Uuid;
+  name: string;
+  fail_rate_percent: DecimalString;
+  tax_rate_percent: DecimalString;
+  margin_percent: DecimalString;
+  handling_fee: DecimalString;
+  handling_fee_scope: HandlingFeeScope;
+  energy_price_per_kwh: DecimalString;
+  apply_energy_costs: boolean;
+  power_level_percent: DecimalString;
+  combine_materials: boolean;
+  multiply_print_time_with_quantity: boolean;
+  print_time_factor: DecimalString;
+  exclude_machine_from_margin: boolean;
+  exclude_material_from_margin: boolean;
+  exclude_worksteps_from_margin: boolean;
+}
+
+export interface FileMaterial {
+  material: Material;
+  weight_g: DecimalString | null;
+}
+
+export interface CalculationFileInput {
+  id: Uuid;
+  file_name: string;
+  quantity: number;
+  print_time_hours: DecimalString;
+  volume_cm3: DecimalString | null;
+  weight_g: DecimalString | null;
+  materials: FileMaterial[];
+  material_changes: number;
+  multiply_print_time_with_quantity: boolean | null;
+}
+
+export interface AdditionalItem {
+  id: Uuid;
+  name: string;
+  price: DecimalString;
+  quantity: DecimalString;
+  file_id: Uuid | null;
+}
+
+export interface CustomSurcharge {
+  id: Uuid;
+  name: string;
+  percent: DecimalString;
+  timing: SurchargeTiming;
+}
+
+export interface CalculationInput {
+  id: Uuid;
+  project_name: string;
+  notes: string | null;
+  created_at: string | null;
+  printer: Printer;
+  profile: CalculationProfile;
+  hourly_rate: HourlyRate | null;
+  worksteps: Workstep[];
+  additional_items: AdditionalItem[];
+  custom_surcharges: CustomSurcharge[];
+  files: CalculationFileInput[];
+}
+
+// ---------------------------------------------------------------------------
+// Kalkulation (Ergebnis)
+// ---------------------------------------------------------------------------
+
+export type CostGroup =
+  | "material"
+  | "machine"
+  | "energy"
+  | "process-surcharge"
+  | "worksteps"
+  | "additional-items"
+  | "handling-fee"
+  | "custom-surcharge"
+  | "margin"
+  | "tax"
+  | "total";
+
+export interface CostPosition {
+  id: Uuid;
+  group: CostGroup;
+  label: string;
+  detail: string | null;
+  quantity: DecimalString | null;
+  unit: string | null;
+  amount: DecimalString;
+  file_id: Uuid | null;
+  source_id: Uuid | null;
+  is_fail_rate: boolean;
+  excluded_from_margin: boolean;
+}
+
+export interface FileSummary {
+  file_id: Uuid;
+  file_name: string;
+  quantity: number;
+  print_time_hours: DecimalString;
+  print_time_hours_fail: DecimalString;
+  material_g: DecimalString;
+  material_g_fail: DecimalString;
+}
+
+export interface CalculationResult {
+  id: Uuid;
+  project_name: string;
+  created_at: string | null;
+  positions: CostPosition[];
+  base_total: DecimalString;
+  margin_total: DecimalString;
+  tax_total: DecimalString;
+  total: DecimalString;
+  machine_hour_rate: DecimalString;
+  files: FileSummary[];
+}
+
+export interface CalculationSummary {
+  id: Uuid;
+  project_name: string;
+  created_at: string;
+  updated_at: string;
+  file_count: number;
+  total_quantity: number;
+}
+
+export interface StoredCalculation {
+  id: Uuid;
+  project_name: string;
+  created_at: string;
+  updated_at: string;
+  document: CalculationInput;
+}
+
+// ---------------------------------------------------------------------------
+// Datei-Import
+// ---------------------------------------------------------------------------
+
+export interface FilamentUsage {
+  length_mm: DecimalString;
+  diameter_mm: DecimalString;
+  volume_mm3: DecimalString;
+}
+
+export interface GcodeInfo {
+  time_from_comments_hours: DecimalString | null;
+  simulated_time_hours: DecimalString;
+  used_comments: boolean;
+  filaments: FilamentUsage[];
+  layer_count: number | null;
+  detected_slicer: string | null;
+}
+
+export interface StlInfo {
+  volume_cm3: DecimalString;
+  triangle_count: number;
+  bounding_box_mm: [[number, number, number], [number, number, number]] | null;
+}

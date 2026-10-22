@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import type { PlatformAdapter } from "./api/platform";
+import { CalculationView } from "./components/CalculationView";
 import { HourlyRateView } from "./components/HourlyRateView";
 import { MaterialView } from "./components/MaterialView";
 import { PrinterView } from "./components/PrinterView";
 import { WorkstepView } from "./components/WorkstepView";
 
-type Tab = "printers" | "materials" | "worksteps" | "rates";
+type Tab = "calculation" | "printers" | "materials" | "worksteps" | "rates";
 
 const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
+  { id: "calculation", label: "Kalkulation" },
   { id: "printers", label: "Drucker" },
   { id: "materials", label: "Materialien" },
   { id: "worksteps", label: "Arbeitsschritte" },
@@ -15,7 +17,7 @@ const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
 ];
 
 export function App({ adapter }: { adapter: PlatformAdapter }) {
-  const [tab, setTab] = useState<Tab>("printers");
+  const [tab, setTab] = useState<Tab>("calculation");
   const [databasePath, setDatabasePath] = useState<string>("…");
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+        {tab === "calculation" ? <CalculationView adapter={adapter} /> : null}
         {tab === "printers" ? <PrinterView adapter={adapter} /> : null}
         {tab === "materials" ? <MaterialView adapter={adapter} /> : null}
         {tab === "worksteps" ? <WorkstepView adapter={adapter} /> : null}

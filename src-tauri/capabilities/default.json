@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Standardberechtigungen der OpenPrintCost-Oberfläche",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default"]
 }
