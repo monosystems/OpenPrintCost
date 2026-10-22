@@ -13,7 +13,7 @@ env:
 
 jobs:
   rust:
-    name: Rust — fmt, clippy, test
+    name: Rust — fmt, clippy, test (Kern + Store)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,20 +34,70 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Cache rustup
-        uses: actions/cache@v4
-        with:
-          path: ~/.rustup
-          key: ${{ runner.os }}-rustup-${{ hashFiles('rust-toolchain.toml') }}
-
       - name: Check formatting
+        # Prüft alle Workspace-Member, inklusive src-tauri.
         run: cargo fmt --all --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        # --workspace greift auf default-members zurück (opc-core, opc-store).
+        # src-tauri wird im separaten tauri-Job geprüft.
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --locked
 
-      - name: Build (release)
-        run: cargo build --workspace --release --locked
+      - name: Build (Kern + Store)
+        run: cargo build --locked
+
+  tauri:
+    name: Desktop — Frontend bauen, Tauri prüfen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tauri-Systemabhängigkeiten installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libssl-dev
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Frontend-Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Frontend-Typen prüfen
+        run: npm run typecheck
+
+      - name: Frontend bauen
+        # Erzeugt dist/ — das Tauri als frontendDist einbettet.
+        run: npm run build
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-tauri-
+
+      - name: Clippy (Tauri-Crate)
+        run: cargo clippy -p openprintcost --all-targets --locked -- -D warnings
+
+      - name: Tauri-Binärpaket bauen (debug)
+        # Der Release-Bundle gehört zu Block 8; hier zählt, dass die App
+        # inklusive aller Commands kompiliert und linkt.
+        run: cargo build -p openprintcost --locked
