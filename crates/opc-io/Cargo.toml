@@ -1,0 +1,21 @@
+[package]
+name = "opc-io"
+description = "Datei-Import für OpenPrintCost — GCode-Parser und STL-Volumenberechnung"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+rust_decimal = { version = "1.43.0", features = ["serde-with-str"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+rust_decimal_macros = "1.40.0"
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

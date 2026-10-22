@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/opc-core", "crates/opc-store", "src-tauri"]
+members = ["crates/opc-core", "crates/opc-store", "crates/opc-io", "src-tauri"]
 # Die Desktop-App braucht auf Linux zusätzliche Systembibliotheken
 # (webkit2gtk, gtk3, libsoup). Sie ist deshalb nicht Teil der
 # Standard-Mitglieder: `cargo build` und `cargo test` bleiben damit auf
 # jeder Maschine lauffähig, während `cargo build -p openprintcost` die
 # Desktop-App baut.
-default-members = ["crates/opc-core", "crates/opc-store"]
+default-members = ["crates/opc-core", "crates/opc-store", "crates/opc-io"]
 
 [workspace.package]
 version = "0.1.0"

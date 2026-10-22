@@ -1,0 +1,312 @@
+//! Integrationstests des Datei-Imports.
+//!
+//! Die Sollwerte sind **von Hand nachgerechnet**. Alle Fixtures werden im
+//! Test erzeugt — es liegen keine Dateien auf der Platte (Spec 0002, Block 3).
+
+use opc_io::{parse_gcode, parse_stl};
+use rust_decimal_macros::dec;
+
+// ---------------------------------------------------------------------------
+// STL
+// ---------------------------------------------------------------------------
+
+/// Erzeugt einen Würfel der Kantenlänge `side_mm` als Dreiecksliste.
+///
+/// 12 Dreiecke, 2 je Seite. Die Orientierung ist konsistent nach außen.
+fn cube_triangles(side_mm: f64) -> Vec<opc_io::Triangle> {
+    let s = side_mm;
+    let corners = [
+        [0.0, 0.0, 0.0],
+        [s, 0.0, 0.0],
+        [s, s, 0.0],
+        [0.0, s, 0.0],
+        [0.0, 0.0, s],
+        [s, 0.0, s],
+        [s, s, s],
+        [0.0, s, s],
+    ];
+    // (a, b, c) je Seite, nach außen orientiert.
+    let faces = [
+        (0, 2, 1, 0, 3, 2), // unten (z = 0)
+        (4, 5, 6, 4, 6, 7), // oben (z = s)
+        (0, 1, 5, 0, 5, 4), // vorne (y = 0)
+        (3, 7, 6, 3, 6, 2), // hinten (y = s)
+        (0, 4, 7, 0, 7, 3), // links (x = 0)
+        (1, 2, 6, 1, 6, 5), // rechts (x = s)
+    ];
+    faces
+        .iter()
+        .flat_map(|&(a, b, c, d, e, f)| {
+            [
+                opc_io::Triangle {
+                    a: corners[a],
+                    b: corners[b],
+                    c: corners[c],
+                },
+                opc_io::Triangle {
+                    a: corners[d],
+                    b: corners[e],
+                    c: corners[f],
+                },
+            ]
+        })
+        .collect()
+}
+
+/// Schreibt Dreiecke als binäres STL.
+fn to_binary_stl(triangles: &[opc_io::Triangle]) -> Vec<u8> {
+    let mut bytes = vec![0u8; 80];
+    bytes.extend_from_slice(&(triangles.len() as u32).to_le_bytes());
+    for triangle in triangles {
+        for _ in 0..3 {
+            bytes.extend_from_slice(&0f32.to_le_bytes()); // Normale
+        }
+        for point in [triangle.a, triangle.b, triangle.c] {
+            for coordinate in point {
+                bytes.extend_from_slice(&(coordinate as f32).to_le_bytes());
+            }
+        }
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // Attribut
+    }
+    bytes
+}
+
+/// Schreibt Dreiecke als ASCII-STL.
+fn to_ascii_stl(triangles: &[opc_io::Triangle]) -> String {
+    let mut text = String::from("solid cube\n");
+    for triangle in triangles {
+        text.push_str("  facet normal 0 0 0\n    outer loop\n");
+        for point in [triangle.a, triangle.b, triangle.c] {
+            text.push_str(&format!(
+                "      vertex {} {} {}\n",
+                point[0], point[1], point[2]
+            ));
+        }
+        text.push_str("    endloop\n  endfacet\n");
+    }
+    text.push_str("endsolid cube\n");
+    text
+}
+
+#[test]
+fn binaeres_stl_eines_wuerfels_hat_exaktes_volumen() {
+    // Würfel 10 mm × 10 mm × 10 mm = 1000 mm³ = 1 cm³.
+    let bytes = to_binary_stl(&cube_triangles(10.0));
+    let info = parse_stl(&bytes).expect("muss parsen");
+
+    assert_eq!(info.volume_cm3, dec!(1));
+    assert_eq!(info.triangle_count, 12);
+    assert_eq!(
+        info.bounding_box_mm,
+        Some(([0.0, 0.0, 0.0], [10.0, 10.0, 10.0]))
+    );
+}
+
+#[test]
+fn ascii_stl_eines_wuerfels_hat_exaktes_volumen() {
+    // Würfel 20 mm Kantenlänge = 8000 mm³ = 8 cm³.
+    let text = to_ascii_stl(&cube_triangles(20.0));
+    let info = parse_stl(text.as_bytes()).expect("muss parsen");
+
+    assert_eq!(info.volume_cm3, dec!(8));
+    assert_eq!(info.triangle_count, 12);
+}
+
+#[test]
+fn binaer_und_ascii_liefern_dasselbe_volumen() {
+    let triangles = cube_triangles(15.0);
+    let from_binary = parse_stl(&to_binary_stl(&triangles)).unwrap();
+    let from_ascii = parse_stl(to_ascii_stl(&triangles).as_bytes()).unwrap();
+
+    // 15³ mm³ = 3375 mm³ = 3,375 cm³.
+    assert_eq!(from_binary.volume_cm3, dec!(3.375));
+    // ASCII rundet über die Textdarstellung — Toleranz eine Stelle weiter.
+    assert!((from_ascii.volume_cm3 - dec!(3.375)).abs() < dec!(0.001));
+}
+
+#[test]
+fn leere_datei_ist_ein_fehler() {
+    let error = parse_stl(&[]).expect_err("muss fehlschlagen");
+    assert_eq!(error, opc_io::IoError::Empty);
+}
+
+#[test]
+fn abgeschnittenes_binaer_stl_ist_ein_fehler() {
+    let mut bytes = to_binary_stl(&cube_triangles(10.0));
+    bytes.truncate(100);
+    let error = parse_stl(&bytes).expect_err("muss fehlschlagen");
+    assert!(matches!(error, opc_io::IoError::Corrupt { .. }));
+}
+
+#[test]
+fn ascii_stl_ohne_dreiecke_ist_ein_fehler() {
+    let error = parse_stl(b"solid leer\nendsolid leer\n").expect_err("muss fehlschlagen");
+    assert!(matches!(error, opc_io::IoError::Corrupt { .. }));
+}
+
+// ---------------------------------------------------------------------------
+// GCode
+// ---------------------------------------------------------------------------
+
+/// Ein PrusaSlicer-GCode mit vollständigen Kommentarzeilen.
+fn prusa_gcode() -> &'static str {
+    "; generated by PrusaSlicer 2.3.0 on 2021-01-01\n\
+     ; filament_diameter = 1.75\n\
+     G28 ; home\n\
+     G1 X10 Y0 E2 F1200\n\
+     G1 X10 Y10 E4\n\
+     ; filament used [mm] = 2810.28\n\
+     ; filament used [cm3] = 6.76\n\
+     ; estimated printing time (normal mode) = 1h 12m 44s\n"
+}
+
+#[test]
+fn prusaslicer_kommentare_gewinnen_gegen_die_simulation() {
+    let info = parse_gcode(prusa_gcode()).expect("muss parsen");
+
+    assert_eq!(info.detected_slicer.as_deref(), Some("PrusaSlicer"));
+    assert!(info.used_comments);
+
+    // 1 h + 12 min + 44 s = 1,21222… h.
+    let expected = dec!(1) + dec!(12) / dec!(60) + dec!(44) / dec!(3600);
+    assert_eq!(info.time_from_comments_hours, Some(expected));
+
+    // Kommentar-Filament gewinnt: 2810,28 mm zu 1,75 mm Durchmesser.
+    assert_eq!(info.filaments.len(), 1);
+    assert_eq!(info.filaments[0].length_mm, dec!(2810.28));
+    assert_eq!(info.filaments[0].diameter_mm, dec!(1.75));
+    let volume = dec!(2810.28) * dec!(2.405281875404685);
+    assert!((info.filaments[0].volume_mm3 - volume).abs() < dec!(0.001));
+
+    // Die Simulation läuft trotzdem als Plausibilitätsanker.
+    assert!(info.simulated_time_hours > dec!(0));
+}
+
+/// Ein Cura-GCode mit TIME- und Filament-Kommentaren.
+fn cura_gcode() -> &'static str {
+    ";FLAVOR:Marlin\n\
+     ;Generated with Cura_SteamEngine 5.6.0\n\
+     ;TIME:19863\n\
+     ;Filament used: 25.3127m\n\
+     ;LAYER_COUNT:600\n\
+     G28\n\
+     G1 X10 Y0 E2 F1200\n"
+}
+
+#[test]
+fn cura_zeit_und_filament_werden_erkannt() {
+    let info = parse_gcode(cura_gcode()).expect("muss parsen");
+
+    assert_eq!(info.detected_slicer.as_deref(), Some("Cura"));
+    assert!(info.used_comments);
+
+    // 19863 s / 3600 = 5,5175 h.
+    assert_eq!(info.time_from_comments_hours, Some(dec!(5.5175)));
+
+    // 25,3127 m = 25312,7 mm.
+    assert_eq!(info.filaments.len(), 1);
+    assert_eq!(info.filaments[0].length_mm, dec!(25312.7));
+
+    assert_eq!(info.layer_count, Some(600));
+}
+
+/// Ein OrcaSlicer-Kopf: Die Gesamtschätzung gewinnt gegen die Modellzeit.
+fn orca_gcode() -> &'static str {
+    "; generated by OrcaSlicer 1.6.2\n\
+     ; model printing time: 8m 6s; total estimated time: 15m 26s\n\
+     ; total layer number: 100\n\
+     G28\n\
+     ; filament used [mm] = 1218.76\n"
+}
+
+#[test]
+fn orcaslicer_gesamtzeit_gewinnt_gegen_modellzeit() {
+    let info = parse_gcode(orca_gcode()).expect("muss parsen");
+
+    assert_eq!(info.detected_slicer.as_deref(), Some("OrcaSlicer"));
+
+    // 15 min + 26 s — nicht 8 min + 6 s.
+    let expected = dec!(15) / dec!(60) + dec!(26) / dec!(3600);
+    assert_eq!(info.time_from_comments_hours, Some(expected));
+    assert_eq!(info.filaments[0].length_mm, dec!(1218.76));
+    assert_eq!(info.layer_count, Some(100));
+}
+
+#[test]
+fn gcode_ohne_kommentare_wird_simuliert() {
+    let info = parse_gcode("G28\nG1 X10 Y0 E2 F1200\nG1 X10 Y10 E4\n").expect("muss parsen");
+
+    assert_eq!(info.detected_slicer, None);
+    assert!(!info.used_comments);
+    assert_eq!(info.time_from_comments_hours, None);
+
+    // 2 × 10 mm bei F1200 (20 mm/s) = 2 × 0,5 s = 1 s = 1/3600 h.
+    assert_eq!(info.simulated_time_hours, dec!(1) / dec!(3600));
+
+    // E: 0 → 2 → 4, also 4 mm.
+    assert_eq!(info.filaments.len(), 1);
+    assert_eq!(info.filaments[0].length_mm, dec!(4));
+    assert_eq!(info.filaments[0].diameter_mm, dec!(1.75));
+
+    // Beide extrusierenden Fahrten liegen auf Z = 0 → eine Schicht.
+    assert_eq!(info.layer_count, Some(1));
+}
+
+#[test]
+fn relative_extrusion_wird_summiert() {
+    let info = parse_gcode("M83\nG1 E1 F1800\nG1 E1\n").expect("muss parsen");
+
+    assert_eq!(info.filaments[0].length_mm, dec!(2));
+    // 2 mm bei F1800 (30 mm/s) = 1/15 s.
+    assert_eq!(info.simulated_time_hours, dec!(1) / dec!(15) / dec!(3600));
+}
+
+#[test]
+fn g92_setzt_die_extrusionsreferenz_zurueck() {
+    let info = parse_gcode("G1 E5 F1800\nG92 E0\nG1 E3\n").expect("muss parsen");
+
+    // 5 mm + 3 mm = 8 mm.
+    assert_eq!(info.filaments[0].length_mm, dec!(8));
+}
+
+#[test]
+fn retraction_wird_nicht_als_verbrauch_gezaehlt() {
+    let info = parse_gcode("G1 E5 F1800\nG1 E3\nG1 E6\n").expect("muss parsen");
+
+    // 5 mm + (6 − 3) mm = 8 mm — der Rückzug (5 → 3) zählt nicht.
+    assert_eq!(info.filaments[0].length_mm, dec!(8));
+}
+
+#[test]
+fn unbekannte_befehle_werden_ignoriert() {
+    let info =
+        parse_gcode("M104 S200\nM140 S60\nG28\nG1 X5 F3000\nM106 S255\n").expect("muss parsen");
+
+    // 5 mm bei F3000 (50 mm/s) = 0,1 s — ohne Extrusion.
+    assert_eq!(info.simulated_time_hours, dec!(1) / dec!(10) / dec!(3600));
+    assert_eq!(info.filaments[0].length_mm, dec!(0));
+    assert_eq!(info.layer_count, None);
+}
+
+#[test]
+fn werkzeugwechsel_trennt_den_verbrauch() {
+    let info = parse_gcode("G1 E5 F1800\nT1\nG1 E7\n").expect("muss parsen");
+
+    assert_eq!(info.filaments.len(), 2);
+    assert_eq!(info.filaments[0].length_mm, dec!(5));
+    assert_eq!(info.filaments[1].length_mm, dec!(7));
+}
+
+#[test]
+fn relativpositionierung_wirkt_auf_alle_achsen() {
+    let info = parse_gcode("G1 X10 F600\nG91\nG1 X10\n").expect("muss parsen");
+
+    // 10 mm + 10 mm bei F600 (10 mm/s) = 2 s.
+    assert_eq!(info.simulated_time_hours, dec!(2) / dec!(3600));
+}
+
+#[test]
+fn leere_eingabe_ist_ein_fehler() {
+    let error = parse_gcode("  \n").expect_err("muss fehlschlagen");
+    assert_eq!(error, opc_io::IoError::Empty);
+}
