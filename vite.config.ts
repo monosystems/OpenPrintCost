@@ -10,7 +10,9 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: false,
+    // Auf allen Interfaces lauschen, damit die Oberfläche auch von einem
+    // anderen Rechner im Netz geöffnet werden kann (mit VITE_MOCK_API=1).
+    host: '0.0.0.0',
   },
   build: {
     outDir: 'dist',
