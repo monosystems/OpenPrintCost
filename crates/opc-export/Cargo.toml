@@ -1,0 +1,25 @@
+[package]
+name = "opc-export"
+description = "Export für OpenPrintCost — PDF-Report und Excel-Arbeitsmappe als pure Funktionen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+opc-core = { path = "../opc-core" }
+printpdf = "0.12"
+rust_decimal = { version = "1.43.0", features = ["serde-with-str"] }
+rust_xlsxwriter = "0.101"
+thiserror = "2"
+
+[dev-dependencies]
+calamine = "0.37"
+printpdf = "0.12"
+rust_decimal_macros = "1.40.0"
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

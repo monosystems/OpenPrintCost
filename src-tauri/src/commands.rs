@@ -337,3 +337,103 @@ pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
     })?;
     opc_io::parse_stl(&bytes).map_err(CommandError::from)
 }
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+/// Firmendaten für den Reportkopf (Block 7 liefert die Oberfläche dazu).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CompanyInfoDto {
+    /// Firmenname.
+    pub name: String,
+    /// Straße und Hausnummer.
+    pub street: String,
+    /// PLZ und Ort.
+    pub zip_city: String,
+    /// E-Mail-Adresse.
+    pub email: String,
+}
+
+/// Rendert das Ergebnis als PDF und speichert es über den Dateidialog.
+///
+/// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
+#[tauri::command]
+pub fn export_result_pdf(
+    app: tauri::AppHandle,
+    result: CalculationResult,
+    company: CompanyInfoDto,
+) -> CommandResult<Option<String>> {
+    let bytes =
+        opc_export::render_pdf(&result, &to_company(&company)).map_err(CommandError::from)?;
+    save_bytes_via_dialog(
+        &app,
+        &bytes,
+        "pdf",
+        "PDF-Dokument",
+        &format!("{}-kalkulation.pdf", result.project_name),
+    )
+}
+
+/// Rendert das Ergebnis als Excel-Arbeitsmappe und speichert es.
+///
+/// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
+#[tauri::command]
+pub fn export_result_excel(
+    app: tauri::AppHandle,
+    result: CalculationResult,
+    company: CompanyInfoDto,
+) -> CommandResult<Option<String>> {
+    let bytes =
+        opc_export::render_excel(&result, &to_company(&company)).map_err(CommandError::from)?;
+    save_bytes_via_dialog(
+        &app,
+        &bytes,
+        "xlsx",
+        "Excel-Arbeitsmappe",
+        &format!("{}-kalkulation.xlsx", result.project_name),
+    )
+}
+
+/// Übersetzt das Transport-DTO in die Export-Firmendaten.
+fn to_company(company: &CompanyInfoDto) -> opc_export::CompanyInfo {
+    opc_export::CompanyInfo {
+        name: company.name.clone(),
+        street: company.street.clone(),
+        zip_city: company.zip_city.clone(),
+        email: company.email.clone(),
+    }
+}
+
+/// Fragt per Speichern-Dialog nach dem Pfad und schreibt die Bytes.
+fn save_bytes_via_dialog(
+    app: &tauri::AppHandle,
+    bytes: &[u8],
+    extension: &str,
+    filter_name: &str,
+    file_name: &str,
+) -> CommandResult<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let path = app
+        .dialog()
+        .file()
+        .add_filter(filter_name, &[extension])
+        .set_file_name(file_name)
+        .blocking_save_file();
+    match path {
+        None => Ok(None),
+        Some(selected) => {
+            let file_path = selected
+                .into_path()
+                .map_err(|error| CommandError::new(format!("Pfad ist ungültig: {error}")))?;
+            std::fs::write(&file_path, bytes).map_err(|error| {
+                CommandError::new(format!(
+                    "Datei '{}' konnte nicht geschrieben werden: {error}",
+                    file_path.display()
+                ))
+            })?;
+            Ok(Some(file_path.to_string_lossy().to_string()))
+        }
+    }
+}

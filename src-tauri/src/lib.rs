@@ -76,6 +76,8 @@ pub fn run() {
             commands::database_path,
             commands::import_gcode_file,
             commands::import_stl_file,
+            commands::export_result_pdf,
+            commands::export_result_excel,
         ])
         .run(tauri::generate_context!())
         .expect("OpenPrintCost konnte nicht gestartet werden");

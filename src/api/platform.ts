@@ -10,6 +10,7 @@ import type {
   CalculationProfile,
   CalculationResult,
   CalculationSummary,
+  CompanyInfo,
   GcodeInfo,
   HourlyRate,
   Material,
@@ -83,4 +84,12 @@ export interface PlatformAdapter {
   pickImportFile(kind: "gcode" | "stl"): Promise<string | null>;
   importGcodeFile(path: string): Promise<GcodeInfo>;
   importStlFile(path: string): Promise<StlInfo>;
+
+  // -- Export ------------------------------------------------------------------
+  /**
+   * Rendert das Ergebnis und speichert es über den Dateidialog.
+   * Gibt den Pfad zurück — oder `null` bei Abbruch des Dialogs.
+   */
+  exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
+  exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
 }

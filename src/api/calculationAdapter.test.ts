@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MockPlatformAdapter } from "./mockAdapter";
-import { newId, type CalculationInput, type Printer } from "./types";
+import { emptyCompany, newId, type CalculationInput, type Printer } from "./types";
 
 function printer(): Printer {
   return {
@@ -99,7 +99,7 @@ describe("MockPlatformAdapter (Kalkulationen)", () => {
     expect(result.positions.some((p) => p.group === "total")).toBe(true);
   });
 
-  it("liefert Demo-Importdaten", async () => {
+  it("liefert Demo-Importdaten und Demo-Exportpfade", async () => {
     const adapter = new MockPlatformAdapter();
     const gcode = await adapter.importGcodeFile("demo");
     expect(gcode.used_comments).toBe(true);
@@ -108,5 +108,10 @@ describe("MockPlatformAdapter (Kalkulationen)", () => {
     const stl = await adapter.importStlFile("demo");
     expect(stl.volume_cm3).toBe("12.4");
     expect(await adapter.pickImportFile("gcode")).toBeNull();
+
+    const input = calculation(printer());
+    const result = await adapter.calculate(input);
+    expect(await adapter.exportResultPdf(result, emptyCompany)).toBe("mock-report.pdf");
+    expect(await adapter.exportResultExcel(result, emptyCompany)).toBe("mock-report.xlsx");
   });
 });

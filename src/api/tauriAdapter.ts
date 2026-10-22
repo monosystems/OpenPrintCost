@@ -13,6 +13,7 @@ import type {
   CalculationProfile,
   CalculationResult,
   CalculationSummary,
+  CompanyInfo,
   GcodeInfo,
   HourlyRate,
   Material,
@@ -162,5 +163,12 @@ export class TauriPlatformAdapter implements PlatformAdapter {
   }
   importStlFile(path: string): Promise<StlInfo> {
     return call("import_stl_file", { path });
+  }
+
+  exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
+    return call("export_result_pdf", { result, company });
+  }
+  exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
+    return call("export_result_excel", { result, company });
   }
 }

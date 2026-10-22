@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MockPlatformAdapter } from "../api/mockAdapter";
-import { newId } from "../api/types";
+import { emptyCompany, newId } from "../api/types";
 import { CalculationView } from "./CalculationView";
 
 function seed(adapter: MockPlatformAdapter) {
@@ -88,6 +88,28 @@ describe("CalculationView", () => {
       expect(within(fileCard).getByLabelText("Druckzeit (h)")).toHaveValue("2.5"),
     );
     expect(await screen.findByRole("status")).toHaveTextContent(/PrusaSlicer erkannt/);
+  });
+
+  it("exportiert das Ergebnis und zeigt den Pfad", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(screen.getByRole("button", { name: "Neue Kalkulation" }));
+    await user.type(screen.getByPlaceholderText("z. B. Gehäuse-Serie"), "Export-Test");
+    await user.click(screen.getByRole("button", { name: "Datei hinzufügen" }));
+    await user.click(screen.getByRole("button", { name: "Berechnen" }));
+    await waitFor(() => expect(screen.getByText(/Ergebnis:/)).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("mock-report.pdf");
+
+    await user.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("mock-report.xlsx");
+
+    // Der Company-Import ist nur für Typen da — kein ungenutzter Import.
+    expect(emptyCompany.name).toBe("");
   });
 
   it("verlangt Projektname und Datei vor der Berechnung", async () => {

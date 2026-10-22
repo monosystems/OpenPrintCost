@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
 import {
+  emptyCompany,
   newId,
   type AdditionalItem,
   type CalculationFileInput,
@@ -186,6 +187,22 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : "Kalkulation konnte nicht gespeichert werden.");
+    }
+  };
+
+  const exportFile = async (kind: "pdf" | "xlsx") => {
+    if (!result) return;
+    try {
+      const path =
+        kind === "pdf"
+          ? await adapter.exportResultPdf(result, emptyCompany)
+          : await adapter.exportResultExcel(result, emptyCompany);
+      setImportHint(
+        path ? `Export gespeichert: ${path}` : "Export abgebrochen — keine Datei geschrieben.",
+      );
+      setError(null);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : "Export ist fehlgeschlagen.");
     }
   };
 
@@ -425,13 +442,23 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
             onChange={(surcharges) => update({ custom_surcharges: surcharges })}
           />
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <PrimaryButton type="button" onClick={() => void calculate()}>
               Berechnen
             </PrimaryButton>
             <SecondaryButton type="button" onClick={() => void save()}>
               Speichern
             </SecondaryButton>
+            {result ? (
+              <>
+                <SecondaryButton type="button" onClick={() => void exportFile("pdf")}>
+                  PDF exportieren
+                </SecondaryButton>
+                <SecondaryButton type="button" onClick={() => void exportFile("xlsx")}>
+                  Excel exportieren
+                </SecondaryButton>
+              </>
+            ) : null}
           </div>
 
           {result ? <CalculationResultView result={result} files={current.files} /> : null}

@@ -14,6 +14,7 @@ import type {
   CalculationInput,
   CalculationProfile,
   CalculationResult,
+  CompanyInfo,
   CalculationSummary,
   CostPosition,
   GcodeInfo,
@@ -120,11 +121,6 @@ export class MockPlatformAdapter implements PlatformAdapter {
   }
   async deleteHourlyRate(id: Uuid): Promise<void> {
     if (!this.rates.delete(id)) throw notFound("Stundensatz", id);
-  }
-
-  // -- Umgebung --------------------------------------------------------------
-  async getDatabasePath(): Promise<string> {
-    return ":memory: (Mock)";
   }
 
   // -- Kalkulationsprofile ---------------------------------------------------
@@ -263,5 +259,21 @@ export class MockPlatformAdapter implements PlatformAdapter {
         [40, 30, 25],
       ],
     };
+  }
+
+  // -- Umgebung --------------------------------------------------------------
+  async getDatabasePath(): Promise<string> {
+    return ":memory: (Mock)";
+  }
+
+  // -- Export ------------------------------------------------------------------
+  async exportResultPdf(_result: CalculationResult, _company: CompanyInfo): Promise<string | null> {
+    return "mock-report.pdf";
+  }
+  async exportResultExcel(
+    _result: CalculationResult,
+    _company: CompanyInfo,
+  ): Promise<string | null> {
+    return "mock-report.xlsx";
   }
 }

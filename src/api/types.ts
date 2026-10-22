@@ -235,7 +235,6 @@ export interface StoredCalculation {
 // ---------------------------------------------------------------------------
 // Datei-Import
 // ---------------------------------------------------------------------------
-
 export interface FilamentUsage {
   length_mm: DecimalString;
   diameter_mm: DecimalString;
@@ -256,3 +255,20 @@ export interface StlInfo {
   triangle_count: number;
   bounding_box_mm: [[number, number, number], [number, number, number]] | null;
 }
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+/**
+ * Firmendaten für den Reportkopf. Die Oberfläche dazu gehört zu Block 7 —
+ * bis dahin wird eine leere `CompanyInfo` übergeben.
+ */
+export interface CompanyInfo {
+  name: string;
+  street: string;
+  zip_city: string;
+  email: string;
+}
+
+export const emptyCompany: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
