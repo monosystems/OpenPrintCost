@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "appimage", "msi", "nsis", "dmg"],
     "category": "Productivity",
     "shortDescription": "Cost calculation for 3D printing jobs",
     "longDescription": "OpenPrintCost calculates the cost of 3D printing jobs: material, machine time, energy, work steps, margin, and tax.",
@@ -38,6 +38,18 @@
       "icons/icon.icns",
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libjavascriptcoregtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1",
+          "librsvg2-2",
+          "libssl3"
+        ]
+      }
+    }
   }
 }

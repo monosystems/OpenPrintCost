@@ -80,13 +80,35 @@ including failure-rate costing, margin, and tax.
 Prebuilt packages are published under
 [GitHub Releases](https://github.com/monosystems/OpenPrintCost/releases):
 
-| OS | Package |
-|---|---|
-| Linux | `.deb` (Debian/Ubuntu) or `.AppImage` |
-| Windows | `.msi` installer |
-| macOS (Apple Silicon) | `.dmg` |
+| Platform | Package | Notes |
+|---|---|---|
+| Debian / Ubuntu | `.deb` | `sudo apt install ./openprintcost_<version>_amd64.deb` |
+| Arch Linux | `.AppImage` | or build the PKGBUILD in `packaging/arch/` |
+| Fedora / openSUSE / other | `.AppImage` | `chmod +x *.AppImage && ./openprintcost-<version>-x86_64.AppImage` |
+| Windows | `.msi` or `.exe` | both installers are provided |
+| macOS | `.dmg` | universal binary — Apple Silicon and Intel |
 
-Intel Macs: build from source (see [Development](#development)).
+**Linux runtime dependencies** (the AppImage does not bundle them):
+`gtk3`, `webkit2gtk-4.1`, `librsvg` — on Debian/Ubuntu the `.deb`
+pulls them in automatically.
+
+### Unsigned builds
+
+The packages are **not code-signed** (no certificate is available for the
+project). Your OS therefore shows a warning on first start:
+
+- **macOS:** “OpenPrintCost is an app downloaded from the internet” →
+  right-click the app in `/Applications` → **Open**, or
+  `xattr -d com.apple.quarantine /Applications/OpenPrintCost.app`.
+- **Windows:** SmartScreen → **More info** → **Run anyway**.
+
+Both are expected for self-built open-source projects and do not indicate a
+problem with the binary.
+
+### Build from source
+
+See [Development](#development) — the desktop app needs the webview system
+libraries of your platform.
 
 ## Quickstart
 
@@ -141,7 +163,7 @@ desktop build you additionally need the OS webview libraries:
 
 | OS | Packages |
 |---|---|
-| Ubuntu/Debian | `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev` |
+| Ubuntu/Debian | `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev` (bundling additionally: `libfuse2 file patchelf`) |
 | Windows | WebView2 (preinstalled), [Rust](https://rustup.rs), Node.js |
 | macOS | Xcode Command Line Tools, Rust, Node.js |
 
@@ -156,7 +178,21 @@ VITE_MOCK_API=1 npm run dev     # → http://localhost:1420
 # Full desktop app (requires the system libraries above):
 npm run build
 cargo build -p openprintcost
+
+# Run the desktop app in dev mode (Tauri + Vite):
+npm run dev:app
+
+# Build installable packages (deb, AppImage, msi, exe, dmg):
+npm run build:app
+
+# ...or the same in debug profile (fast, for a packaging smoke test):
+npm run bundle:debug
 ```
+
+The Tauri CLI ships as a dev dependency (`@tauri-apps/cli`), so no global
+installation is needed. `npm run build:app` produces the same bundle targets
+as the release pipeline: `.deb` and `.AppImage` on Linux, `.msi` and
+`.exe` on Windows, `.dmg` on macOS.
 
 Gates before every commit (see [CONTRIBUTING.md](CONTRIBUTING.md)):
 
@@ -169,8 +205,13 @@ cargo test --locked
 
 Note: the Tauri crate builds locally only **with** the system libraries.
 Without them everything except `cargo build/clippy -p openprintcost` still
-runs — CI covers the Tauri job (see `Dockerfile` history, Ubuntu 24.04 +
-webkit2gtk).
+runs — CI covers the Tauri job, and the `Dockerfile` provides a reproducible
+build environment with all system libraries:
+
+```bash
+docker build -t openprintcost-build .
+docker run --rm openprintcost-build   # lists the produced packages
+```
 
 The detailed technical spec (formula contract, block diagrams, reference
 audits) lives in `docs-intern/` and is **not part of the public repository**.

@@ -42,5 +42,10 @@ for file in package.json src-tauri/tauri.conf.json; do
   sed -i -E "0,/\"version\": \"[^\"]+\"/s//\"version\": \"$VERSION\"/" "$file"
 done
 
+# 4) Arch PKGBUILD (if present).
+if [[ -f packaging/arch/PKGBUILD ]]; then
+  sed -i -E "s/^pkgver=.*$/pkgver=$VERSION/" packaging/arch/PKGBUILD
+fi
+
 echo "version set to $VERSION"
 ./scripts/check-version.sh

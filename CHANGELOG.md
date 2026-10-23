@@ -41,6 +41,10 @@ validated by external users, so the `0.x` line promises stability of the
   Simplify3D, IdeaMaker, CraftWare.
 - **Export** to PDF (report) and Excel (positions, files, summary) via the
   file dialog.
+- **Installable packages** for Debian/Ubuntu (`.deb`), Arch and other
+  distributions (`.AppImage`, plus a PKGBUILD), Windows (`.msi` and
+  `.exe`), and macOS (`.dmg`, universal for Apple Silicon and Intel).
+  The packages are currently unsigned.
 - **Exact money math**: all amounts are `Decimal`, stored as `TEXT` in SQLite,
   rounded only for display.
 - **Local-first**: no account, no license key, no network access; data lives

@@ -26,6 +26,22 @@ npm install
 VITE_MOCK_API=1 npm run dev
 ```
 
+### Desktop app and packages
+
+The Tauri CLI is a dev dependency (`@tauri-apps/cli`) — no global install
+needed:
+
+```bash
+npm run dev:app       # desktop app in dev mode (Tauri + Vite)
+npm run build:app     # installable packages (deb, AppImage, msi, exe, dmg)
+npm run bundle:debug  # same, but debug profile — fast packaging smoke test
+```
+
+On Linux the bundling additionally needs `libfuse2 file patchelf`. The
+`bundle.yml` workflow builds the same bundle targets on Linux, Windows, and
+macOS for every packaging-relevant change — if a package breaks, CI shows it
+before a tag is cut.
+
 ## Gates — before every commit
 
 Frontend (repo root):
@@ -47,14 +63,12 @@ cargo test --locked
 
 The Tauri crate (`-p openprintcost`) only builds **with** the system
 libraries; without them that is not your fault — CI covers it (job `tauri`).
-If you have Docker, you can check locally:
+If you have Docker, the `Dockerfile` provides a complete environment
+(Node.js 22, stable Rust, webview libraries):
 
 ```bash
-docker run --rm -v "$PWD":/app -v ~/.cache/opc-tauri-target:/app/target \
-  <image-with-webkit2gtk> bash -lc \
-  "cd /app && export PATH=/root/.cargo/bin:\$PATH && \
-   cargo clippy -p openprintcost --all-targets --locked -- -D warnings && \
-   cargo build -p openprintcost --locked"
+docker build -t openprintcost-build .
+docker run --rm openprintcost-build
 ```
 
 ## Rules that always apply

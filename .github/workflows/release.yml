@@ -1,8 +1,15 @@
 name: Release
 
 # On tags of the form v*, builds installable packages and attaches them to
-# the GitHub Release: Linux (.deb, AppImage), Windows (.msi, .exe),
-# macOS arm64 (.dmg). Intel Macs build from source (see README).
+# the GitHub Release:
+#
+#   Linux    — .deb (Debian/Ubuntu), .AppImage (Arch, Fedora, everything else)
+#   Windows  — .msi (WiX), .exe (NSIS)
+#   macOS    — .dmg, universal (Apple Silicon + Intel)
+#
+# The release is created as a draft first, the matrix jobs upload their
+# assets to it, and only a fully successful build publishes it. This avoids
+# the race that parallel jobs would otherwise cause on release creation.
 
 on:
   push:
@@ -29,16 +36,44 @@ jobs:
         # sources with each other and with the tag.
         run: ./scripts/check-version.sh "${GITHUB_REF_NAME#v}"
 
-  release:
-    name: Build package (${{ matrix.os }})
+  create-release:
+    name: Create draft release
     needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          PRERELEASE=""
+          if [[ "$TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "$TAG" \
+            --draft \
+            --title "OpenPrintCost $TAG" \
+            --generate-notes \
+            $PRERELEASE
+
+  release:
+    name: Build package (${{ matrix.label }})
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-          - os: windows-latest
-          - os: macos-latest
+          - label: Linux — deb, AppImage
+            os: ubuntu-22.04
+            rust-targets: x86_64-unknown-linux-gnu
+            args: --bundles deb,appimage
+          - label: Windows — msi, exe
+            os: windows-latest
+            rust-targets: x86_64-pc-windows-msvc
+            args: --bundles msi,nsis
+          - label: macOS — dmg (universal)
+            os: macos-latest
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin,universal-apple-darwin
+            args: --target universal-apple-darwin --bundles dmg
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -55,6 +90,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
 
       - name: Install Tauri system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -62,7 +99,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-            libayatana-appindicator3-dev libssl-dev
+            libayatana-appindicator3-dev libssl-dev \
+            libfuse2 file patchelf
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -71,13 +109,46 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
+            src-tauri/target
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-release-
 
-      - name: Build and upload release
+      - name: Build and upload release assets
         uses: tauri-apps/tauri-action@v0
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "OpenPrintCost ${{ github.ref_name }}"
-          releaseDraft: false
-          prerelease: false
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          args: ${{ matrix.args }}
+
+      - name: Upload AppImage under a stable name
+        # The Tauri bundle names the file after the product name
+        # (OpenPrintCost_0.1.0_amd64.AppImage). The Arch PKGBUILD and
+        # download links use a predictable name instead.
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          src="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)"
+          if [[ -z "$src" ]]; then
+            echo "error: no AppImage found" >&2
+            exit 1
+          fi
+          name="openprintcost-${TAG#v}-x86_64.AppImage"
+          cp "$src" "$name"
+          gh release upload "$TAG" "$name" --clobber
+          echo "uploaded $name"
+
+  publish-release:
+    name: Publish release
+    needs: [create-release, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false

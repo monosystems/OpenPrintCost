@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "tauri": "tauri",
+    "dev:app": "tauri dev",
+    "build:app": "tauri build",
+    "bundle:debug": "tauri build --debug"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
@@ -21,6 +25,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
+    "@tauri-apps/cli": "^2.12.4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
