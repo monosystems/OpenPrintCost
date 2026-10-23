@@ -183,6 +183,26 @@ Contributions are welcome — please open an issue first for larger changes.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup, quality gates,
 and commit conventions, plus the issue/PR templates.
 
+## Versioning and releases
+
+The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+What versioning protects here is not code but four user-facing surfaces: the
+calculation result, the saved calculation document, the export layout, and
+the database schema.
+
+| Change | Bump |
+|---|---|
+| Bug fix, no behaviour change | `0.1.x` → `0.1.y` |
+| New feature that does not change existing results, documents, or exports | `0.1.x` → `0.2.0` |
+| Changed formula semantics, result groups, document format, or export layout | `0.x.y` → `0.(x+1).0` |
+| Contract frozen, artifacts verified on all platforms, real-world validated | → `1.0.0` |
+
+Releases are cut from tags: `./scripts/set-version.sh 0.2.0` writes the
+version to all sources, `./scripts/check-version.sh` verifies that they
+agree (CI runs it on every push), and the release workflow builds the
+installable packages. All notable changes are listed in
+[CHANGELOG.md](CHANGELOG.md).
+
 ## Acknowledgments
 
 Domain guidance by the 3D-printing cost calculator of

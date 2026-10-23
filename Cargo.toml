@@ -1,11 +1,13 @@
 [workspace]
 resolver = "3"
 members = ["crates/opc-core", "crates/opc-store", "crates/opc-io", "crates/opc-export", "src-tauri"]
-# Die Desktop-App braucht auf Linux zusätzliche Systembibliotheken
-# (webkit2gtk, gtk3, libsoup). Sie ist deshalb nicht Teil der
-# Standard-Mitglieder: `cargo build` und `cargo test` bleiben damit auf
-# jeder Maschine lauffähig, während `cargo build -p openprintcost` die
-# Desktop-App baut.
+# The desktop app needs additional system libraries on Linux (webkit2gtk,
+# gtk3, libsoup). It is therefore not part of the default members:
+# `cargo build` and `cargo test` stay runnable on every machine, while
+# `cargo build -p openprintcost` builds the desktop app.
+#
+# The workspace version is the single source of truth for the Rust side
+# (see scripts/set-version.sh).
 default-members = ["crates/opc-core", "crates/opc-store", "crates/opc-io", "crates/opc-export"]
 
 [workspace.package]

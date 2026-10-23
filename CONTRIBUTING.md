@@ -106,12 +106,40 @@ may be committed separately.
 
 ## Releases (maintainers)
 
-1. Align versions: `package.json`, `src-tauri/tauri.conf.json`,
-   `Cargo.toml` (workspace) — all three identical, e.g. `0.2.0`.
-2. Commit, tag (`git tag v0.2.0`), push (`git push --tags`).
-3. The release workflow (`.github/workflows/release.yml`) builds `.deb`,
+1. Set the version: `./scripts/set-version.sh 0.2.0`. It writes all
+   version sources (workspace `Cargo.toml`, `package.json`,
+   `src-tauri/tauri.conf.json`) and verifies them.
+2. Move the `[Unreleased]` section of `CHANGELOG.md` to the new version
+   and add the release date.
+3. Commit, tag (`git tag v0.2.0`), push (`git push --tags`).
+4. The release workflow (`.github/workflows/release.yml`) builds `.deb`,
    AppImage, `.msi` and `.dmg` and attaches them to the GitHub Release.
-4. Write release notes: what is new, what broke, thanks to contributors.
+   It fails if the tag and the version sources disagree.
+5. Write release notes: what is new, what broke, thanks to contributors.
+
+`./scripts/check-version.sh` compares all version sources with each other
+(CI runs it on every push) — it is the only place that knows where the
+version lives.
+
+## Version policy
+
+The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+For an app, what versioning protects is not code but these four surfaces:
+
+1. the **calculation result** (amounts and group labels users quote),
+2. the **saved calculation document** (JSON in SQLite),
+3. the **export layout** (PDF report, Excel workbook),
+4. the **database schema** (migrated internally, append-only).
+
+| Change | Bump |
+|---|---|
+| Bug fix, no behaviour change | `0.1.x` → `0.1.y` |
+| New feature that does not change existing results, documents, or exports | `0.1.x` → `0.2.0` |
+| Changed formula semantics, result groups, document format, or export layout | `0.x.y` → `0.(x+1).0` |
+| Contract frozen, artifacts verified on all platforms, real-world validated | → `1.0.0` |
+
+Until `1.0.0` the *interface* is stable, not the numbers: the `0.x` line
+allows formula corrections, which change results without changing the UI.
 
 ## Code of conduct
 

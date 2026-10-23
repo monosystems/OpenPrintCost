@@ -25,16 +25,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check versions
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          echo "Tag version: $TAG"
-          NPM=$(node -p "require('./package.json').version")
-          TAURI=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          CARGO=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          echo "package.json: $NPM / tauri.conf.json: $TAURI / Cargo.toml: $CARGO"
-          test "$NPM" = "$TAG" || { echo "package.json mismatch"; exit 1; }
-          test "$TAURI" = "$TAG" || { echo "tauri.conf.json mismatch"; exit 1; }
-          test "$CARGO" = "$TAG" || { echo "Cargo.toml mismatch"; exit 1; }
+        # Single source of truth: scripts/check-version.sh compares all
+        # sources with each other and with the tag.
+        run: ./scripts/check-version.sh "${GITHUB_REF_NAME#v}"
 
   release:
     name: Build package (${{ matrix.os }})

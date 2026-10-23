@@ -1,7 +1,8 @@
 [package]
 name = "openprintcost"
 description = "OpenPrintCost — cost calculation for 3D printing jobs"
-version = "0.1.0"
+# Version comes from the workspace manifest — one place to bump.
+version.workspace = true
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
