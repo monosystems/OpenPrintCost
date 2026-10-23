@@ -26,11 +26,19 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+<!-- changelog:unreleased:end -->
+
+## [0.1.1] — 2026-10-23
+
+Logo in App, Web und Desktop-Paketen; CHANGELOG wird jetzt aus der
+Commit-Historie erzeugt. Rechenkern, Datenbank und Export sind unverändert.
+
 ### Added
 - *(ui)* OpenPrintCost-Logo in App, Web und Desktop
 ### Documentation
 - explain unsigned packages, add SHA256SUMS to releases
-<!-- changelog:unreleased:end -->
+### Maintenance
+- *(changelog)* CHANGELOG aus der Commit-Historie erzeugen
 
 ## [0.1.0] — 2026-10-23
 
