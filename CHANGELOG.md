@@ -20,9 +20,9 @@ policy in [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## [Unreleased]
 
-Nothing yet — the first public release is still to be cut.
+Nothing yet.
 
-## [0.1.0] — unreleased
+## [0.1.0] — 2026-10-23
 
 First public preview. Everything below has been implemented but not yet
 validated by external users, so the `0.x` line promises stability of the
