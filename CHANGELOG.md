@@ -69,5 +69,24 @@ Formula semantics follow the Apache-2.0 library
 known reference bugs (notably double-counted material on multi-material files)
 were deliberately **not** reproduced.
 
+### Installation note — the packages are not code-signed
+
+No certificate is available for the project yet, so macOS and Windows show
+a warning on the first start. The packages themselves are fine:
+
+- **Linux:** nothing to do. For the AppImage, `chmod +x` first.
+- **macOS:** “OpenPrintCost is an app downloaded from the internet” → right-click
+  the app in `/Applications` → **Open** → **Open**. Or:
+  `xattr -d com.apple.quarantine /Applications/OpenPrintCost.app`
+- **Windows:** “Windows protected your PC” → **More info** → **Run anyway**
+  (SmartScreen needs a signed installer to skip the dialog).
+
+Every release ships a `SHA256SUMS` file to verify the download:
+`sha256sum -c SHA256SUMS` (macOS: `shasum -a 256 -c SHA256SUMS`).
+
+Checksums protect against a corrupted or tampered download. Code signing
+(Apple Developer ID / Authenticode) would additionally prove authorship and
+is planned for a later release.
+
 [Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/monosystems/OpenPrintCost/releases/tag/v0.1.0

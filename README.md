@@ -97,18 +97,36 @@ expects the system libraries — if the app does not start, install
 `webkit2gtk-4.1` (Debian/Ubuntu: `sudo apt install libwebkit2gtk-4.1-0`,
 Arch: `sudo pacman -S webkit2gtk-4.1`).
 
-### Unsigned builds
+### Unsigned packages — what to expect
 
-The packages are **not code-signed** (no certificate is available for the
-project). Your OS therefore shows a warning on first start:
+The packages are **not code-signed**: no certificate is available for the
+project yet. This is expected for self-built open-source software and does
+**not** mean the binary is broken. It only means your operating system
+cannot verify who published it.
 
-- **macOS:** “OpenPrintCost is an app downloaded from the internet” →
-  right-click the app in `/Applications` → **Open**, or
-  `xattr -d com.apple.quarantine /Applications/OpenPrintCost.app`.
-- **Windows:** SmartScreen → **More info** → **Run anyway**.
+| Platform | What you see | What to do |
+|---|---|---|
+| **Linux** | nothing | The `.deb` and `.AppImage` install and start without any notice. For the AppImage: `chmod +x *.AppImage` |
+| **macOS** | “OpenPrintCost is an app downloaded from the internet” or “Apple cannot check it for malicious software” | Right-click the app in `/Applications` → **Open** → **Open**. Or in a terminal: `xattr -d com.apple.quarantine /Applications/OpenPrintCost.app` |
+| **Windows** | “Windows protected your PC” | **More info** → **Run anyway**. The warning comes from SmartScreen, which needs a signed installer to skip it |
 
-Both are expected for self-built open-source projects and do not indicate a
-problem with the binary.
+On macOS the quarantine flag is removed after the first successful start, so
+the warning appears only once.
+
+### Verify the download
+
+Every release contains a `SHA256SUMS` file with the checksums of all
+packages:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+On macOS: `shasum -a 256 -c SHA256SUMS`.
+
+Checksums protect against a corrupted or tampered download. They do not
+prove authorship — for that, code signing (Apple Developer ID / Authenticode)
+would be needed, which is planned for a later release.
 
 ### Build from source
 

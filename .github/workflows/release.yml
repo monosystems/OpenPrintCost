@@ -58,6 +58,7 @@ jobs:
             NOTES="$(awk -v v="$VERSION" '
               $0 ~ "^## \\[" v "\\]" { in_section = 1; next }
               in_section && /^## \[/ { exit }
+              in_section && /^\[[^]]+\]:/ { next }
               in_section { print }
             ' CHANGELOG.md)"
           fi
@@ -186,3 +187,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release edit "$TAG" --draft=false
+
+  checksums:
+    name: Checksums
+    needs: [create-release, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          gh release download "$TAG" --dir assets --clobber
+
+      - name: Create SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd assets
+          # Plain file names (no ./ prefix) so that "sha256sum -c SHA256SUMS"
+          # works in any directory the user unpacks the assets into.
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS' -printf '%f\n' \
+            | sort | xargs -d '\n' sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" assets/SHA256SUMS --clobber
