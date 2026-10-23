@@ -138,7 +138,12 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-release-
 
       - name: Build and upload release assets
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
+        env:
+          # tauri-action reads the token from the environment, not from an
+          # input — without it the upload fails with "GITHUB_TOKEN is
+          # required".
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "OpenPrintCost ${{ github.ref_name }}"
