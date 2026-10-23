@@ -26,6 +26,8 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Fixed
+- *(release)* Checkout im Checksums-Job
 <!-- changelog:unreleased:end -->
 
 ## [0.1.1] — 2026-10-23
