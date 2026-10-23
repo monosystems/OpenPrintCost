@@ -42,6 +42,21 @@ On Linux the bundling additionally needs `libfuse2 file patchelf`. The
 macOS for every packaging-relevant change — if a package breaks, CI shows it
 before a tag is cut.
 
+### Logo assets
+
+The master artwork is `OpenPrintCost 3D-Druck-Kostenlogo.png` in the repo root.
+All derived assets are generated from it — never edit the derived files by
+hand:
+
+```bash
+python3 scripts/make-logo-assets.py        # needs Pillow
+npx tauri icon -o src-tauri/icons src-tauri/icons/icon-source.png
+```
+
+This regenerates `src/assets/logo.png` (full logo), `src/assets/logo-mark.png`
+(symbol only, used in the app header), `public/favicon.png` (copy of the mark)
+and the desktop icons in `src-tauri/icons/`.
+
 ## Gates — before every commit
 
 Frontend (repo root):
@@ -123,13 +138,17 @@ may be committed separately.
 1. Set the version: `./scripts/set-version.sh 0.2.0`. It writes all
    version sources (workspace `Cargo.toml`, `package.json`,
    `src-tauri/tauri.conf.json`) and verifies them.
-2. Move the `[Unreleased]` section of `CHANGELOG.md` to the new version
-   and add the release date.
+2. Freeze the changelog: `./scripts/update-changelog.py release 0.2.0`.
+   It moves the `[Unreleased]` section to the new version, adds the release
+   date and starts a new `[Unreleased]` section.
 3. Commit, tag (`git tag v0.2.0`), push (`git push --tags`).
 4. The release workflow (`.github/workflows/release.yml`) builds `.deb`,
    AppImage, `.msi` and `.dmg` and attaches them to the GitHub Release.
-   It fails if the tag and the version sources disagree.
+   It fails if the tag and the version sources disagree, or if
+   `CHANGELOG.md` has no section for the released version.
 5. Write release notes: what is new, what broke, thanks to contributors.
+   The section from `CHANGELOG.md` is used as the base and can be edited in
+   the GitHub release afterwards.
 
 `./scripts/check-version.sh` compares all version sources with each other
 (CI runs it on every push) — it is the only place that knows where the

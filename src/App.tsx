@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import logoMark from "./assets/logo-mark.png";
 import type { PlatformAdapter } from "./api/platform";
 import { LanguageProvider, useLocale } from "./i18n";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -45,10 +46,13 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4 px-4 py-4">
-          <div>
-            <h1 className="text-xl font-bold">{t.app.title}</h1>
-            <p className="text-sm text-slate-400">{t.app.subtitle}</p>
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <img src={logoMark} alt="" aria-hidden="true" className="h-12 w-12 shrink-0" />
+            <div>
+              <h1 className="text-xl font-bold">{t.app.title}</h1>
+              <p className="text-sm text-slate-400">{t.app.subtitle}</p>
+            </div>
           </div>
           <LanguageSwitcher />
         </div>

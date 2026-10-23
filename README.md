@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="src/assets/logo.png" alt="OpenPrintCost logo" width="480" />
+</p>
+
+<p align="center">
   <h1 align="center">OpenPrintCost</h1>
   <p align="center">
     Free, local-first cost calculator for 3D printing jobs.

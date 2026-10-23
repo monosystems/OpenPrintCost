@@ -25,3 +25,6 @@ test-results/
 
 # Interne Entwicklungs-Dokumente (nicht oeffentlich)
 docs-intern/
+
+# macOS AppleDouble (Ressourcen-Fork) Dateien
+._*
