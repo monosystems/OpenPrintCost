@@ -41,15 +41,33 @@ jobs:
     needs: check-version
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          VERSION="${TAG#v}"
+
+          # Release notes come from the CHANGELOG section of this version.
+          NOTES=""
+          if [[ -f CHANGELOG.md ]]; then
+            NOTES="$(awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { in_section = 1; next }
+              in_section && /^## \[/ { exit }
+              in_section { print }
+            ' CHANGELOG.md)"
+          fi
+          if [[ -z "${NOTES//[[:space:]]/}" ]]; then
+            NOTES="OpenPrintCost $VERSION — see CHANGELOG.md for details."
+          fi
+
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release $TAG exists already — reusing it (re-run)"
-            gh release edit "$TAG" --draft=true
+            gh release edit "$TAG" --draft=true --notes "$NOTES"
             exit 0
           fi
           PRERELEASE=""
@@ -57,7 +75,7 @@ jobs:
           gh release create "$TAG" \
             --draft \
             --title "OpenPrintCost $TAG" \
-            --generate-notes \
+            --notes "$NOTES" \
             $PRERELEASE
 
   release:
@@ -77,7 +95,9 @@ jobs:
             args: --bundles msi,nsis
           - label: macOS — dmg (universal)
             os: macos-latest
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin,universal-apple-darwin
+            # universal-apple-darwin has no rust-std component — the two
+            # real architectures are what the universal build needs.
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
             args: --target universal-apple-darwin --bundles dmg
     runs-on: ${{ matrix.os }}
     steps:
