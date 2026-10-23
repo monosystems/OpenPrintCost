@@ -70,9 +70,13 @@ docker run --rm -v "$PWD":/app -v ~/.cache/opc-tauri-target:/app/target \
 * **No Tauri imports outside `src/api/tauriAdapter.ts`** —
   verifiable via `grep -rn "@tauri-apps" src --include="*.tsx" | grep -v tauriAdapter.ts`
   (must be empty).
-* **UI strings only in `src/i18n/`** (currently `de.ts`; `en.ts` planned).
-  No hardcoded user-facing strings in components (verifiable via grep);
-  tests may use text for querying.
+* **UI strings only in `src/i18n/`** (`en.ts`, `de.ts`). No hardcoded
+  user-facing strings in components (verifiable via grep); tests may use
+  text for querying.
+* **Adding a language:** create `src/i18n/<code>.ts` with the `Strings`
+  shape, register it in `src/i18n/locales.ts` (`LOCALE_LABELS`) and in the
+  `dictionaries` map in `src/i18n/LanguageContext.tsx`. The compiler then
+  enforces a complete, matching dictionary.
 * **Migrations are never modified**, only appended (`crates/opc-store/
   src/sqlite/migrations/` + entry in `migrations.rs`).
 * New commands in `src-tauri` require: registration in `lib.rs`,

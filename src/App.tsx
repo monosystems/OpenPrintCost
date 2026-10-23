@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { PlatformAdapter } from "./api/platform";
-import { LanguageProvider, useLocale, type Locale } from "./i18n";
+import { LanguageProvider, useLocale } from "./i18n";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { ProfilesView } from "./components/ProfilesView";
 import { SettingsView } from "./components/SettingsView";
 import { CalculationView } from "./components/CalculationView";
@@ -19,10 +20,8 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
   );
 }
 
-const LOCALES: ReadonlyArray<Locale> = ["en", "de"];
-
 function Shell({ adapter }: { adapter: PlatformAdapter }) {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("calculation");
   const [databasePath, setDatabasePath] = useState<string>("…");
 
@@ -51,23 +50,7 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
             <h1 className="text-xl font-bold">{t.app.title}</h1>
             <p className="text-sm text-slate-400">{t.app.subtitle}</p>
           </div>
-          <div role="group" aria-label={t.app.language} className="flex shrink-0 gap-1">
-            {LOCALES.map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code)}
-                aria-pressed={locale === code}
-                className={`rounded-md px-2 py-1 text-xs font-medium uppercase transition-colors ${
-                  locale === code
-                    ? "bg-sky-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <LanguageSwitcher />
         </div>
         <nav aria-label={t.app.navLabel} className="mx-auto max-w-6xl px-4">
           <ul className="flex gap-1">

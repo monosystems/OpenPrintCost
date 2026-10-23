@@ -40,9 +40,10 @@ including failure-rate costing, margin, and tax.
   estimates and geometric fallbacks are distinguishable.
 - **Free and open.** [Apache-2.0](LICENSE), commercial use allowed.
 
-> **UI language:** English by default (auto-detected from the browser, switchable
-> to German in the header). All strings live in `src/i18n/` (`en.ts`, `de.ts`)
-> — no hardcoded user-facing strings in components.
+> **UI language:** English by default (auto-detected from the browser). The
+> header has a language dropdown (English, Deutsch) that remembers your
+> choice. All strings live in `src/i18n/` — no hardcoded user-facing strings
+> in components. Adding a language is one dictionary plus one registry entry.
 
 ## Features
 

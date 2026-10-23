@@ -9,25 +9,23 @@ import {
 } from "react";
 import { de, type Strings } from "./de";
 import { en } from "./en";
-
-/** Supported UI locales. English is the default; German stays available. */
-export type Locale = "en" | "de";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "./locales";
 
 const STORAGE_KEY = "opc-locale";
 
+/** One dictionary per registered locale — the type requires all of them. */
 const dictionaries: Record<Locale, Strings> = { en, de };
 
-/** Browser-language detection: German only on `de*`, otherwise English. */
+/** Browser-language detection: matches the primary subtag, else the default. */
 export function detectLocale(): Locale {
-  if (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("de")) {
-    return "de";
-  }
-  return "en";
+  const language = typeof navigator !== "undefined" ? (navigator.language ?? "").toLowerCase() : "";
+  const base = language.split("-")[0];
+  return LOCALES.find((code) => code === base) ?? DEFAULT_LOCALE;
 }
 
 /** Stored preference wins; anything else falls back to detection. */
 export function resolveLocale(stored: string | null | undefined): Locale {
-  return stored === "de" || stored === "en" ? stored : detectLocale();
+  return LOCALES.find((code) => code === stored) ?? detectLocale();
 }
 
 interface LocaleState {
