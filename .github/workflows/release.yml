@@ -198,6 +198,11 @@ jobs:
     needs: [create-release, release]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        # gh resolves the repository from the git remote — without a
+        # checkout "gh release download" fails with "not a git repository".
+        uses: actions/checkout@v4
+
       - name: Download the release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
