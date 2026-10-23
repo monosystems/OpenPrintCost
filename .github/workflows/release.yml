@@ -53,17 +53,22 @@ jobs:
           VERSION="${TAG#v}"
 
           # Release notes come from the CHANGELOG section of this version.
+          # The section is written by scripts/update-changelog.py when the
+          # release is prepared — without it there is nothing to publish.
           NOTES=""
           if [[ -f CHANGELOG.md ]]; then
             NOTES="$(awk -v v="$VERSION" '
               $0 ~ "^## \\[" v "\\]" { in_section = 1; next }
               in_section && /^## \[/ { exit }
               in_section && /^\[[^]]+\]:/ { next }
+              in_section && /^<!--/ { next }
               in_section { print }
             ' CHANGELOG.md)"
           fi
           if [[ -z "${NOTES//[[:space:]]/}" ]]; then
-            NOTES="OpenPrintCost $VERSION — see CHANGELOG.md for details."
+            echo "error: CHANGELOG.md has no section for $VERSION." >&2
+            echo "run: ./scripts/update-changelog.py release $VERSION" >&2
+            exit 1
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then

@@ -18,9 +18,19 @@ Anything that changes the *meaning* of numbers, the *shape* of a stored
 document, or the *layout* of an export is a breaking change (see the version
 policy in [CONTRIBUTING.md](CONTRIBUTING.md)).
 
+The `[Unreleased]` section is generated from the commit history with
+[git-cliff](https://git-cliff.org) — see "Changelog" in
+[CONTRIBUTING.md](CONTRIBUTING.md). Released sections are written by hand and
+frozen when the release is cut.
+
 ## [Unreleased]
 
-Nothing yet.
+<!-- changelog:unreleased:start -->
+### Added
+- *(ui)* OpenPrintCost-Logo in App, Web und Desktop
+### Documentation
+- explain unsigned packages, add SHA256SUMS to releases
+<!-- changelog:unreleased:end -->
 
 ## [0.1.0] — 2026-10-23
 

@@ -1,0 +1,60 @@
+# git-cliff configuration — https://git-cliff.org/docs/configuration
+#
+# The changelog is generated from the commit history (Conventional Commits).
+# `scripts/update-changelog.py` uses git-cliff to fill the `[Unreleased]`
+# section of CHANGELOG.md; the released sections stay under version control
+# and are never touched by the automation.
+#
+# Local use:  git cliff --unreleased
+# CI use:     .github/workflows/changelog.yml
+
+[changelog]
+# Only the commit groups are rendered — the version headers are managed by
+# scripts/update-changelog.py.
+body = """
+{%- for entry in commits | commit_groups(groups=commit_parsers_groups) %}
+### {{ entry.group | striptags | trim }}
+{% for commit in entry.commits -%}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message }}
+{% endfor %}
+{%- endfor %}
+"""
+# Remove leading and trailing whitespace from the generated body.
+trim = true
+# Render the body even when there is nothing to report.
+render_always = true
+
+[git]
+conventional_commits = true
+# Keep commits that do not follow the Conventional Commits spec (they end up
+# in the "Other" group instead of being dropped silently).
+filter_unconventional = false
+require_conventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = false
+fail_on_unmatched_commit = false
+use_branch_tags = false
+topo_order = false
+topo_order_commits = true
+# Oldest commit first — the changelog reads chronologically.
+sort_commits = "oldest"
+
+commit_parsers = [
+  # Release mechanics are not part of the user-visible changelog.
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore\\(changelog\\)", skip = true },
+  { message = "^chore\\(deps", skip = true },
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Changed" },
+  { message = "^refactor", group = "<!-- 2 -->Changed" },
+  { message = "^docs", group = "<!-- 3 -->Documentation" },
+  { message = "^doc", group = "<!-- 3 -->Documentation" },
+  { message = "^test", group = "<!-- 4 -->Tests" },
+  { message = "^build", group = "<!-- 5 -->Maintenance" },
+  { message = "^ci", group = "<!-- 5 -->Maintenance" },
+  { message = "^chore", group = "<!-- 5 -->Maintenance" },
+  { message = "^revert", group = "<!-- 6 -->Reverted" },
+  { message = ".*", group = "<!-- 7 -->Other" },
+]

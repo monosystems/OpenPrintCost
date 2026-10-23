@@ -125,6 +125,38 @@ Short, imperative subject lines with scope prefix:
 One commit = one topic. Spec changes and the corresponding implementation
 may be committed separately.
 
+## Changelog
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/1.1.0/).
+The `[Unreleased]` section is **generated** from the commit history with
+[git-cliff](https://git-cliff.org) (config: `cliff.toml`) — the commits are
+read as Conventional Commits (`feat(store): …`, `fix(io): …`), which the
+commit style above already provides.
+
+```bash
+# Refresh the [Unreleased] section from the commits since the last tag.
+./scripts/update-changelog.py unreleased
+
+# Freeze it: [Unreleased] becomes [0.2.0] — date, a new [Unreleased] starts.
+./scripts/update-changelog.py release 0.2.0
+```
+
+* The CI workflow `.github/workflows/changelog.yml` runs `unreleased` after
+  every push to `main` and commits the result.
+* Only the part between `<!-- changelog:unreleased:start -->` and
+  `<!-- changelog:unreleased:end -->` is regenerated. Notes written by hand
+  outside the markers are kept.
+* Released sections are never touched by the automation — they are frozen
+  with `release` and stay under version control.
+* git-cliff is needed locally (`brew install git-cliff`,
+  `cargo install git-cliff`, or a release binary — see
+  <https://git-cliff.org/docs/installation>). In CI it is installed by the
+  workflow.
+
+The GitHub release notes are the section of the released version, copied from
+`CHANGELOG.md` by `.github/workflows/release.yml`. A release without a
+changelog section is refused — the release notes are never invented.
+
 ## Pull requests
 
 * Description: what, why, how verified (list gates).
