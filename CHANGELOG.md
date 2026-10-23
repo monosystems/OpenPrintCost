@@ -45,6 +45,7 @@ validated by external users, so the `0.x` line promises stability of the
   distributions (`.AppImage`, plus a PKGBUILD), Windows (`.msi` and
   `.exe`), and macOS (`.dmg`, universal for Apple Silicon and Intel).
   The packages are currently unsigned.
+- `openprintcost --version` prints the version without starting the UI.
 - **Exact money math**: all amounts are `Decimal`, stored as `TEXT` in SQLite,
   rounded only for display.
 - **Local-first**: no account, no license key, no network access; data lives

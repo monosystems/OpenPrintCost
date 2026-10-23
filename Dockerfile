@@ -49,4 +49,4 @@ COPY . .
 # Frontend bundle + desktop app + installable packages.
 RUN npm run build:app
 
-CMD ["sh", "-c", "find src-tauri/target/release/bundle -maxdepth 2 -type f"]
+CMD ["sh", "-c", "find target/release/bundle -maxdepth 2 -type f"]

@@ -92,7 +92,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-            src-tauri/target
           key: ${{ runner.os }}-cargo-bundle-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
@@ -106,11 +105,12 @@ jobs:
         with:
           name: bundle-${{ matrix.os }}
           # The macOS job builds for universal-apple-darwin, so the bundle
-          # lands in a target-specific directory.
+          # lands in a target-specific directory. The bundles are written to
+          # the workspace target directory (target/), not src-tauri/target/.
           path: |
-            src-tauri/target/**/bundle/**/*.deb
-            src-tauri/target/**/bundle/**/*.AppImage
-            src-tauri/target/**/bundle/**/*.msi
-            src-tauri/target/**/bundle/**/*.dmg
+            target/**/bundle/**/*.deb
+            target/**/bundle/**/*.AppImage
+            target/**/bundle/**/*.msi
+            target/**/bundle/**/*.dmg
           if-no-files-found: error
           retention-days: 7

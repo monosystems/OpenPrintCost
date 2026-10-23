@@ -82,15 +82,20 @@ Prebuilt packages are published under
 
 | Platform | Package | Notes |
 |---|---|---|
-| Debian / Ubuntu | `.deb` | `sudo apt install ./openprintcost_<version>_amd64.deb` |
+| Debian 12+ / Ubuntu 22.04+ | `.deb` | `sudo apt install ./OpenPrintCost_<version>_amd64.deb` |
 | Arch Linux | `.AppImage` | or build the PKGBUILD in `packaging/arch/` |
 | Fedora / openSUSE / other | `.AppImage` | `chmod +x *.AppImage && ./openprintcost-<version>-x86_64.AppImage` |
 | Windows | `.msi` or `.exe` | both installers are provided |
 | macOS | `.dmg` | universal binary — Apple Silicon and Intel |
 
-**Linux runtime dependencies** (the AppImage does not bundle them):
-`gtk3`, `webkit2gtk-4.1`, `librsvg` — on Debian/Ubuntu the `.deb`
-pulls them in automatically.
+Every package contains the app binary; `openprintcost --version` prints the
+version without opening a window.
+
+**Linux runtime dependencies:** the `.deb` pulls them in automatically. The
+`.AppImage` bundles GTK and WebKit, but its WebKit helper process still
+expects the system libraries — if the app does not start, install
+`webkit2gtk-4.1` (Debian/Ubuntu: `sudo apt install libwebkit2gtk-4.1-0`,
+Arch: `sudo pacman -S webkit2gtk-4.1`).
 
 ### Unsigned builds
 

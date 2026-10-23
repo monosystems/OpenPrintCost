@@ -47,6 +47,11 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG exists already — reusing it (re-run)"
+            gh release edit "$TAG" --draft=true
+            exit 0
+          fi
           PRERELEASE=""
           if [[ "$TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
           gh release create "$TAG" \
@@ -109,7 +114,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-            src-tauri/target
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-release-
 
@@ -132,7 +136,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          src="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)"
+          src="$(find target/release/bundle/appimage -name '*.AppImage' | head -1)"
           if [[ -z "$src" ]]; then
             echo "error: no AppImage found" >&2
             exit 1
