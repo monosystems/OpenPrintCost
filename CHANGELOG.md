@@ -26,8 +26,13 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Added
+- *(updater)* signierte In-App-Updates mit tauri-plugin-updater
+- *(settings)* Update-Pruefung und Installation in den Einstellungen
 ### Fixed
 - *(release)* Checkout im Checksums-Job
+### Maintenance
+- *(release)* Updater-Artefakte signieren und latest.json veroeffentlichen
 <!-- changelog:unreleased:end -->
 
 ## [0.1.1] — 2026-10-23
