@@ -29,6 +29,7 @@ frozen when the release is cut.
 ### Documentation
 
 - *(changelog)* write the changelog in English
+- *(readme)* note the macOS icon cache after an update
 <!-- changelog:unreleased:end -->
 
 ## [0.1.2] — 2026-10-24
