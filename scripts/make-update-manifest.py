@@ -64,6 +64,23 @@ def find(assets: list[pathlib.Path], predicate) -> list[pathlib.Path]:
     return sorted(path for path in assets if predicate(path.name))
 
 
+def signed(assets: list[pathlib.Path], predicate, label: str) -> list[pathlib.Path]:
+    """Artifacts matching the predicate that have a `.sig` next to them.
+
+    A release can contain derivative copies — the stable-name AppImage for the
+    Arch PKGBUILD, for example. Only the signed originals are updater
+    artifacts; unsigned copies are ignored (and reported).
+    """
+    candidates = find(assets, predicate)
+    result = [path for path in candidates if path.with_name(path.name + ".sig").is_file()]
+    if candidates and not result:
+        fail(f"missing signature for {candidates[0].name} ({candidates[0].name}.sig)")
+    for ignored in candidates:
+        if ignored not in result:
+            print(f"note: ignoring {ignored.name} (no signature) — {label}")
+    return result
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--assets", required=True, type=pathlib.Path, help="directory with the release assets")
@@ -90,7 +107,7 @@ def main(argv: list[str]) -> int:
         }
 
     # Linux — the AppImage is both the app bundle and the updater artifact.
-    appimages = find(assets, lambda name: name.endswith(APPIMAGE_SUFFIX))
+    appimages = signed(assets, lambda name: name.endswith(APPIMAGE_SUFFIX), "linux")
     for artifact in appimages:
         arch = "aarch64" if "aarch64" in artifact.name else "x86_64"
         add(f"linux-{arch}", artifact)
@@ -99,7 +116,7 @@ def main(argv: list[str]) -> int:
 
     # macOS — one .app.tar.gz. The release workflow builds a universal app,
     # which serves both architectures under the same URL and signature.
-    macos = find(assets, lambda name: name.endswith(MACOS_SUFFIX))
+    macos = signed(assets, lambda name: name.endswith(MACOS_SUFFIX), "macos")
     if not macos:
         fail("no macOS .app.tar.gz found — macOS updates would be missing from the manifest")
     if len(macos) > 1:
@@ -110,8 +127,8 @@ def main(argv: list[str]) -> int:
     # Windows — NSIS and MSI installs are updated by their own installer.
     # The specific keys win over the plain `windows-{arch}` fallback, which
     # stays as the entry for builds whose bundle type is unknown.
-    nsis = find(assets, lambda name: name.endswith(NSIS_SUFFIX))
-    msi = find(assets, lambda name: name.endswith(MSI_SUFFIX))
+    nsis = signed(assets, lambda name: name.endswith(NSIS_SUFFIX), "windows-nsis")
+    msi = signed(assets, lambda name: name.endswith(MSI_SUFFIX), "windows-msi")
     if not nsis and not msi:
         fail("no NSIS/MSI installer found — Windows updates would be missing from the manifest")
     if nsis:

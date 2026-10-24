@@ -104,7 +104,9 @@ jobs:
             # universal-apple-darwin has no rust-std component — the two
             # real architectures are what the universal build needs.
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
-            args: --target universal-apple-darwin --bundles dmg
+            # `app` is required for the updater artifact: Tauri only creates
+            # the `.app.tar.gz` for the `app` target, never for `dmg` alone.
+            args: --target universal-apple-darwin --bundles app,dmg
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
