@@ -36,6 +36,7 @@ export const de = {
       settings: "Einstellungen",
     },
     database: "Datenbank",
+    build: "Build",
     unknown: "unbekannt",
     navLabel: "Bereiche",
     language: "Sprache",

@@ -24,13 +24,13 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
 function Shell({ adapter }: { adapter: PlatformAdapter }) {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("calculation");
-  const [databasePath, setDatabasePath] = useState<string>("…");
+  const [build, setBuild] = useState<string>("…");
 
   useEffect(() => {
     adapter
-      .getDatabasePath()
-      .then(setDatabasePath)
-      .catch(() => setDatabasePath(t.app.unknown));
+      .getAppVersion()
+      .then(setBuild)
+      .catch(() => setBuild(t.app.unknown));
   }, [adapter, t]);
 
   const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
@@ -90,8 +90,8 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
 
       <footer className="border-t border-slate-800 bg-slate-900">
         <div className="mx-auto max-w-6xl px-4 py-3">
-          <p className="text-xs text-slate-500" title={databasePath}>
-            {t.app.database}: {databasePath}
+          <p className="text-xs text-slate-500" title={build}>
+            {t.app.build}: {build}
           </p>
         </div>
       </footer>

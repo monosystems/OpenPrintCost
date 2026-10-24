@@ -37,6 +37,7 @@ export const en: Strings = {
       settings: "Settings",
     },
     database: "Database",
+    build: "Build",
     unknown: "unknown",
     navLabel: "Sections",
     language: "Language",
