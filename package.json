@@ -1,7 +1,7 @@
 {
   "name": "openprintcost",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Frontend for the OpenPrintCost desktop app (Tauri v2 + React + TypeScript + Vite + Tailwind CSS)",
   "scripts": {

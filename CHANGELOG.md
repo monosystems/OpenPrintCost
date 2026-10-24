@@ -26,6 +26,14 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+<!-- changelog:unreleased:end -->
+
+## [0.1.2] — 2026-10-24
+
+In-App-Updates: Die App prüft auf Wunsch die Release-Seite, lädt die passende
+signierte Version und installiert sie. Rechenkern, Datenbank und Export sind
+unverändert.
+
 ### Added
 - *(updater)* signierte In-App-Updates mit tauri-plugin-updater
 - *(settings)* Update-Pruefung und Installation in den Einstellungen
@@ -33,7 +41,6 @@ frozen when the release is cut.
 - *(release)* Checkout im Checksums-Job
 ### Maintenance
 - *(release)* Updater-Artefakte signieren und latest.json veroeffentlichen
-<!-- changelog:unreleased:end -->
 
 ## [0.1.1] — 2026-10-23
 
