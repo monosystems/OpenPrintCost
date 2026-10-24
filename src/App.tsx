@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import logoMark from "./assets/logo-mark.png";
 import type { PlatformAdapter } from "./api/platform";
 import { LanguageProvider, useLocale } from "./i18n";
@@ -12,8 +12,23 @@ import { HourlyRateView } from "./components/HourlyRateView";
 import { MaterialView } from "./components/MaterialView";
 import { PrinterView } from "./components/PrinterView";
 import { WorkstepView } from "./components/WorkstepView";
+import {
+  CalculatorIcon,
+  ClockIcon,
+  LayersIcon,
+  PrinterIcon,
+  SettingsIcon,
+  SlidersIcon,
+  WrenchIcon,
+} from "./components/icons";
 
 type Tab = "calculation" | "printers" | "materials" | "worksteps" | "rates" | "profiles" | "settings";
+
+interface NavItem {
+  id: Tab;
+  label: string;
+  icon: ReactNode;
+}
 
 export function App({ adapter }: { adapter: PlatformAdapter }) {
   return (
@@ -26,8 +41,20 @@ export function App({ adapter }: { adapter: PlatformAdapter }) {
 function Shell({ adapter }: { adapter: PlatformAdapter }) {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("calculation");
+  const [mountedTabs, setMountedTabs] = useState<ReadonlySet<Tab>>(
+    () => new Set<Tab>(["calculation"]),
+  );
   const [build, setBuild] = useState<string>("…");
   const { update, noteUpdate } = useUpdateCheck(adapter);
+  const mainRef = useRef<HTMLElement>(null);
+
+  /** Mount a tab on first visit; keep it mounted so its state survives. */
+  const showTab = (next: Tab) => {
+    setMountedTabs((current) =>
+      current.has(next) ? current : new Set([...current, next]),
+    );
+    setTab(next);
+  };
 
   useEffect(() => {
     adapter
@@ -36,71 +63,152 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
       .catch(() => setBuild(t.app.unknown));
   }, [adapter, t]);
 
-  const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
-    { id: "calculation", label: t.app.tabs.calculation },
-    { id: "printers", label: t.app.tabs.printers },
-    { id: "materials", label: t.app.tabs.materials },
-    { id: "worksteps", label: t.app.tabs.worksteps },
-    { id: "rates", label: t.app.tabs.rates },
-    { id: "profiles", label: t.app.tabs.profiles },
-    { id: "settings", label: t.app.tabs.settings },
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [tab]);
+
+  const calculation: NavItem = {
+    id: "calculation",
+    label: t.app.tabs.calculation,
+    icon: <CalculatorIcon />,
+  };
+  const masterData: NavItem[] = [
+    { id: "printers", label: t.app.tabs.printers, icon: <PrinterIcon /> },
+    { id: "materials", label: t.app.tabs.materials, icon: <LayersIcon /> },
+    { id: "worksteps", label: t.app.tabs.worksteps, icon: <WrenchIcon /> },
+    { id: "rates", label: t.app.tabs.rates, icon: <ClockIcon /> },
+    { id: "profiles", label: t.app.tabs.profiles, icon: <SlidersIcon /> },
+  ];
+  const system: NavItem[] = [
+    { id: "settings", label: t.app.tabs.settings, icon: <SettingsIcon /> },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
-          <div className="flex items-center gap-3">
-            <img src={logoMark} alt="" aria-hidden="true" className="h-12 w-12 shrink-0" />
-            <div>
-              <h1 className="text-xl font-bold">{t.app.title}</h1>
-              <p className="text-sm text-slate-400">{t.app.subtitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <UpdateBadge update={update} onOpen={() => setTab("settings")} />
-            <LanguageSwitcher />
+    <div className="flex h-screen overflow-hidden bg-canvas text-ink">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">
+        <div className="flex items-center gap-3 px-4 py-4">
+          <img src={logoMark} alt="" aria-hidden="true" className="h-9 w-9 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-tight">{t.app.title}</h1>
+            <p className="truncate text-[11px] text-ink-muted">{t.app.subtitle}</p>
           </div>
         </div>
-        <nav aria-label={t.app.navLabel} className="mx-auto max-w-6xl px-4">
-          <ul className="flex gap-1">
-            {TABS.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  onClick={() => setTab(entry.id)}
-                  aria-current={tab === entry.id ? "page" : undefined}
-                  className={`rounded-t-md px-4 py-2 text-sm font-medium transition-colors ${
-                    tab === entry.id
-                      ? "bg-slate-950 text-sky-400"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  {entry.label}
-                </button>
-              </li>
-            ))}
-          </ul>
+
+        <nav aria-label={t.app.navLabel} className="flex-1 overflow-y-auto px-2 pb-3">
+          <SidebarItem
+            item={calculation}
+            active={tab === "calculation"}
+            onSelect={showTab}
+          />
+          <SidebarSection label={t.app.masterData} />
+          {masterData.map((item) => (
+            <SidebarItem
+              key={item.id}
+              item={item}
+              active={tab === item.id}
+              onSelect={showTab}
+            />
+          ))}
+          <SidebarSection label={t.app.system} />
+          {system.map((item) => (
+            <SidebarItem
+              key={item.id}
+              item={item}
+              active={tab === item.id}
+              onSelect={showTab}
+            />
+          ))}
         </nav>
-      </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        {tab === "calculation" ? <CalculationView adapter={adapter} /> : null}
-        {tab === "printers" ? <PrinterView adapter={adapter} /> : null}
-        {tab === "materials" ? <MaterialView adapter={adapter} /> : null}
-        {tab === "worksteps" ? <WorkstepView adapter={adapter} /> : null}
-        {tab === "rates" ? <HourlyRateView adapter={adapter} /> : null}
-        {tab === "profiles" ? <ProfilesView adapter={adapter} /> : null}
-        {tab === "settings" ? <SettingsView adapter={adapter} onUpdateChange={noteUpdate} /> : null}
-      </main>
-
-      <footer className="border-t border-slate-800 bg-slate-900">
-        <div className="mx-auto max-w-6xl px-4 py-3">
-          <p className="text-xs text-slate-500" title={build}>
+        <div className="shrink-0 space-y-2 border-t border-line p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <UpdateBadge update={update} onOpen={() => showTab("settings")} />
+            <LanguageSwitcher placement="up" />
+          </div>
+          <p className="font-mono text-[11px] text-ink-faint" title={build}>
             {t.app.build}: {build}
           </p>
         </div>
-      </footer>
+      </aside>
+
+      <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-7xl px-6 py-6">
+          {/* Visited views stay mounted so an in-progress calculation survives tab changes. */}
+          {mountedTabs.has("calculation") ? (
+            <div hidden={tab !== "calculation"}>
+              <CalculationView
+                adapter={adapter}
+                active={tab === "calculation"}
+                onNavigate={showTab}
+              />
+            </div>
+          ) : null}
+          {mountedTabs.has("printers") ? (
+            <div hidden={tab !== "printers"}>
+              <PrinterView adapter={adapter} />
+            </div>
+          ) : null}
+          {mountedTabs.has("materials") ? (
+            <div hidden={tab !== "materials"}>
+              <MaterialView adapter={adapter} />
+            </div>
+          ) : null}
+          {mountedTabs.has("worksteps") ? (
+            <div hidden={tab !== "worksteps"}>
+              <WorkstepView adapter={adapter} />
+            </div>
+          ) : null}
+          {mountedTabs.has("rates") ? (
+            <div hidden={tab !== "rates"}>
+              <HourlyRateView adapter={adapter} />
+            </div>
+          ) : null}
+          {mountedTabs.has("profiles") ? (
+            <div hidden={tab !== "profiles"}>
+              <ProfilesView adapter={adapter} />
+            </div>
+          ) : null}
+          {mountedTabs.has("settings") ? (
+            <div hidden={tab !== "settings"}>
+              <SettingsView adapter={adapter} onUpdateChange={noteUpdate} />
+            </div>
+          ) : null}
+        </div>
+      </main>
     </div>
+  );
+}
+
+function SidebarSection({ label }: { label: string }) {
+  return (
+    <p className="mt-5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+      {label}
+    </p>
+  );
+}
+
+function SidebarItem({
+  item,
+  active,
+  onSelect,
+}: {
+  item: NavItem;
+  active: boolean;
+  onSelect: (tab: Tab) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      aria-current={active ? "page" : undefined}
+      className={`flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "bg-brand-soft text-brand-ink"
+          : "text-ink-muted hover:bg-raised hover:text-ink"
+      }`}
+    >
+      <span className={active ? "text-brand-ink" : "text-ink-faint"}>{item.icon}</span>
+      <span className="truncate">{item.label}</span>
+    </button>
   );
 }

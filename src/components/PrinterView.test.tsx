@@ -71,7 +71,7 @@ describe("PrinterView", () => {
     const user = userEvent.setup();
     render(<PrinterView adapter={adapter} />);
     const item = await screen.findByText("Old device");
-    const row = item.closest("li");
+    const row = item.closest("tr");
     if (!row) throw new Error("Row missing");
 
     // Cancel leaves everything unchanged.

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString } from "../api/format";
+import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type HourlyRate, type TimeBasis } from "../api/types";
+import { DataTable, type DataColumn } from "./DataTable";
+import { ClockIcon } from "./icons";
 import {
   ConfirmDialog,
-  DangerButton,
+  DangerGhostButton,
   DecimalInput,
   EmptyState,
   ErrorBanner,
@@ -132,48 +134,91 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
   const set = <K extends keyof HourlyRate>(key: K, value: HourlyRate[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
+  const columns: ReadonlyArray<DataColumn<HourlyRate>> = [
+    {
+      key: "name",
+      header: t.rates.name,
+      sortValue: (rate) => rate.name,
+      render: (rate) => <p className="font-medium text-ink">{rate.name}</p>,
+    },
+    {
+      key: "basis",
+      header: t.rates.timeBasis,
+      render: (rate) => <span className="capitalize">{t.domain.timeBasis[rate.time_basis]}</span>,
+    },
+    {
+      key: "hours",
+      header: t.rates.machineHours,
+      align: "right",
+      sortValue: (rate) => Number(rate.machine_hours),
+      render: (rate) => `${formatQuantity(rate.machine_hours, locale)} h`,
+    },
+    {
+      key: "override",
+      header: t.rates.fixedOverrideShort,
+      align: "right",
+      sortValue: (rate) => Number(rate.fixed_rate_override ?? 0),
+      render: (rate) =>
+        rate.fixed_rate_override
+          ? `${formatMoney(rate.fixed_rate_override, locale)} €/h`
+          : "—",
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      align: "right",
+      render: (rate) => (
+        <div className="flex justify-end gap-2">
+          <SecondaryButton
+            type="button"
+            onClick={() => {
+              setEditing({ ...rate });
+              setFormErrors({});
+            }}
+          >
+            {t.common.edit}
+          </SecondaryButton>
+          <DangerGhostButton type="button" onClick={() => setDeleting(rate)}>
+            {t.common.delete}
+          </DangerGhostButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section aria-label={t.rates.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.rates.title}</h2>
-        <PrimaryButton type="button" onClick={openNew}>
-          {t.rates.newButton}
-        </PrimaryButton>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.rates.title}</h2>
+        {rates.length > 0 ? (
+          <PrimaryButton type="button" onClick={openNew}>
+            {t.rates.newButton}
+          </PrimaryButton>
+        ) : null}
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{t.common.loading}</p>
+        <p className="text-sm text-ink-muted">{t.common.loading}</p>
       ) : rates.length === 0 ? (
-        <EmptyState message={t.rates.empty} />
+        <EmptyState
+          icon={<ClockIcon />}
+          message={t.rates.empty}
+          action={
+            <PrimaryButton type="button" onClick={openNew}>
+              {t.rates.newButton}
+            </PrimaryButton>
+          }
+        />
       ) : (
-        <ul className="space-y-2">
-          {rates.map((rate) => (
-            <li
-              key={rate.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-slate-100">{rate.name}</p>
-                <p className="text-xs text-slate-400">
-                  {t.domain.timeBasis[rate.time_basis]} · {formatMoney(rate.machine_hours, locale)} h
-                  {rate.fixed_rate_override
-                    ? ` · ${t.rates.free}: ${formatMoney(rate.fixed_rate_override, locale)} €/h`
-                    : ""}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <SecondaryButton type="button" onClick={() => { setEditing({ ...rate }); setFormErrors({}); }}>
-                  {t.common.edit}
-                </SecondaryButton>
-                <DangerButton type="button" onClick={() => setDeleting(rate)}>
-                  {t.common.delete}
-                </DangerButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          label={t.rates.title}
+          rows={rates}
+          columns={columns}
+          rowKey={(rate) => rate.id}
+          searchText={(rate) => [rate.name, rate.time_basis].join(" ")}
+        />
       )}
 
       {editing ? (
@@ -208,8 +253,8 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
             </Field>
           </div>
 
-          <fieldset className="mt-4 rounded-lg border border-slate-800 p-4">
-            <legend className="px-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <fieldset className="mt-4 rounded-xl border border-line bg-surface/40 p-4">
+            <legend className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
               {t.rates.fixedGroup} {editing.time_basis === "per-year" ? t.rates.perYear : t.rates.perMonth} (€)
             </legend>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -228,8 +273,8 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
             </div>
           </fieldset>
 
-          <fieldset className="mt-4 rounded-lg border border-slate-800 p-4">
-            <legend className="px-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <fieldset className="mt-4 rounded-xl border border-line bg-surface/40 p-4">
+            <legend className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
               {t.rates.variableGroup}
             </legend>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

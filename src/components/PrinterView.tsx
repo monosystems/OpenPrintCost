@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString } from "../api/format";
+import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
+import { DataTable, type DataColumn } from "./DataTable";
+import { PrinterIcon } from "./icons";
 import {
   ConfirmDialog,
-  DangerButton,
+  DangerGhostButton,
   DecimalInput,
   EmptyState,
   ErrorBanner,
@@ -133,47 +135,107 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const set = <K extends keyof Printer>(key: K, value: Printer[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
+  const columns: ReadonlyArray<DataColumn<Printer>> = [
+    {
+      key: "model",
+      header: t.printers.model,
+      sortValue: (printer) => printer.model,
+      render: (printer) => (
+        <div>
+          <p className="font-medium text-ink">{printer.model}</p>
+          {printer.manufacturer ? (
+            <p className="text-xs text-ink-faint">{printer.manufacturer}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "process",
+      header: t.printers.process,
+      render: (printer) => t.domain.process[printer.process],
+    },
+    {
+      key: "power",
+      header: t.printers.power,
+      align: "right",
+      sortValue: (printer) => Number(printer.power_watts),
+      render: (printer) => `${formatQuantity(printer.power_watts, locale)} W`,
+    },
+    {
+      key: "price",
+      header: t.printers.price,
+      align: "right",
+      sortValue: (printer) => Number(printer.purchase_price),
+      render: (printer) => `${formatMoney(printer.purchase_price, locale)} €`,
+    },
+    {
+      key: "rate",
+      header: t.printers.hourlyRateShort,
+      align: "right",
+      sortValue: (printer) => Number(printer.hourly_rate ?? 0),
+      render: (printer) =>
+        printer.hourly_rate ? `${formatMoney(printer.hourly_rate, locale)} €/h` : "—",
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      align: "right",
+      render: (printer) => (
+        <div className="flex justify-end gap-2">
+          <SecondaryButton
+            type="button"
+            onClick={() => {
+              setEditing({ ...printer });
+              setFormErrors({});
+            }}
+          >
+            {t.common.edit}
+          </SecondaryButton>
+          <DangerGhostButton type="button" onClick={() => setDeleting(printer)}>
+            {t.common.delete}
+          </DangerGhostButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section aria-label={t.printers.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.printers.title}</h2>
-        <PrimaryButton type="button" onClick={openNew}>
-          {t.printers.newButton}
-        </PrimaryButton>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.printers.title}</h2>
+        {printers.length > 0 ? (
+          <PrimaryButton type="button" onClick={openNew}>
+            {t.printers.newButton}
+          </PrimaryButton>
+        ) : null}
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{t.common.loading}</p>
+        <p className="text-sm text-ink-muted">{t.common.loading}</p>
       ) : printers.length === 0 ? (
-        <EmptyState message={t.printers.empty} />
+        <EmptyState
+          icon={<PrinterIcon />}
+          message={t.printers.empty}
+          action={
+            <PrimaryButton type="button" onClick={openNew}>
+              {t.printers.newButton}
+            </PrimaryButton>
+          }
+        />
       ) : (
-        <ul className="space-y-2">
-          {printers.map((printer) => (
-            <li
-              key={printer.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-slate-100">{printer.model}</p>
-                <p className="text-xs text-slate-400">
-                  {t.domain.process[printer.process]} · {t.domain.family[printer.material_family]} ·{" "}
-                  {formatMoney(printer.power_watts, locale)} W
-                  {printer.hourly_rate ? ` · ${formatMoney(printer.hourly_rate, locale)} €/h` : ""}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <SecondaryButton type="button" onClick={() => { setEditing({ ...printer }); setFormErrors({}); }}>
-                  {t.common.edit}
-                </SecondaryButton>
-                <DangerButton type="button" onClick={() => setDeleting(printer)}>
-                  {t.common.delete}
-                </DangerButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          label={t.printers.title}
+          rows={printers}
+          columns={columns}
+          rowKey={(printer) => printer.id}
+          searchText={(printer) =>
+            [printer.model, printer.manufacturer, printer.process, printer.power_watts]
+              .filter(Boolean)
+              .join(" ")
+          }
+        />
       )}
 
       {editing ? (

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
 import { useLocale, useStrings, type Strings } from "../i18n";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
   emptyCompany,
   newId,
@@ -20,22 +21,65 @@ import {
   type Workstep,
 } from "../api/types";
 import { CalculationResultView } from "./CalculationResultView";
+import { CompactSummary, ResultPanel } from "./ResultPanel";
 import {
+  CalculatorIcon,
+  ChevronDownIcon,
+  LayersIcon,
+  PlusIcon,
+  PrinterIcon,
+  XIcon,
+} from "./icons";
+import {
+  Checkbox,
   ConfirmDialog,
   DecimalInput,
   EmptyState,
   ErrorBanner,
   Field,
+  GhostButton,
+  IconButton,
   PrimaryButton,
   SecondaryButton,
   Select,
   TextInput,
+  Toast,
 } from "./ui";
+
+type CalculationTarget = "printers" | "materials";
+
+/** Sentinel for the built-in default profile in the profile select. */
+const STANDARD_PROFILE = "__standard";
+
+type CalculationHint =
+  | { kind: "import"; slicer: string; source: "comments" | "simulated" }
+  | { kind: "fileTime" }
+  | { kind: "triangles"; count: number }
+  | { kind: "exportSaved"; path: string }
+  | { kind: "exportCancelled" };
+
+function hintText(hint: CalculationHint, t: Strings): string {
+  switch (hint.kind) {
+    case "import":
+      return t.calculation.importTaken(
+        hint.slicer,
+        hint.source === "comments" ? t.calculation.commentTime : t.calculation.simulatedTime,
+      );
+    case "fileTime":
+      return t.calculation.fileTimeTaken;
+    case "triangles":
+      return t.calculation.trianglesTaken(hint.count);
+    case "exportSaved":
+      return t.calculation.exportSaved(hint.path);
+    case "exportCancelled":
+      return t.calculation.exportCancelled;
+  }
+}
 
 function defaultProfile(t: Strings): CalculationProfile {
   return {
     id: newId(),
-    name: t.profiles.title,
+    name: t.profiles.standard,
     fail_rate_percent: "0",
     tax_rate_percent: "19",
     margin_percent: "0",
@@ -67,14 +111,18 @@ function emptyFile(): CalculationFileInput {
   };
 }
 
-function emptyCalculation(printer: Printer, t: Strings): CalculationInput {
+function emptyCalculation(
+  printer: Printer,
+  t: Strings,
+  profile?: CalculationProfile,
+): CalculationInput {
   return {
     id: newId(),
     project_name: "",
     notes: null,
     created_at: null,
     printer: { ...printer },
-    profile: defaultProfile(t),
+    profile: profile ? structuredClone(profile) : defaultProfile(t),
     hourly_rate: null,
     worksteps: [],
     additional_items: [],
@@ -85,27 +133,48 @@ function emptyCalculation(printer: Printer, t: Strings): CalculationInput {
 
 const emptyDecimal = (value: string | null) => value ?? "";
 
-export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
+export function CalculationView({
+  adapter,
+  active = true,
+  onNavigate,
+}: {
+  adapter: PlatformAdapter;
+  /** Re-load master data when the tab becomes visible again. */
+  active?: boolean;
+  onNavigate?: (tab: CalculationTarget) => void;
+}) {
   const { t, locale } = useLocale();
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [allWorksteps, setAllWorksteps] = useState<Workstep[]>([]);
   const [rates, setRates] = useState<HourlyRate[]>([]);
+  const [profiles, setProfiles] = useState<CalculationProfile[]>([]);
   const [saved, setSaved] = useState<CalculationSummary[]>([]);
   const [current, setCurrent] = useState<CalculationInput | null>(null);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deletingSaved, setDeletingSaved] = useState<CalculationSummary | null>(null);
-  const [importHint, setImportHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<CalculationHint | null>(null);
   const [company, setCompany] = useState<CompanyInfo>(emptyCompany);
+  const [calculating, setCalculating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
+  const [baseLoading, setBaseLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const isWide = useMediaQuery("(min-width: 1280px)");
+  const resultRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const reloadBase = useCallback(async () => {
     try {
-      const [p, m, w, r, s, c] = await Promise.all([
+      const [p, m, w, r, pr, s, c] = await Promise.all([
         adapter.listPrinters(),
         adapter.listMaterials(),
         adapter.listWorksteps(),
         adapter.listHourlyRates(),
+        adapter.listCalculationProfiles(),
         adapter.listCalculations(),
         adapter.getCompanyInfo().catch(() => emptyCompany),
       ]);
@@ -113,30 +182,63 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       setMaterials(m);
       setAllWorksteps(w);
       setRates(r);
+      setProfiles(pr);
       setSaved(s);
       setCompany(c);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.baseLoad);
+    } finally {
+      setBaseLoading(false);
     }
   }, [adapter]);
 
   useEffect(() => {
-    void reloadBase();
-  }, [reloadBase]);
+    if (active) void reloadBase();
+  }, [active, reloadBase]);
+
+  useEffect(() => {
+    if (!result || isWide) return;
+    const reduceMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    resultRef.current?.scrollIntoView?.({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [result, isWide]);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  }, [error]);
 
   const fail = (message: string) => setError(message);
-  const update = (patch: Partial<CalculationInput>) =>
+  const update = (patch: Partial<CalculationInput>) => {
+    const affectsCost = Object.keys(patch).some((key) => key !== "notes");
+    if (affectsCost) setResult(null);
+    setDirty(true);
     setCurrent((current) => (current ? { ...current, ...patch } : current));
+  };
 
-  const newCalculation = () => {
+  const createNewCalculation = () => {
     if (printers.length === 0) {
       fail(t.errors.printerRequired);
       return;
     }
     const first = printers[0];
     if (!first) return;
-    setCurrent(emptyCalculation(first, t));
+    setCurrent(emptyCalculation(first, t, profiles[0]));
     setResult(null);
+    setProfileOpen(false);
+    setDirty(false);
+    setConfirmNew(false);
+  };
+
+  const requestNewCalculation = () => {
+    if (current && dirty) {
+      setConfirmNew(true);
+      return;
+    }
+    createNewCalculation();
   };
 
   const loadSaved = async (id: string) => {
@@ -144,6 +246,8 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       const stored = await adapter.getCalculation(id);
       setCurrent(structuredClone(stored.document));
       setResult(null);
+      setProfileOpen(false);
+      setDirty(false);
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.calculationLoad);
@@ -164,7 +268,7 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
   };
 
   const calculate = async () => {
-    if (!current) return;
+    if (!current || calculating) return;
     if (current.project_name.trim() === "") {
       fail(t.errors.projectRequired);
       return;
@@ -173,60 +277,76 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       fail(t.errors.fileRequired);
       return;
     }
+    setCalculating(true);
     try {
       setResult(await adapter.calculate(current));
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.calculate);
+    } finally {
+      setCalculating(false);
     }
   };
 
   const save = async () => {
-    if (!current) return;
+    if (!current || saving) return;
     if (current.project_name.trim() === "") {
       fail(t.errors.projectRequired);
       return;
     }
+    setSaving(true);
     try {
       await adapter.saveCalculation(current);
       setSaved(await adapter.listCalculations());
+      setDirty(false);
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.calculationSave);
+    } finally {
+      setSaving(false);
     }
   };
 
   const exportFile = async (kind: "pdf" | "xlsx") => {
-    if (!result) return;
+    if (!result || exporting) return;
+    setExporting(kind);
     try {
       const path =
         kind === "pdf"
           ? await adapter.exportResultPdf(result, company)
           : await adapter.exportResultExcel(result, company);
-      setImportHint(
-        path ? t.calculation.exportSaved(path) : t.calculation.exportCancelled,
-      );
+      setHint(path ? { kind: "exportSaved", path } : { kind: "exportCancelled" });
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.exportFailed);
+    } finally {
+      setExporting(null);
     }
   };
 
-  const updateFile = (fileId: string, patch: Partial<CalculationFileInput>) =>
+  const updateFile = (fileId: string, patch: Partial<CalculationFileInput>) => {
+    setResult(null);
+    setDirty(true);
     setCurrent((current) =>
       current
         ? { ...current, files: current.files.map((f) => (f.id === fileId ? { ...f, ...patch } : f)) }
         : current,
     );
+  };
 
-  const removeFile = (fileId: string) =>
+  const removeFile = (fileId: string) => {
+    setResult(null);
+    setDirty(true);
     setCurrent((current) =>
       current ? { ...current, files: current.files.filter((f) => f.id !== fileId) } : current,
     );
+  };
 
   const addMaterialToFile = (fileId: string, materialId: string) => {
     const material = materials.find((m) => m.id === materialId);
     if (!material) return;
+    setResult(null);
+    setDirty(true);
     setCurrent((current) =>
       current
         ? {
@@ -251,21 +371,27 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       if (kind === "gcode" && "used_comments" in info) {
         const time = info.time_from_comments_hours ?? info.simulated_time_hours;
         updateFile(fileId, { print_time_hours: time });
-        setImportHint(
+        setHint(
           info.detected_slicer
-            ? t.calculation.importTaken(info.detected_slicer ?? "?", info.used_comments ? t.calculation.commentTime : t.calculation.simulatedTime)
-            : t.calculation.fileTimeTaken,
+            ? {
+                kind: "import",
+                slicer: info.detected_slicer,
+                source: info.used_comments ? "comments" : "simulated",
+              }
+            : { kind: "fileTime" },
         );
       } else if (kind === "stl" && "volume_cm3" in info) {
         updateFile(fileId, { volume_cm3: info.volume_cm3 });
-        setImportHint(t.calculation.trianglesTaken(info.triangle_count));
+        setHint({ kind: "triangles", count: info.triangle_count });
       }
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.importFailed);
     }
   };
 
-  const toggleWorkstep = (workstep: Workstep) =>
+  const toggleWorkstep = (workstep: Workstep) => {
+    setResult(null);
+    setDirty(true);
     setCurrent((current) => {
       if (!current) return current;
       const selected = current.worksteps.some((w) => w.id === workstep.id);
@@ -276,31 +402,63 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
           : [...current.worksteps, { ...workstep, category: { ...workstep.category } }],
       };
     });
+  };
 
-  const updateProfile = (patch: Partial<CalculationProfile>) =>
+  const updateProfile = (patch: Partial<CalculationProfile>) => {
+    setResult(null);
+    setDirty(true);
     setCurrent((current) =>
       current ? { ...current, profile: { ...current.profile, ...patch } } : current,
     );
+  };
+
+  const selectProfile = (id: string) => {
+    if (id === STANDARD_PROFILE) {
+      updateProfile(defaultProfile(t));
+      return;
+    }
+    const found = profiles.find((profile) => profile.id === id);
+    if (found) updateProfile(structuredClone(found));
+  };
+
+  const showDetails = () => {
+    const reduceMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    resultRef.current?.scrollIntoView?.({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  };
+
+  const dismissHint = useCallback(() => setHint(null), []);
 
   return (
-    <section aria-label={t.calculation.title}>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.calculation.title}</h2>
-        <PrimaryButton type="button" onClick={newCalculation}>
-          {t.calculation.newButton}
-        </PrimaryButton>
+    <section aria-label={t.calculation.title} aria-busy={calculating}>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.calculation.title}</h2>
+        {baseLoading || printers.length > 0 || current ? (
+          current ? (
+            <SecondaryButton type="button" onClick={requestNewCalculation}>
+              {t.calculation.newButton}
+            </SecondaryButton>
+          ) : (
+            <PrimaryButton type="button" onClick={requestNewCalculation}>
+              {t.calculation.newButton}
+            </PrimaryButton>
+          )
+        ) : null}
       </div>
 
-      {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
-      {importHint ? (
-        <div role="status" className="mb-4 rounded-md border border-sky-900 bg-sky-950/60 px-4 py-3">
-          <p className="text-sm text-sky-200">{importHint}</p>
+
+      {error ? (
+        <div ref={errorRef} className="scroll-mt-24">
+          <ErrorBanner message={error} onDismiss={() => setError(null)} />
         </div>
       ) : null}
 
       {saved.length > 0 ? (
-        <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+        <div className="mb-6 rounded-card border border-line bg-surface p-4">
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
             {t.calculation.savedTitle}
           </h3>
           <ul className="space-y-1">
@@ -309,21 +467,20 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
                 <button
                   type="button"
                   onClick={() => void loadSaved(entry.id)}
-                  className="truncate text-left text-sky-400 hover:text-sky-300 hover:underline"
+                  className="min-w-0 truncate text-left text-brand-ink hover:text-ink hover:underline"
                 >
                   {entry.project_name}
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="ml-2 text-xs text-ink-faint">
                     {t.calculation.savedMeta(entry.file_count, entry.total_quantity)}
                   </span>
                 </button>
-                <button
-                  type="button"
+                <IconButton
+                  label={t.calculation.deleteSavedLabel(entry.project_name)}
                   onClick={() => setDeletingSaved(entry)}
-                  aria-label={t.calculation.deleteSavedLabel(entry.project_name)}
-                  className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
+                  danger
                 >
-                  ✕
-                </button>
+                  <XIcon />
+                </IconButton>
               </li>
             ))}
           </ul>
@@ -331,9 +488,29 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
       ) : null}
 
       {!current ? (
-        <EmptyState message={t.calculation.empty} />
+        baseLoading ? (
+          <EmptyState message={t.common.loading} />
+        ) : printers.length === 0 ? (
+          <SetupChecklist onNavigate={onNavigate} />
+        ) : (
+          <EmptyState
+            icon={<CalculatorIcon />}
+            title={t.calculation.emptyTitle}
+            description={t.calculation.empty}
+          />
+        )
       ) : (
-        <>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            {!isWide ? (
+              <CompactSummary
+                result={result}
+                calculating={calculating}
+                saving={saving}
+                onCalculate={() => void calculate()}
+                onSave={() => void save()}
+              />
+            ) : null}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label={`${t.calculation.projectName} *`}>
               <TextInput
@@ -373,15 +550,25 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
             </Field>
           </div>
 
-          <ProfileForm
+          <ProfileSection
             profile={current.profile}
+            profiles={profiles}
+            open={profileOpen}
+            onToggle={() => setProfileOpen((open) => !open)}
+            onSelect={selectProfile}
             onChange={updateProfile}
           />
 
           <div className="mt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">{t.calculation.filesTitle}</h3>
-              <SecondaryButton type="button" onClick={() => update({ files: [...current.files, emptyFile()] })}>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+                {t.calculation.filesTitle}
+              </h3>
+              <SecondaryButton
+                type="button"
+                onClick={() => update({ files: [...current.files, emptyFile()] })}
+              >
+                <PlusIcon />
                 {t.calculation.addFile}
               </SecondaryButton>
             </div>
@@ -407,30 +594,30 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
             )}
           </div>
 
-          <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+          <div className="mt-6 rounded-card border border-line bg-surface p-4">
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
               {t.calculation.workstepsTitle}
             </h3>
             {allWorksteps.length === 0 ? (
-              <p className="text-sm text-slate-500">{t.worksteps.noneAvailable}</p>
+              <p className="text-sm text-ink-faint">{t.worksteps.noneAvailable}</p>
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-2.5">
                 {allWorksteps.map((workstep) => {
                   const selected = current.worksteps.some((w) => w.id === workstep.id);
                   return (
                     <li key={workstep.id}>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleWorkstep(workstep)}
-                          className="h-4 w-4 accent-sky-600"
-                        />
-                        {workstep.name}
-                        <span className="text-xs text-slate-500">
-                          ({formatMoney(workstep.price, locale)} €)
-                        </span>
-                      </label>
+                      <Checkbox
+                        checked={selected}
+                        onChange={() => toggleWorkstep(workstep)}
+                        label={
+                          <>
+                            {workstep.name}
+                            <span className="ml-2 text-xs text-ink-faint">
+                              ({formatMoney(workstep.price, locale)} €)
+                            </span>
+                          </>
+                        }
+                      />
                     </li>
                   );
                 })}
@@ -448,28 +635,36 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
             onChange={(surcharges) => update({ custom_surcharges: surcharges })}
           />
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <PrimaryButton type="button" onClick={() => void calculate()}>
-              {t.calculation.calculate}
-            </PrimaryButton>
-            <SecondaryButton type="button" onClick={() => void save()}>
-              {t.calculation.save}
-            </SecondaryButton>
-            {result ? (
-              <>
-                <SecondaryButton type="button" onClick={() => void exportFile("pdf")}>
-                  {t.calculation.exportPdf}
-                </SecondaryButton>
-                <SecondaryButton type="button" onClick={() => void exportFile("xlsx")}>
-                  {t.calculation.exportExcel}
-                </SecondaryButton>
-              </>
-            ) : null}
           </div>
 
-          {result ? <CalculationResultView result={result} files={current.files} /> : null}
-        </>
+          {isWide ? (
+            <div className="min-w-0">
+              <div className="xl:sticky xl:top-6">
+                <ResultPanel
+                  result={result}
+                  calculating={calculating}
+                  saving={saving}
+                  onCalculate={() => void calculate()}
+                  onSave={() => void save()}
+                  onShowDetails={showDetails}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
       )}
+
+      {current && result ? (
+        <div ref={resultRef} className="scroll-mt-24">
+          <CalculationResultView
+            result={result}
+            files={current.files}
+            onExportPdf={() => void exportFile("pdf")}
+            onExportExcel={() => void exportFile("xlsx")}
+            exporting={exporting}
+          />
+        </div>
+      ) : null}
 
       {deletingSaved ? (
         <ConfirmDialog
@@ -480,13 +675,207 @@ export function CalculationView({ adapter }: { adapter: PlatformAdapter }) {
           onCancel={() => setDeletingSaved(null)}
         />
       ) : null}
+
+      {confirmNew ? (
+        <ConfirmDialog
+          title={t.calculation.discardTitle}
+          message={t.calculation.discardMessage}
+          confirmLabel={t.calculation.discardConfirm}
+          onConfirm={createNewCalculation}
+          onCancel={() => setConfirmNew(false)}
+        />
+      ) : null}
+
+      {hint ? (
+        <Toast
+          message={hintText(hint, t)}
+          tone={
+            hint.kind === "exportCancelled"
+              ? "warning"
+              : hint.kind === "exportSaved"
+                ? "success"
+                : "info"
+          }
+          onDismiss={dismissHint}
+        />
+      ) : null}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// First-run setup
+// ---------------------------------------------------------------------------
+
+function SetupChecklist({ onNavigate }: { onNavigate?: (tab: CalculationTarget) => void }) {
+  const t = useStrings();
+  return (
+    <div className="rounded-card border border-line bg-surface p-6">
+      <div className="mb-5 flex items-start gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink">
+          <CalculatorIcon className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-ink">{t.calculation.setupTitle}</h3>
+          <p className="mt-0.5 text-sm text-ink-muted">{t.calculation.setupHint}</p>
+        </div>
+      </div>
+      <ol className="space-y-3">
+        <SetupStep
+          icon={<PrinterIcon />}
+          title={t.calculation.setupStepPrinter}
+          hint={t.calculation.setupPrinterHint}
+          action={
+            <PrimaryButton type="button" onClick={() => onNavigate?.("printers")}>
+              {t.calculation.setupPrinter}
+            </PrimaryButton>
+          }
+        />
+        <SetupStep
+          icon={<LayersIcon />}
+          title={t.calculation.setupStepMaterial}
+          hint={t.calculation.setupMaterialHint}
+          action={
+            <SecondaryButton type="button" onClick={() => onNavigate?.("materials")}>
+              {t.calculation.setupMaterial}
+            </SecondaryButton>
+          }
+        />
+        <SetupStep
+          icon={<CalculatorIcon />}
+          title={t.calculation.setupStepCalculation}
+          hint={t.calculation.setupCalculationHint}
+          muted
+        />
+      </ol>
+    </div>
+  );
+}
+
+function SetupStep({
+  icon,
+  title,
+  hint,
+  action,
+  muted = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  hint: string;
+  action?: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <li
+      className={`flex flex-wrap items-center gap-3 rounded-lg border border-line bg-canvas/40 px-3 py-3 ${
+        muted ? "opacity-60" : ""
+      }`}
+    >
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-raised text-ink-muted">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-ink">{title}</p>
+        <p className="text-xs text-ink-faint">{hint}</p>
+      </div>
+      {action}
+    </li>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Profile (inline — managing named profiles lives here for now)
 // ---------------------------------------------------------------------------
+
+function ProfileSection({
+  profile,
+  profiles,
+  open,
+  onToggle,
+  onSelect,
+  onChange,
+}: {
+  profile: CalculationProfile;
+  profiles: CalculationProfile[];
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (id: string) => void;
+  onChange: (patch: Partial<CalculationProfile>) => void;
+}) {
+  const t = useStrings();
+  const isSaved = profiles.some((entry) => entry.id === profile.id);
+  const saved = profiles.find((entry) => entry.id === profile.id);
+  const adjusted =
+    saved !== undefined &&
+    (Object.keys(saved) as (keyof CalculationProfile)[]).some(
+      (key) => saved[key] !== profile[key],
+    );
+  const options = [
+    ...(isSaved
+      ? [{ value: STANDARD_PROFILE, label: t.profiles.standard }]
+      : []),
+    ...profiles.map((entry) => ({ value: entry.id, label: entry.name })),
+    ...(isSaved ? [] : [{ value: profile.id, label: profile.name }]),
+  ];
+
+  return (
+    <section className="mt-6 rounded-card border border-line bg-surface/40 p-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <Field label={t.calculation.profileLegend}>
+            <Select value={profile.id} onChange={onSelect} options={options} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {adjusted ? (
+            <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning">
+              {t.calculation.profileAdjusted}
+            </span>
+          ) : null}
+          <GhostButton type="button" onClick={onToggle} className="mb-0.5">
+            <ChevronDownIcon
+              className={`transition-transform ${open ? "rotate-180" : ""}`}
+            />
+            {open ? t.calculation.profileHide : t.calculation.profileEdit}
+          </GhostButton>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-3 gap-3">
+        <div>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            {t.profiles.tax}
+          </dt>
+          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+            {profile.tax_rate_percent} %
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            {t.profiles.margin}
+          </dt>
+          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+            {profile.margin_percent} %
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            {t.profiles.failRate}
+          </dt>
+          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+            {profile.fail_rate_percent} %
+          </dd>
+        </div>
+      </dl>
+
+      {open ? (
+        <div className="mt-4 border-t border-line pt-4">
+          <ProfileForm profile={profile} onChange={onChange} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 function ProfileForm({
   profile,
@@ -507,23 +896,16 @@ function ProfileForm({
     </Field>
   );
   const check = (label: string, key: "apply_energy_costs" | "combine_materials" | "multiply_print_time_with_quantity" | "exclude_machine_from_margin" | "exclude_material_from_margin" | "exclude_worksteps_from_margin") => (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-      <input
-        type="checkbox"
-        checked={profile[key]}
-        onChange={(e) => set(key, e.target.checked)}
-        className="h-4 w-4 accent-sky-600"
-      />
-      {label}
-    </label>
+    <Checkbox
+      checked={profile[key]}
+      onChange={(checked) => set(key, checked)}
+      label={label}
+    />
   );
 
   return (
-    <fieldset className="mt-6 rounded-lg border border-slate-800 p-4">
-      <legend className="px-2 text-sm font-medium uppercase tracking-wide text-slate-400">
-        {t.calculation.profileLegend}
-      </legend>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {num(t.profiles.failRate, "fail_rate_percent")}
         {num(t.profiles.tax, "tax_rate_percent")}
         {num(t.profiles.margin, "margin_percent")}
@@ -550,7 +932,7 @@ function ProfileForm({
         {check(t.profiles.excludeMaterial, "exclude_material_from_margin")}
         {check(t.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
       </div>
-    </fieldset>
+    </div>
   );
 }
 
@@ -581,28 +963,33 @@ function FileCard({
   const num = (value: string | null) => emptyDecimal(value);
 
   return (
-    <li className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <TextInput
-          value={file.file_name}
-          onChange={(e) => onChange({ file_name: e.target.value })}
-          placeholder={t.calculation.fileNamePlaceholder}
-          aria-label={t.calculation.fileNameAria}
-        />
-        <button
-          type="button"
+    <li className="rounded-xl border border-line bg-surface p-4">
+      <div className="mb-3 flex items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <Field label={t.calculation.fileNameAria}>
+            <TextInput
+              value={file.file_name}
+              onChange={(e) => onChange({ file_name: e.target.value })}
+              placeholder={t.calculation.fileNamePlaceholder}
+              aria-label={t.calculation.fileNameAria}
+            />
+          </Field>
+        </div>
+        <IconButton
+          label={t.calculation.removeFileLabel(file.file_name || t.calculation.unnamedFile)}
           onClick={onRemove}
-          aria-label={t.calculation.removeFileLabel(file.file_name || t.calculation.unnamedFile)}
-          className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
+          danger
+          className="mb-0.5"
         >
-          ✕
-        </button>
+          <XIcon />
+        </IconButton>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Field label={t.calculation.quantity}>
           <TextInput
             value={String(file.quantity)}
             inputMode="numeric"
+            className="text-right tabular-nums"
             onChange={(e) => {
               const parsed = Number.parseInt(e.target.value, 10);
               onChange({ quantity: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 });
@@ -628,25 +1015,24 @@ function FileCard({
         </SecondaryButton>
       </div>
       <div className="mt-3">
-        <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{t.calculation.fileMaterials}</h4>
+        <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">{t.calculation.fileMaterials}</h4>
         {file.materials.length === 0 ? (
-          <p className="mb-2 text-xs text-slate-500">{t.calculation.noFileMaterials}</p>
+          <p className="mb-2 text-xs text-ink-faint">{t.calculation.noFileMaterials}</p>
         ) : (
           <ul className="mb-2 space-y-1">
             {file.materials.map((entry, index) => (
               <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-slate-200">
+                <span className="text-ink">
                   {entry.material.name}
-                  <span className="ml-2 text-xs text-slate-500">{formatMoney(entry.material.price, locale)} €</span>
+                  <span className="ml-2 text-xs text-ink-faint">{formatMoney(entry.material.price, locale)} €</span>
                 </span>
-                <button
-                  type="button"
+                <IconButton
+                  label={t.calculation.removeMaterialLabel(entry.material.name)}
                   onClick={() => onRemoveMaterial(index)}
-                  aria-label={t.calculation.removeMaterialLabel(entry.material.name)}
-                  className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
+                  danger
                 >
-                  ✕
-                </button>
+                  <XIcon />
+                </IconButton>
               </li>
             ))}
           </ul>
@@ -674,7 +1060,7 @@ function FileCard({
             </SecondaryButton>
           </div>
         ) : (
-          <p className="text-xs text-slate-500">{t.calculation.noMaterialsHint}</p>
+          <p className="text-xs text-ink-faint">{t.calculation.noMaterialsHint}</p>
         )}
       </div>
     </li>
@@ -716,48 +1102,60 @@ function ItemEditor({
   };
 
   return (
-    <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+    <div className="mt-6 rounded-xl border border-line bg-surface p-4">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
         {t.calculation.itemsTitle}
       </h3>
       {items.length > 0 ? (
         <ul className="mb-3 space-y-1">
           {items.map((item, index) => (
             <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-slate-200">
+              <span className="text-ink">
                 {item.name} · {item.quantity} × {formatMoney(item.price, locale)} €
-                <span className="ml-2 text-xs text-slate-500">
+                <span className="ml-2 text-xs text-ink-faint">
                   {item.file_id
                     ? `${t.calculation.itemFilePrefix}: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
                     : t.common.project}
                 </span>
               </span>
-              <button
-                type="button"
+              <IconButton
+                label={t.calculation.removeItemLabel(item.name)}
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
-                aria-label={t.calculation.removeItemLabel(item.name)}
-                className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
+                danger
               >
-                ✕
-              </button>
+                <XIcon />
+              </IconButton>
             </li>
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t.common.namePlaceholder} aria-label={t.calculation.itemName} />
-        <DecimalInput value={price} onChange={setPrice} aria-label={t.calculation.itemPrice} />
-        <DecimalInput value={quantity} onChange={setQuantity} aria-label={t.calculation.itemQuantity} />
-        <Select
-          value={fileId}
-          onChange={setFileId}
-          options={[
-            { value: "", label: t.common.project },
-            ...files.map((f) => ({ value: f.id, label: f.file_name || t.calculation.unnamedFile })),
-          ]}
-          aria-label={t.calculation.itemTarget}
-        />
-        <SecondaryButton type="button" disabled={!valid} onClick={add}>
+      <div className="grid grid-cols-2 items-end gap-2 md:grid-cols-5">
+        <Field label={t.calculation.itemName}>
+          <TextInput
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t.common.namePlaceholder}
+            aria-label={t.calculation.itemName}
+          />
+        </Field>
+        <Field label={t.calculation.itemPrice}>
+          <DecimalInput value={price} onChange={setPrice} aria-label={t.calculation.itemPrice} />
+        </Field>
+        <Field label={t.calculation.itemQuantity}>
+          <DecimalInput value={quantity} onChange={setQuantity} aria-label={t.calculation.itemQuantity} />
+        </Field>
+        <Field label={t.calculation.itemTarget}>
+          <Select
+            value={fileId}
+            onChange={setFileId}
+            options={[
+              { value: "", label: t.common.project },
+              ...files.map((f) => ({ value: f.id, label: f.file_name || t.calculation.unnamedFile })),
+            ]}
+            aria-label={t.calculation.itemTarget}
+          />
+        </Field>
+        <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
           {t.common.add}
         </SecondaryButton>
       </div>
@@ -791,45 +1189,55 @@ function SurchargeEditor({
   };
 
   return (
-    <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+    <div className="mt-6 rounded-xl border border-line bg-surface p-4">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
         {t.calculation.surchargesTitle}
       </h3>
       {surcharges.length > 0 ? (
         <ul className="mb-3 space-y-1">
           {surcharges.map((surcharge, index) => (
             <li key={surcharge.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-slate-200">
+              <span className="text-ink">
                 {surcharge.name} · {surcharge.percent} %
-                <span className="ml-2 text-xs text-slate-500">
+                <span className="ml-2 text-xs text-ink-faint">
                   {surcharge.timing === "before-margin" ? t.calculation.beforeMargin : t.calculation.afterMargin}
                 </span>
               </span>
-              <button
-                type="button"
+              <IconButton
+                label={t.calculation.removeSurchargeLabel(surcharge.name)}
                 onClick={() => onChange(surcharges.filter((_, i) => i !== index))}
-                aria-label={t.calculation.removeSurchargeLabel(surcharge.name)}
-                className="rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-red-300"
+                danger
               >
-                ✕
-              </button>
+                <XIcon />
+              </IconButton>
             </li>
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t.common.namePlaceholder} aria-label={t.calculation.surchargeName} />
-        <DecimalInput value={percent} onChange={setPercent} aria-label={t.calculation.surchargePercent} />
-        <Select
-          value={timing}
-          onChange={(v) => setTiming(v as SurchargeTiming)}
-          options={[
-            { value: "before-margin", label: t.calculation.beforeMargin },
-            { value: "after-margin", label: t.calculation.afterMargin },
-          ]}
-          aria-label={t.calculation.surchargeTiming}
-        />
-        <SecondaryButton type="button" disabled={!valid} onClick={add}>
+      <div className="grid grid-cols-2 items-end gap-2 md:grid-cols-4">
+        <Field label={t.calculation.surchargeName}>
+          <TextInput
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t.common.namePlaceholder}
+            aria-label={t.calculation.surchargeName}
+          />
+        </Field>
+        <Field label={t.calculation.surchargePercent}>
+          <DecimalInput value={percent} onChange={setPercent} aria-label={t.calculation.surchargePercent} />
+        </Field>
+        <Field label={t.calculation.surchargeTiming}>
+          <Select
+            value={timing}
+            onChange={(v) => setTiming(v as SurchargeTiming)}
+            options={[
+              { value: "before-margin", label: t.calculation.beforeMargin },
+              { value: "after-margin", label: t.calculation.afterMargin },
+            ]}
+            aria-label={t.calculation.surchargeTiming}
+          />
+        </Field>
+        <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
           {t.common.add}
         </SecondaryButton>
       </div>

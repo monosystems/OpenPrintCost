@@ -15,9 +15,9 @@ export function formatMoney(value: string, locale: Locale = "en"): string {
   return formatDecimal(value, 2, undefined, locale);
 }
 
-/** Formats a decimal string with up to 4 decimals (quantities). */
+/** Formats a decimal string with up to 3 decimals (quantities). */
 export function formatQuantity(value: string, locale: Locale = "en"): string {
-  return formatDecimal(value, 4, 4, locale);
+  return formatDecimal(value, 0, 3, locale);
 }
 
 function formatDecimal(value: string, min: number, max?: number, locale: Locale = "en"): string {

@@ -56,7 +56,7 @@ describe("ProfilesView", () => {
     const user = userEvent.setup();
     render(<ProfilesView adapter={adapter} />);
     const item = await screen.findByText("Alt");
-    const row = item.closest("li");
+    const row = item.closest("tr");
     if (!row) throw new Error("Row missing");
 
     await user.click(within(row).getByRole("button", { name: "Delete" }));

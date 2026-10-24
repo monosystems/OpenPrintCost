@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LOCALES, LOCALE_LABELS, useLocale } from "../i18n";
+import { ChevronDownIcon, GlobeIcon } from "./icons";
 
 /**
  * Language switcher: a single button that opens a list of locales.
@@ -8,7 +9,7 @@ import { LOCALES, LOCALE_LABELS, useLocale } from "../i18n";
  * does not widen the header. Keyboard support: Escape closes and returns
  * focus to the trigger, clicking outside closes.
  */
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ placement = "down" }: { placement?: "down" | "up" }) {
   const { t, locale, setLocale } = useLocale();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,13 +54,11 @@ export function LanguageSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t.app.language}
-        className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 transition-colors hover:bg-slate-700"
+        className="flex h-9 items-center gap-1.5 rounded-control border border-line-strong bg-raised px-3 text-sm text-ink transition-colors hover:bg-raised-hover"
       >
-        <span aria-hidden="true">🌐</span>
+        <GlobeIcon className="h-4 w-4 text-ink-muted" />
         {LOCALE_LABELS[locale]}
-        <span aria-hidden="true" className="text-xs text-slate-400">
-          ▾
-        </span>
+        <ChevronDownIcon className="h-3.5 w-3.5 text-ink-muted" />
       </button>
 
       {open ? (
@@ -67,7 +66,9 @@ export function LanguageSwitcher() {
           ref={listRef}
           role="listbox"
           aria-label={t.app.language}
-          className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-md border border-slate-700 bg-slate-900 py-1 shadow-xl"
+          className={`absolute right-0 z-50 w-44 overflow-hidden rounded-card border border-line-strong bg-raised py-1 shadow-2xl ${
+            placement === "up" ? "bottom-full mb-2" : "mt-2"
+          }`}
         >
           {LOCALES.map((code) => (
             <li key={code} role="none">
@@ -78,8 +79,8 @@ export function LanguageSwitcher() {
                 onClick={() => choose(code)}
                 className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
                   locale === code
-                    ? "bg-sky-950 text-sky-300"
-                    : "text-slate-200 hover:bg-slate-800"
+                    ? "bg-brand-soft text-brand-ink"
+                    : "text-ink hover:bg-raised-hover"
                 }`}
               >
                 {LOCALE_LABELS[code]}

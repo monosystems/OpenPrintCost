@@ -3,6 +3,25 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { MockPlatformAdapter } from "./api/mockAdapter";
+import type { Printer } from "./api/types";
+
+function seedPrinter(adapter: MockPlatformAdapter) {
+  return adapter.savePrinter({
+    id: "11111111-1111-1111-1111-111111111111",
+    model: "MK4",
+    manufacturer: null,
+    process: "fdm",
+    material_family: "filament",
+    power_watts: "110",
+    build_volume_mm3: "1000000",
+    purchase_price: "799",
+    hourly_rate: null,
+    nozzle_wear_cost: null,
+    build_plate_wear_cost: null,
+    material_change_cost: null,
+    properties: {},
+  } satisfies Printer);
+}
 
 describe("App footer", () => {
   it("shows the build number instead of the database path", async () => {
@@ -12,6 +31,34 @@ describe("App footer", () => {
 
     expect(await screen.findByText("Build: 9.8.7")).toBeInTheDocument();
     expect(screen.queryByText(/^Database:/)).not.toBeInTheDocument();
+  });
+});
+
+describe("App workflow", () => {
+  it("keeps an in-progress calculation when switching tabs", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seedPrinter(adapter);
+    const user = userEvent.setup();
+    render(<App adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Draft");
+
+    await user.click(screen.getByRole("button", { name: "Printers" }));
+    await user.click(screen.getByRole("button", { name: "Calculation" }));
+
+    expect(screen.getByPlaceholderText("e.g. Enclosure series")).toHaveValue("Draft");
+  });
+
+  it("guides a fresh install through the setup checklist", async () => {
+    const adapter = new MockPlatformAdapter();
+    const user = userEvent.setup();
+    render(<App adapter={adapter} />);
+
+    expect(await screen.findByText("Set up your workspace")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add printer" }));
+
+    expect(await screen.findByRole("heading", { name: "Printers" })).toBeInTheDocument();
   });
 });
 

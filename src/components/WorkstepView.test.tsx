@@ -51,11 +51,10 @@ describe("WorkstepView", () => {
 
     const user = userEvent.setup();
     render(<WorkstepView adapter={adapter} />);
-    await waitFor(() => expect(screen.getByText("Cleaning")).toBeInTheDocument());
-
-    await user.click(
-      screen.getByRole("button", { name: en.worksteps.deleteCategoryLabel("Cleaning") }),
-    );
+    const deleteCategory = await screen.findByRole("button", {
+      name: en.worksteps.deleteCategoryLabel("Cleaning"),
+    });
+    await user.click(deleteCategory);
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: en.common.delete }));
 

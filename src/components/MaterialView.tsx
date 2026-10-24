@@ -3,9 +3,11 @@ import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type Material, type MaterialFamily, type MaterialUnit } from "../api/types";
+import { DataTable, type DataColumn } from "./DataTable";
+import { LayersIcon } from "./icons";
 import {
   ConfirmDialog,
-  DangerButton,
+  DangerGhostButton,
   DecimalInput,
   EmptyState,
   ErrorBanner,
@@ -117,47 +119,105 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
   const set = <K extends keyof Material>(key: K, value: Material[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
+  const columns: ReadonlyArray<DataColumn<Material>> = [
+    {
+      key: "name",
+      header: t.materials.name,
+      sortValue: (material) => material.name,
+      render: (material) => (
+        <div>
+          <p className="font-medium text-ink">{material.name}</p>
+          {material.manufacturer ? (
+            <p className="text-xs text-ink-faint">{material.manufacturer}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: t.materials.type,
+      render: (material) => material.material_type,
+    },
+    {
+      key: "family",
+      header: t.materials.family,
+      render: (material) => t.domain.family[material.family],
+    },
+    {
+      key: "price",
+      header: t.materials.price,
+      align: "right",
+      sortValue: (material) => Number(material.price),
+      render: (material) => `${formatMoney(material.price, locale)} €`,
+    },
+    {
+      key: "package",
+      header: t.materials.packageSize,
+      align: "right",
+      sortValue: (material) => Number(material.package_size),
+      render: (material) =>
+        `${formatQuantity(material.package_size, locale)} ${t.domain.unit[material.unit]}`,
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      align: "right",
+      render: (material) => (
+        <div className="flex justify-end gap-2">
+          <SecondaryButton
+            type="button"
+            onClick={() => {
+              setEditing({ ...material });
+              setFormErrors({});
+            }}
+          >
+            {t.common.edit}
+          </SecondaryButton>
+          <DangerGhostButton type="button" onClick={() => setDeleting(material)}>
+            {t.common.delete}
+          </DangerGhostButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section aria-label={t.materials.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.materials.title}</h2>
-        <PrimaryButton type="button" onClick={openNew}>
-          {t.materials.newButton}
-        </PrimaryButton>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.materials.title}</h2>
+        {materials.length > 0 ? (
+          <PrimaryButton type="button" onClick={openNew}>
+            {t.materials.newButton}
+          </PrimaryButton>
+        ) : null}
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
       {loading ? (
-        <p className="text-sm text-slate-400">{t.common.loading}</p>
+        <p className="text-sm text-ink-muted">{t.common.loading}</p>
       ) : materials.length === 0 ? (
-        <EmptyState message={t.materials.empty} />
+        <EmptyState
+          icon={<LayersIcon />}
+          message={t.materials.empty}
+          action={
+            <PrimaryButton type="button" onClick={openNew}>
+              {t.materials.newButton}
+            </PrimaryButton>
+          }
+        />
       ) : (
-        <ul className="space-y-2">
-          {materials.map((material) => (
-            <li
-              key={material.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-slate-100">{material.name}</p>
-                <p className="text-xs text-slate-400">
-                  {material.material_type} · {t.domain.family[material.family]} ·{" "}
-                  {formatMoney(material.price, locale)} € / {formatQuantity(material.package_size, locale)}{" "}
-                  {t.domain.unit[material.unit]}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <SecondaryButton type="button" onClick={() => { setEditing({ ...material }); setFormErrors({}); }}>
-                  {t.common.edit}
-                </SecondaryButton>
-                <DangerButton type="button" onClick={() => setDeleting(material)}>
-                  {t.common.delete}
-                </DangerButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          label={t.materials.title}
+          rows={materials}
+          columns={columns}
+          rowKey={(material) => material.id}
+          searchText={(material) =>
+            [material.name, material.manufacturer, material.material_type, material.family]
+              .filter(Boolean)
+              .join(" ")
+          }
+        />
       )}
 
       {editing ? (

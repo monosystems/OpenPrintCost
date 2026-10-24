@@ -1,5 +1,49 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — the single source of truth for the dark UI.
+ *
+ * Canvas is the page, surface is a card, raised is a control or popover.
+ * Borders are translucent white so elevation reads as luminance, not shadow.
+ * Brand colours come from the logo: blue #0070F0, teal #00B080, navy #002060.
+ */
+@theme {
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    Menlo, monospace;
+
+  --color-canvas: #060a12;
+  --color-surface: #0b1220;
+  --color-raised: #111a2b;
+  --color-raised-hover: #17233a;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+
+  --color-ink: #eef2f7;
+  --color-ink-muted: #9aa7b8;
+  --color-ink-faint: #7a8a9f;
+
+  --color-brand: #0070f0;
+  --color-brand-hover: #0062d6;
+  --color-brand-soft: #07203f;
+  --color-brand-ink: #7cc0ff;
+
+  --color-accent: #00b080;
+  --color-accent-soft: #062a22;
+  --color-danger: #f87171;
+  --color-danger-soft: #2a0f12;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #2a1c05;
+
+  --color-focus: #4da3ff;
+
+  --radius-control: 6px;
+  --radius-card: 12px;
+}
+
 @layer base {
   html,
   body,
@@ -9,17 +53,36 @@
 
   body {
     margin: 0;
-    background-color: var(--color-slate-950);
-    color: var(--color-slate-100);
-    font-family:
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      Roboto,
-      "Helvetica Neue",
-      Arial,
-      sans-serif;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgb(0 112 240 / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

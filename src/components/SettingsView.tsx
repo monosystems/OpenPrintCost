@@ -54,16 +54,16 @@ export function SettingsView({
   return (
     <section aria-label={t.settings.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.settings.title}</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.settings.title}</h2>
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
-      <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-slate-400">
+      <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+        <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
           {t.settings.companyTitle}
         </h3>
-        <p className="mb-4 text-xs text-slate-500">{t.settings.companyHint}</p>
+        <p className="mb-4 text-xs text-ink-faint">{t.settings.companyHint}</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label={t.settings.name}>
             <TextInput value={company.name} onChange={(e) => set("name", e.target.value)} />
@@ -83,13 +83,13 @@ export function SettingsView({
             {t.common.save}
           </PrimaryButton>
           {saved ? (
-            <p role="status" className="text-sm text-emerald-400">{t.settings.saved}</p>
+            <p role="status" className="text-sm text-accent">{t.settings.saved}</p>
           ) : null}
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+      <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
           {t.settings.environmentTitle}
         </h3>
         <DatabasePath adapter={adapter} />
@@ -97,11 +97,11 @@ export function SettingsView({
 
       <Updates adapter={adapter} onError={setError} onUpdateChange={onUpdateChange} />
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+      <div className="rounded-xl border border-line bg-surface p-4">
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
           {t.settings.aboutTitle}
         </h3>
-        <p className="text-sm text-slate-300">{t.settings.aboutText}</p>
+        <p className="text-sm text-ink-muted">{t.settings.aboutText}</p>
       </div>
     </section>
   );
@@ -161,11 +161,11 @@ function Updates({
   const busy = status === "checking" || status === "installing";
 
   return (
-    <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+    <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
         {t.settings.updatesTitle}
       </h3>
-      <p className="text-sm text-slate-300">
+      <p className="text-sm text-ink-muted">
         {t.settings.updatesCurrentVersion(version ?? t.app.unknown)}
       </p>
 
@@ -181,30 +181,30 @@ function Updates({
       </div>
 
       {status === "current" ? (
-        <p role="status" className="mt-2 text-sm text-slate-400">
+        <p role="status" className="mt-2 text-sm text-ink-muted">
           {t.settings.updatesUpToDate}
         </p>
       ) : null}
       {status === "installing" ? (
-        <p role="status" className="mt-2 text-sm text-slate-300">
+        <p role="status" className="mt-2 text-sm text-ink-muted">
           {t.settings.updatesInstalling}
         </p>
       ) : null}
       {status === "installed" ? (
-        <p role="status" className="mt-2 text-sm text-emerald-400">
+        <p role="status" className="mt-2 text-sm text-accent">
           {t.settings.updatesInstalled}
         </p>
       ) : null}
       {status === "available" && update ? (
         <div className="mt-2">
-          <p className="text-sm text-emerald-400">{t.settings.updatesAvailable(update.version)}</p>
+          <p className="text-sm text-accent">{t.settings.updatesAvailable(update.version)}</p>
           {update.notes ? (
-            <p className="mt-1 whitespace-pre-line text-xs text-slate-400">{update.notes}</p>
+            <p className="mt-1 whitespace-pre-line text-xs text-ink-muted">{update.notes}</p>
           ) : null}
         </div>
       ) : null}
 
-      <p className="mt-3 text-xs text-slate-500">{t.settings.updatesManaged}</p>
+      <p className="mt-3 text-xs text-ink-faint">{t.settings.updatesManaged}</p>
     </div>
   );
 }
@@ -221,7 +221,7 @@ function DatabasePath({ adapter }: { adapter: PlatformAdapter }) {
   }, [adapter, t]);
 
   return (
-    <p className="text-sm text-slate-300" title={path}>
+    <p className="font-mono text-xs text-ink-muted" title={path}>
       {t.app.database}: {path}
     </p>
   );

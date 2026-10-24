@@ -1,5 +1,6 @@
 import type { UpdateInfo } from "../api/types";
 import { useLocale } from "../i18n";
+import { DownloadIcon } from "./icons";
 
 /**
  * Small header badge that appears only while the release server offers a
@@ -24,9 +25,9 @@ export function UpdateBadge({
       onClick={onOpen}
       aria-label={label}
       title={label}
-      className="flex shrink-0 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+      className="flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-warning/30 bg-warning-soft px-2.5 text-sm font-medium text-warning transition-colors hover:bg-warning-soft/70"
     >
-      <span aria-hidden="true">↑</span>
+      <DownloadIcon className="h-4 w-4" />
       <span aria-hidden="true" className="hidden sm:inline">
         {t.app.updateBadge}
       </span>

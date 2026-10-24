@@ -4,6 +4,8 @@ import { App } from "./App";
 import { MockPlatformAdapter } from "./api/mockAdapter";
 import type { PlatformAdapter } from "./api/platform";
 import { TauriPlatformAdapter } from "./api/tauriAdapter";
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./styles.css";
 
 /**

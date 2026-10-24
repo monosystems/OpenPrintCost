@@ -9,13 +9,16 @@ import {
   type WorkstepCategory,
   type WorkstepTiming,
 } from "../api/types";
+import { DataTable, type DataColumn } from "./DataTable";
+import { WrenchIcon, XIcon } from "./icons";
 import {
   ConfirmDialog,
-  DangerButton,
+  DangerGhostButton,
   DecimalInput,
   EmptyState,
   ErrorBanner,
   Field,
+  IconButton,
   Modal,
   PrimaryButton,
   SecondaryButton,
@@ -149,10 +152,68 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
   const set = <K extends keyof Workstep>(key: K, value: Workstep[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
+  const columns: ReadonlyArray<DataColumn<Workstep>> = [
+    {
+      key: "name",
+      header: t.worksteps.name,
+      sortValue: (workstep) => workstep.name,
+      render: (workstep) => <p className="font-medium text-ink">{workstep.name}</p>,
+    },
+    {
+      key: "category",
+      header: t.worksteps.category,
+      render: (workstep) => workstep.category.name,
+    },
+    {
+      key: "type",
+      header: t.worksteps.calculationType,
+      render: (workstep) => (
+        <span className="capitalize">
+          {t.domain.calculationType[workstep.calculation_type]}
+        </span>
+      ),
+    },
+    {
+      key: "price",
+      header: t.worksteps.price,
+      align: "right",
+      sortValue: (workstep) => Number(workstep.price),
+      render: (workstep) => `${formatMoney(workstep.price, locale)} €`,
+    },
+    {
+      key: "timing",
+      header: t.worksteps.timing,
+      render: (workstep) => (
+        <span className="capitalize">{t.domain.timing[workstep.timing]}</span>
+      ),
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      align: "right",
+      render: (workstep) => (
+        <div className="flex justify-end gap-2">
+          <SecondaryButton
+            type="button"
+            onClick={() => {
+              setEditing({ ...workstep, category: { ...workstep.category } });
+              setFormErrors({});
+            }}
+          >
+            {t.common.edit}
+          </SecondaryButton>
+          <DangerGhostButton type="button" onClick={() => setDeleting(workstep)}>
+            {t.common.delete}
+          </DangerGhostButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section aria-label={t.worksteps.title}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-100">{t.worksteps.title}</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.worksteps.title}</h2>
         <PrimaryButton type="button" onClick={openNew}>
           {t.worksteps.newButton}
         </PrimaryButton>
@@ -160,26 +221,26 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
 
-      <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">{t.worksteps.categories}</h3>
+      <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">{t.worksteps.categories}</h3>
         {categories.length === 0 ? (
-          <p className="mb-3 text-sm text-slate-500">{t.worksteps.noCategories}</p>
+          <p className="mb-3 text-sm text-ink-faint">{t.worksteps.noCategories}</p>
         ) : (
           <ul className="mb-3 flex flex-wrap gap-2">
             {categories.map((category) => (
               <li
                 key={category.id}
-                className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-sm text-slate-200"
+                className="flex items-center gap-2 rounded-full border border-line-strong bg-raised px-3 py-1 text-sm text-ink"
               >
                 {category.name}
-                <button
-                  type="button"
+                <IconButton
+                  label={t.worksteps.deleteCategoryLabel(category.name)}
                   onClick={() => setDeletingCategory(category)}
-                  aria-label={t.worksteps.deleteCategoryLabel(category.name)}
-                  className="rounded px-1 text-slate-400 hover:bg-slate-700 hover:text-red-300"
+                  danger
+                  className="-mr-1 h-5 w-5"
                 >
-                  ✕
-                </button>
+                  <XIcon className="h-3 w-3" />
+                </IconButton>
               </li>
             ))}
           </ul>
@@ -198,34 +259,24 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400">{t.common.loading}</p>
+        <p className="text-sm text-ink-muted">{t.common.loading}</p>
       ) : worksteps.length === 0 ? (
-        <EmptyState message={t.worksteps.empty} />
+        <EmptyState
+          icon={<WrenchIcon />}
+          message={t.worksteps.empty}
+        />
       ) : (
-        <ul className="space-y-2">
-          {worksteps.map((workstep) => (
-            <li
-              key={workstep.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-slate-100">{workstep.name}</p>
-                <p className="text-xs text-slate-400">
-                  {workstep.category.name} · {t.domain.calculationType[workstep.calculation_type]} ·{" "}
-                  {formatMoney(workstep.price, locale)} €
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <SecondaryButton type="button" onClick={() => { setEditing({ ...workstep, category: { ...workstep.category } }); setFormErrors({}); }}>
-                  {t.common.edit}
-                </SecondaryButton>
-                <DangerButton type="button" onClick={() => setDeleting(workstep)}>
-                  {t.common.delete}
-                </DangerButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          label={t.worksteps.title}
+          rows={worksteps}
+          columns={columns}
+          rowKey={(workstep) => workstep.id}
+          searchText={(workstep) =>
+            [workstep.name, workstep.category.name, workstep.calculation_type]
+              .filter(Boolean)
+              .join(" ")
+          }
+        />
       )}
 
       {editing ? (
@@ -260,7 +311,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
               <DecimalInput value={editing.quantity} onChange={(v) => set("quantity", v)} />
             </Field>
             {editing.calculation_type === "per-hour" ? (
-              <Field label={`${t.worksteps.duration} (Stunden) *`} error={formErrors.duration_hours}>
+              <Field label={`${t.worksteps.duration} *`} error={formErrors.duration_hours}>
                 <DecimalInput value={editing.duration_hours} onChange={(v) => set("duration_hours", v)} />
               </Field>
             ) : null}
