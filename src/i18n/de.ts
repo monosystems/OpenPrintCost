@@ -66,6 +66,7 @@ export const de = {
     noMatches: "Keine Treffer für deine Suche.",
     actions: "Aktionen",
     entries: (count: number) => (count === 1 ? "1 Eintrag" : `${count} Einträge`),
+    requiredHint: "Mit * markierte Felder sind Pflichtfelder.",
   },
   validation: {
     required: (label: string) => `Bitte ${label} eingeben.`,
@@ -118,6 +119,10 @@ export const de = {
     newButton: "Neuer Drucker",
     editTitle: "Drucker bearbeiten",
     newTitle: "Neuer Drucker",
+    formDescription: "Stammdaten und Kosten für die Kalkulation.",
+    sectionDevice: "Gerät",
+    sectionTechnical: "Technische Daten",
+    sectionCosts: "Kosten",
     empty: "Noch keine Drucker angelegt. Lege deinen ersten Drucker an, um zu kalkulieren.",
     model: "Modellbezeichnung",
     modelExample: "z. B. Prusa MK4S",

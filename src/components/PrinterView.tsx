@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   Modal,
   PrimaryButton,
   SecondaryButton,
@@ -71,6 +72,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const [editing, setEditing] = useState<Printer | null>(null);
   const [deleting, setDeleting] = useState<Printer | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -111,12 +113,15 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
         ? editing.material_change_cost.trim()
         : null,
     };
+    setSaving(true);
     try {
       await adapter.savePrinter(cleaned);
       setEditing(null);
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.printerSave);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -239,57 +244,130 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={printers.some((p) => p.id === editing.id) ? t.printers.editTitle : t.printers.newTitle} onClose={() => setEditing(null)}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label={`${t.printers.model} *`} error={formErrors.model}>
-              <TextInput value={editing.model} onChange={(e) => set("model", e.target.value)} placeholder={t.printers.modelExample} />
-            </Field>
-            <Field label={t.printers.manufacturer}>
-              <TextInput value={editing.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} placeholder={t.printers.manufacturerExample} />
-            </Field>
-            <Field label={t.printers.process}>
-              <Select
-                value={editing.process}
-                onChange={(v) => set("process", v as PrintProcess)}
-                options={Object.entries(t.domain.process).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-            <Field label={t.printers.materialFamily}>
-              <Select
-                value={editing.material_family}
-                onChange={(v) => set("material_family", v as MaterialFamily)}
-                options={Object.entries(t.domain.family).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-            <Field label={`${t.printers.power} *`} error={formErrors.power_watts}>
-              <DecimalInput value={editing.power_watts} onChange={(v) => set("power_watts", v)} />
-            </Field>
-            <Field label={`${t.printers.volume} *`} error={formErrors.build_volume_mm3}>
-              <DecimalInput value={editing.build_volume_mm3} onChange={(v) => set("build_volume_mm3", v)} />
-            </Field>
-            <Field label={`${t.printers.price} *`} error={formErrors.purchase_price}>
-              <DecimalInput value={editing.purchase_price} onChange={(v) => set("purchase_price", v)} />
-            </Field>
-            <Field label={t.printers.hourlyRate} error={formErrors.hourly_rate}>
-              <DecimalInput value={editing.hourly_rate ?? ""} onChange={(v) => set("hourly_rate", v)} />
-            </Field>
-            <Field label={t.printers.nozzle} error={formErrors.nozzle_wear_cost}>
-              <DecimalInput value={editing.nozzle_wear_cost ?? ""} onChange={(v) => set("nozzle_wear_cost", v)} />
-            </Field>
-            <Field label={t.printers.plate} error={formErrors.build_plate_wear_cost}>
-              <DecimalInput value={editing.build_plate_wear_cost ?? ""} onChange={(v) => set("build_plate_wear_cost", v)} />
-            </Field>
-            <Field label={t.printers.materialChange} error={formErrors.material_change_cost}>
-              <DecimalInput value={editing.material_change_cost ?? ""} onChange={(v) => set("material_change_cost", v)} />
-            </Field>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {t.common.cancel}
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void save()}>
-              {t.common.save}
-            </PrimaryButton>
+        <Modal
+          title={printers.some((p) => p.id === editing.id) ? t.printers.editTitle : t.printers.newTitle}
+          description={t.printers.formDescription}
+          onClose={() => setEditing(null)}
+          footer={
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-ink-faint">{t.common.requiredHint}</p>
+              <div className="flex justify-end gap-3">
+                <SecondaryButton type="button" onClick={() => setEditing(null)}>
+                  {t.common.cancel}
+                </SecondaryButton>
+                <PrimaryButton type="button" loading={saving} onClick={() => void save()}>
+                  {t.common.save}
+                </PrimaryButton>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-6">
+            <FormSection title={t.printers.sectionDevice}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-7">
+                  <Field label={`${t.printers.model} *`} error={formErrors.model}>
+                    <TextInput
+                      autoFocus
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.model)}
+                      value={editing.model}
+                      onChange={(e) => set("model", e.target.value)}
+                      placeholder={t.printers.modelExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-5">
+                  <Field label={t.printers.manufacturer}>
+                    <TextInput
+                      value={editing.manufacturer ?? ""}
+                      onChange={(e) => set("manufacturer", e.target.value)}
+                      placeholder={t.printers.manufacturerExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.printers.process}>
+                    <Select
+                      value={editing.process}
+                      onChange={(v) => set("process", v as PrintProcess)}
+                      options={Object.entries(t.domain.process).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.printers.materialFamily}>
+                    <Select
+                      value={editing.material_family}
+                      onChange={(v) => set("material_family", v as MaterialFamily)}
+                      options={Object.entries(t.domain.family).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.printers.sectionTechnical}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label={`${t.printers.power} *`} error={formErrors.power_watts}>
+                  <DecimalInput
+                    aria-required="true"
+                    aria-invalid={Boolean(formErrors.power_watts)}
+                    value={editing.power_watts}
+                    onChange={(v) => set("power_watts", v)}
+                  />
+                </Field>
+                <Field label={`${t.printers.volume} *`} error={formErrors.build_volume_mm3}>
+                  <DecimalInput
+                    aria-required="true"
+                    aria-invalid={Boolean(formErrors.build_volume_mm3)}
+                    value={editing.build_volume_mm3}
+                    onChange={(v) => set("build_volume_mm3", v)}
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.printers.sectionCosts}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label={`${t.printers.price} *`} error={formErrors.purchase_price}>
+                  <DecimalInput
+                    aria-required="true"
+                    aria-invalid={Boolean(formErrors.purchase_price)}
+                    value={editing.purchase_price}
+                    onChange={(v) => set("purchase_price", v)}
+                  />
+                </Field>
+                <Field label={t.printers.hourlyRate} error={formErrors.hourly_rate}>
+                  <DecimalInput
+                    aria-invalid={Boolean(formErrors.hourly_rate)}
+                    value={editing.hourly_rate ?? ""}
+                    onChange={(v) => set("hourly_rate", v)}
+                  />
+                </Field>
+                <Field label={t.printers.nozzle} error={formErrors.nozzle_wear_cost}>
+                  <DecimalInput
+                    aria-invalid={Boolean(formErrors.nozzle_wear_cost)}
+                    value={editing.nozzle_wear_cost ?? ""}
+                    onChange={(v) => set("nozzle_wear_cost", v)}
+                  />
+                </Field>
+                <Field label={t.printers.plate} error={formErrors.build_plate_wear_cost}>
+                  <DecimalInput
+                    aria-invalid={Boolean(formErrors.build_plate_wear_cost)}
+                    value={editing.build_plate_wear_cost ?? ""}
+                    onChange={(v) => set("build_plate_wear_cost", v)}
+                  />
+                </Field>
+                <Field label={t.printers.materialChange} error={formErrors.material_change_cost}>
+                  <DecimalInput
+                    aria-invalid={Boolean(formErrors.material_change_cost)}
+                    value={editing.material_change_cost ?? ""}
+                    onChange={(v) => set("material_change_cost", v)}
+                  />
+                </Field>
+              </div>
+            </FormSection>
           </div>
         </Modal>
       ) : null}

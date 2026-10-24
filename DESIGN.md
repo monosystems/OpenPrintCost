@@ -199,7 +199,8 @@ Components use semantic utilities (`bg-surface`, `text-ink-muted`,
 | Checkbox | native input + custom 16 px box, brand fill, focus ring on the box |
 | Field | visible 11 px label, 14 px control, error outside the label (`role="alert"`) |
 | Empty state | icon + description + one action |
-| Modal | raised surface, 12 px radius, backdrop blur, Escape/backdrop close |
+| Modal | raised surface, 12 px radius, divided header/body/footer, backdrop blur, Escape/backdrop close; long forms scroll the body and keep actions in the footer |
+| Form section | 11 px uppercase label + hairline rule; 24 px between groups; fields on a 12-column grid |
 | Toast | fixed bottom-right, auto-dismiss after 5 s, `role="status"`, info/success/warning tones |
 | Result panel | sticky, 30 px teal total, primary Calculate, secondary Save/Details, cost breakdown |
 | Table | search + sortable headers + right-aligned numbers; no shadows |

@@ -67,6 +67,7 @@ export const en: Strings = {
     noMatches: "No matches for your search.",
     actions: "Actions",
     entries: (count: number) => (count === 1 ? "1 entry" : `${count} entries`),
+    requiredHint: "Fields marked * are required.",
   },
   validation: {
     required: (label: string) => `Please enter ${label}.`,
@@ -119,6 +120,10 @@ export const en: Strings = {
     newButton: "New printer",
     editTitle: "Edit printer",
     newTitle: "New printer",
+    formDescription: "Master data and costs used for calculations.",
+    sectionDevice: "Device",
+    sectionTechnical: "Technical data",
+    sectionCosts: "Costs",
     empty: "No printers yet. Create your first printer to start calculating.",
     model: "Model name",
     modelExample: "e.g. Prusa MK4S",

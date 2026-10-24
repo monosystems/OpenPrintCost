@@ -28,6 +28,18 @@ describe("PrinterView", () => {
     expect(await adapter.listPrinters()).toHaveLength(1);
   });
 
+  it("groups the printer form into labelled sections", async () => {
+    const { user } = await renderView();
+
+    await user.click(screen.getByRole("button", { name: "New printer" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByText("Device")).toBeInTheDocument();
+    expect(within(dialog).getByText("Technical data")).toBeInTheDocument();
+    expect(within(dialog).getByText("Costs")).toBeInTheDocument();
+    expect(within(dialog).getByText("Fields marked * are required.")).toBeInTheDocument();
+  });
+
   it("rejects an empty model with an error", async () => {
     const { user, adapter } = await renderView();
 

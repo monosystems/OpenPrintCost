@@ -1,11 +1,11 @@
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, type ComponentProps, type ReactNode } from "react";
 import { useStrings } from "../i18n";
 import { CheckIcon, SpinnerIcon, XIcon } from "./icons";
 
 /** Small UI kit for master-data management (dark theme). */
 
 const inputClass =
-  "w-full rounded-control border border-line-strong bg-canvas px-3 py-2 text-sm " +
+  "h-9 w-full rounded-control border border-line-strong bg-canvas px-3 text-sm " +
   "text-ink placeholder:text-ink-faint transition-colors hover:border-ink-faint " +
   "focus:border-brand";
 
@@ -33,6 +33,21 @@ export function Field({
         </span>
       ) : null}
     </div>
+  );
+}
+
+/** Visual grouping inside long forms; the fields themselves stay shared inputs. */
+export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-4 flex items-center gap-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          {title}
+        </h3>
+        <span aria-hidden="true" className="h-px flex-1 bg-line" />
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -303,14 +318,20 @@ export function Toast({
 
 export function Modal({
   title,
+  description,
+  footer,
   onClose,
   children,
 }: {
   title: string;
+  description?: string;
+  footer?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
   const t = useStrings();
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -330,16 +351,29 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-card border border-line-strong bg-raised p-6 shadow-2xl"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-card border border-line-strong bg-raised shadow-2xl"
       >
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
-          <IconButton label={t.common.close} onClick={onClose}>
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-base font-semibold tracking-tight text-ink">
+              {title}
+            </h2>
+            {description ? (
+              <p id={descriptionId} className="mt-1 text-sm text-ink-muted">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <IconButton label={t.common.close} onClick={onClose} className="-mr-1 -mt-0.5">
             <XIcon />
           </IconButton>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
+        {footer ? (
+          <div className="border-t border-line bg-surface/40 px-6 py-4">{footer}</div>
+        ) : null}
       </div>
     </div>
   );
