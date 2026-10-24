@@ -47,9 +47,12 @@ including failure-rate costing, margin, and tax.
 - **Free and open.** [Apache-2.0](LICENSE), commercial use allowed.
 
 > **UI language:** English by default (auto-detected from the browser). The
-> header has a language dropdown (English, Deutsch) that remembers your
+> sidebar has a language dropdown (English, Deutsch) that remembers your
 > choice. All strings live in `src/i18n/` — no hardcoded user-facing strings
 > in components. Adding a language is one dictionary plus one registry entry.
+>
+> **Design system:** Tokens, component rules, deliberate deviations, and the
+> skill-based UI review are documented in [DESIGN.md](DESIGN.md).
 
 ## Features
 
@@ -138,7 +141,7 @@ would be needed, which is planned for a later release.
 
 OpenPrintCost can update itself. It checks the release manifest
 (`releases/latest/download/latest.json`) at startup and every hour; when a new
-version is available, a badge appears in the header. The badge opens
+version is available, a badge appears in the sidebar. The badge opens
 **Settings → Updates**, where the release notes and **Install update** live.
 You can also check manually there.
 
