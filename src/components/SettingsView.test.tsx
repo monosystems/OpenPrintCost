@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MockPlatformAdapter } from "../api/mockAdapter";
 import { SettingsView } from "./SettingsView";
 
@@ -60,22 +60,26 @@ describe("SettingsView updates", () => {
 
   it("offers an available update and installs it", async () => {
     const adapter = new MockPlatformAdapter();
-    adapter.availableUpdate = {
+    const offered = {
       version: "0.2.0",
       currentVersion: "0.1.1",
       notes: "Faster calculations.",
       date: "2026-10-24T07:00:00Z",
     };
+    adapter.availableUpdate = offered;
+    const onUpdateChange = vi.fn();
     const user = userEvent.setup();
-    render(<SettingsView adapter={adapter} />);
+    render(<SettingsView adapter={adapter} onUpdateChange={onUpdateChange} />);
 
     await user.click(screen.getByRole("button", { name: "Check for updates" }));
 
     expect(await screen.findByText("Version 0.2.0 is available.")).toBeInTheDocument();
     expect(screen.getByText("Faster calculations.")).toBeInTheDocument();
+    expect(onUpdateChange).toHaveBeenCalledWith(offered);
 
     await user.click(screen.getByRole("button", { name: "Install update" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Update installed");
+    expect(onUpdateChange).toHaveBeenLastCalledWith(null);
   });
 });

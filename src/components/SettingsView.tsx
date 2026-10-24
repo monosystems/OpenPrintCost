@@ -4,7 +4,14 @@ import { useLocale } from "../i18n";
 import type { CompanyInfo, UpdateInfo } from "../api/types";
 import { ErrorBanner, Field, PrimaryButton, TextInput } from "./ui";
 
-export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
+export function SettingsView({
+  adapter,
+  onUpdateChange,
+}: {
+  adapter: PlatformAdapter;
+  /** Lets the header badge follow a manual check or a successful install. */
+  onUpdateChange?: (update: UpdateInfo | null) => void;
+}) {
   const { t } = useLocale();
   const [company, setCompany] = useState<CompanyInfo>({ name: "", street: "", zip_city: "", email: "" });
   const [saved, setSaved] = useState(false);
@@ -88,7 +95,7 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
         <DatabasePath adapter={adapter} />
       </div>
 
-      <Updates adapter={adapter} onError={setError} />
+      <Updates adapter={adapter} onError={setError} onUpdateChange={onUpdateChange} />
 
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
@@ -103,7 +110,15 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
 type UpdateStatus = "idle" | "checking" | "current" | "available" | "installing" | "installed";
 
 /** Version, update check, and install — the server manifest is the only source. */
-function Updates({ adapter, onError }: { adapter: PlatformAdapter; onError: (message: string) => void }) {
+function Updates({
+  adapter,
+  onError,
+  onUpdateChange,
+}: {
+  adapter: PlatformAdapter;
+  onError: (message: string) => void;
+  onUpdateChange?: (update: UpdateInfo | null) => void;
+}) {
   const { t } = useLocale();
   const [version, setVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<UpdateStatus>("idle");
@@ -122,6 +137,7 @@ function Updates({ adapter, onError }: { adapter: PlatformAdapter; onError: (mes
     try {
       const found = await adapter.checkForUpdate();
       setUpdate(found);
+      onUpdateChange?.(found);
       setStatus(found ? "available" : "current");
     } catch (error) {
       setStatus("idle");
@@ -133,6 +149,7 @@ function Updates({ adapter, onError }: { adapter: PlatformAdapter; onError: (mes
     setStatus("installing");
     try {
       await adapter.installUpdate();
+      onUpdateChange?.(null);
       // The desktop backend restarts the app; this only shows in the mock.
       setStatus("installed");
     } catch (error) {

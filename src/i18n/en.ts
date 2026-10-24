@@ -41,6 +41,8 @@ export const en: Strings = {
     unknown: "unknown",
     navLabel: "Sections",
     language: "Language",
+    updateBadge: "Update",
+    updateAvailable: (version: string) => `Update available: version ${version}`,
   },
   common: {
     new: "New",

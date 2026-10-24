@@ -40,6 +40,8 @@ export const de = {
     unknown: "unbekannt",
     navLabel: "Bereiche",
     language: "Sprache",
+    updateBadge: "Update",
+    updateAvailable: (version: string) => `Aktualisierung verfügbar: Version ${version}`,
   },
   common: {
     new: "Neu",

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import logoMark from "./assets/logo-mark.png";
 import type { PlatformAdapter } from "./api/platform";
 import { LanguageProvider, useLocale } from "./i18n";
+import { useUpdateCheck } from "./hooks/useUpdateCheck";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { UpdateBadge } from "./components/UpdateBadge";
 import { ProfilesView } from "./components/ProfilesView";
 import { SettingsView } from "./components/SettingsView";
 import { CalculationView } from "./components/CalculationView";
@@ -25,6 +27,7 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("calculation");
   const [build, setBuild] = useState<string>("…");
+  const { update, noteUpdate } = useUpdateCheck(adapter);
 
   useEffect(() => {
     adapter
@@ -54,7 +57,10 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
               <p className="text-sm text-slate-400">{t.app.subtitle}</p>
             </div>
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <UpdateBadge update={update} onOpen={() => setTab("settings")} />
+            <LanguageSwitcher />
+          </div>
         </div>
         <nav aria-label={t.app.navLabel} className="mx-auto max-w-6xl px-4">
           <ul className="flex gap-1">
@@ -85,7 +91,7 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
         {tab === "worksteps" ? <WorkstepView adapter={adapter} /> : null}
         {tab === "rates" ? <HourlyRateView adapter={adapter} /> : null}
         {tab === "profiles" ? <ProfilesView adapter={adapter} /> : null}
-        {tab === "settings" ? <SettingsView adapter={adapter} /> : null}
+        {tab === "settings" ? <SettingsView adapter={adapter} onUpdateChange={noteUpdate} /> : null}
       </main>
 
       <footer className="border-t border-slate-800 bg-slate-900">

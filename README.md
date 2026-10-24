@@ -37,8 +37,9 @@ surcharges — and get an auditable breakdown per file and for the whole project
 including failure-rate costing, margin, and tax.
 
 - **Local-first, no account.** No login, no license key, no telemetry. Your
-  data lives in a SQLite file in the app directory. The only network request
-  is the update check you trigger yourself in Settings.
+  data lives in a SQLite file in the app directory. The only network requests
+  are update checks: automatically at startup and hourly, plus the manual
+  check in Settings.
 - **Exact money math.** All amounts are `Decimal` (never `f64`); rounding
   happens only for display. Amounts are stored as `TEXT` in SQLite.
 - **Traceable.** Every position shows which file it came from; slicer time
@@ -135,10 +136,13 @@ would be needed, which is planned for a later release.
 
 ### Updates
 
-OpenPrintCost can update itself: **Settings → Updates → Check for updates**.
-The app asks the release manifest
-(`releases/latest/download/latest.json`), downloads the matching package, and
-installs it.
+OpenPrintCost can update itself. It checks the release manifest
+(`releases/latest/download/latest.json`) at startup and every hour; when a new
+version is available, a badge appears in the header. The badge opens
+**Settings → Updates**, where the release notes and **Install update** live.
+You can also check manually there.
+
+The app downloads the matching package and installs it.
 
 | Package | In-app update |
 |---|---|
