@@ -26,10 +26,21 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+<!-- changelog:unreleased:end -->
+
+## [0.1.4] — 2026-10-24
+
+The header now shows a badge when a newer version is available, and the app
+checks for updates automatically at startup and every hour. The calculation
+core, database, and export are unchanged.
+
+### Added
+
+- *(ui)* show update badge and check automatically
+
 ### Documentation
 
 - *(branding)* use current logo in README and tidy logo sources
-<!-- changelog:unreleased:end -->
 
 ## [0.1.3] — 2026-10-24
 
