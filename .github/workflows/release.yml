@@ -150,12 +150,22 @@ jobs:
           # input — without it the upload fails with "GITHUB_TOKEN is
           # required".
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the updater artifacts (`*.sig`). Without the key the build
+          # fails — the updater config in tauri.updater.conf.json is part of
+          # the release build only (see --config below).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "OpenPrintCost ${{ github.ref_name }}"
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          args: ${{ matrix.args }}
+          # The updater manifest is assembled by the `update-manifest` job —
+          # one complete JSON for all platforms. tauri-action would upload a
+          # partial one per matrix job.
+          uploadUpdaterJson: false
+          # The second config file turns on `createUpdaterArtifacts` — the
+          # regular (debug) builds in bundle.yml stay key-free.
+          args: ${{ matrix.args }} --config src-tauri/tauri.updater.conf.json
 
       - name: Upload AppImage under a stable name
         # The Tauri bundle names the file after the product name
@@ -177,9 +187,63 @@ jobs:
           gh release upload "$TAG" "$name" --clobber
           echo "uploaded $name"
 
+  update-manifest:
+    name: Updater manifest
+    needs: [create-release, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the release assets
+        # Contains the updater artifacts and their `.sig` files.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          gh release download "$TAG" --dir assets --clobber
+
+      - name: Extract the release notes
+        # Same section that create-release uses for the release body.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          awk -v v="${TAG#v}" '
+            $0 ~ "^## \\[" v "\\]" { in_section = 1; next }
+            in_section && /^## \[/ { exit }
+            in_section && /^\[[^]]+\]:/ { next }
+            in_section && /^<!--/ { next }
+            in_section { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+
+      - name: Build latest.json
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ./scripts/make-update-manifest.py \
+            --assets assets \
+            --version "${TAG#v}" \
+            --tag "$TAG" \
+            --repo "$REPO" \
+            --notes-file notes.md \
+            --output latest.json
+          cat latest.json
+
+      - name: Upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" latest.json --clobber
+
   publish-release:
     name: Publish release
-    needs: [create-release, release]
+    needs: [create-release, release, update-manifest]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -195,7 +259,7 @@ jobs:
 
   checksums:
     name: Checksums
-    needs: [create-release, release]
+    needs: [create-release, release, update-manifest]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -218,8 +282,9 @@ jobs:
           cd assets
           # Plain file names (no ./ prefix) so that "sha256sum -c SHA256SUMS"
           # works in any directory the user unpacks the assets into.
-          find . -maxdepth 1 -type f ! -name 'SHA256SUMS' -printf '%f\n' \
-            | sort | xargs -d '\n' sha256sum > SHA256SUMS
+          # latest.json is updater metadata, not a downloadable package.
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS' ! -name 'latest.json' \
+            -printf '%f\n' | sort | xargs -d '\n' sha256sum > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload SHA256SUMS
