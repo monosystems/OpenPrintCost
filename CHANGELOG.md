@@ -26,6 +26,9 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Documentation
+
+- *(branding)* use current logo in README and tidy logo sources
 <!-- changelog:unreleased:end -->
 
 ## [0.1.3] — 2026-10-24
