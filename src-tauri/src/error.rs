@@ -54,6 +54,12 @@ impl From<opc_export::ExportError> for CommandError {
     }
 }
 
+impl From<tauri_plugin_updater::Error> for CommandError {
+    fn from(error: tauri_plugin_updater::Error) -> Self {
+        Self::new(error.to_string())
+    }
+}
+
 impl From<uuid::Error> for CommandError {
     fn from(error: uuid::Error) -> Self {
         Self::new(format!("Ungültige ID: {error}"))

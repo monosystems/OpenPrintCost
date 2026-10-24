@@ -35,6 +35,7 @@ impl AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Die Datenbank liegt im Benutzerdatenverzeichnis der App — sie
             // gehört dem Benutzer und wird nicht hochgeladen.
@@ -74,6 +75,9 @@ pub fn run() {
             commands::delete_calculation,
             commands::calculate,
             commands::database_path,
+            commands::app_version,
+            commands::check_update,
+            commands::install_update,
             commands::import_gcode_file,
             commands::import_stl_file,
             commands::export_result_pdf,

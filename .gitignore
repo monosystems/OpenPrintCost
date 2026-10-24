@@ -28,3 +28,6 @@ docs-intern/
 
 # macOS AppleDouble (Ressourcen-Fork) Dateien
 ._*
+
+# Updater-Signaturschluessel (minisign) — niemals committen
+*.key

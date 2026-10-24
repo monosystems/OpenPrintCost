@@ -310,6 +310,74 @@ pub fn database_path(state: State<'_, AppState>) -> CommandResult<String> {
 }
 
 // ---------------------------------------------------------------------------
+// Aktualisierungen
+// ---------------------------------------------------------------------------
+
+/// Version der laufenden Anwendung.
+#[tauri::command]
+pub fn app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
+/// Eine vom Update-Server angebotene Version.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    /// Angebotene Version.
+    pub version: String,
+    /// Laufende Version.
+    pub current_version: String,
+    /// Release-Notizen (Markdown), sofern der Server welche liefert.
+    pub notes: Option<String>,
+    /// Veröffentlichungsdatum als RFC 3339, sofern vorhanden.
+    pub date: Option<String>,
+}
+
+/// Fragt den konfigurierten Update-Endpunkt ab.
+///
+/// Liefert `None`, wenn die laufende Version aktuell ist. Im Debug-Build wird
+/// nicht gesucht: ein Entwickler-Build soll keine Release-Pakete anbieten.
+#[tauri::command]
+pub async fn check_update(app: tauri::AppHandle) -> CommandResult<Option<UpdateInfo>> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    if cfg!(debug_assertions) {
+        return Ok(None);
+    }
+
+    let updater = app.updater().map_err(CommandError::from)?;
+    let update = updater.check().await.map_err(CommandError::from)?;
+    Ok(update.map(|update| UpdateInfo {
+        version: update.version.clone(),
+        current_version: update.current_version.clone(),
+        notes: update.body.clone(),
+        date: update.date.map(|date| date.to_string()),
+    }))
+}
+
+/// Lädt die angebotene Version herunter, installiert sie und startet neu.
+///
+/// Auf Windows beendet der Installer die Anwendung selbst; auf macOS und
+/// Linux übernimmt das der Neustart am Ende.
+#[tauri::command]
+pub async fn install_update(app: tauri::AppHandle) -> CommandResult<()> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app.updater().map_err(CommandError::from)?;
+    let Some(update) = updater.check().await.map_err(CommandError::from)? else {
+        return Err(CommandError::new(
+            "Es ist keine Aktualisierung verfügbar.".to_string(),
+        ));
+    };
+
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(CommandError::from)?;
+    app.restart();
+}
+
+// ---------------------------------------------------------------------------
 // Datei-Import
 // ---------------------------------------------------------------------------
 
