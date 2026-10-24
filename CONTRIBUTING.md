@@ -114,7 +114,8 @@ docker run --rm openprintcost-build
 
 ## Commit style
 
-Short, imperative subject lines with scope prefix:
+Short, imperative subject lines with scope prefix, **in English** — the
+subject becomes a changelog entry:
 
 * `feat(store): …` — new behavior
 * `fix(io): …` — bug fix
@@ -128,10 +129,14 @@ may be committed separately.
 ## Changelog
 
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/1.1.0/).
+**The changelog is written in English** — it is part of the public,
+international surface of the project (the GitHub releases use it verbatim).
+
 The `[Unreleased]` section is **generated** from the commit history with
 [git-cliff](https://git-cliff.org) (config: `cliff.toml`) — the commits are
 read as Conventional Commits (`feat(store): …`, `fix(io): …`), which the
-commit style above already provides.
+commit style above already provides. Only the subject line ends up in the
+changelog, so **the subject must be English**; the commit body may be German.
 
 ```bash
 # Refresh the [Unreleased] section from the commits since the last tag.

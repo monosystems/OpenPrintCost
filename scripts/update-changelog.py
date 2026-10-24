@@ -69,6 +69,29 @@ def git_cliff() -> str:
     return result.stdout.strip("\n")
 
 
+
+def format_body(body: str) -> list[str]:
+    """Normalize the generated list to Keep a Changelog spacing.
+
+    One blank line after a group heading and before the next one; empty lines
+    in between the entries are dropped.
+    """
+    content: list[str] = []
+    for line in body.split("\n"):
+        if not line.strip():
+            continue
+        if line.startswith("### "):
+            if content:
+                content.append("")
+            content.append(line)
+            content.append("")
+        else:
+            content.append(line)
+    while content and not content[-1].strip():
+        content.pop()
+    return content
+
+
 def section_bounds(lines: list[str], start: int) -> int:
     """Index of the first line after the section that starts at `start`."""
     for index in range(start + 1, len(lines)):
@@ -98,7 +121,7 @@ def replace_unreleased(lines: list[str], body: str) -> list[str]:
         start_index = 2
         end_index = 3
 
-    content = [line for line in body.split("\n") if line.strip()]
+    content = format_body(body)
     section = (
         section[: start_index + 1]
         + content

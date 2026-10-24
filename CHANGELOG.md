@@ -30,29 +30,40 @@ frozen when the release is cut.
 
 ## [0.1.2] — 2026-10-24
 
-In-App-Updates: Die App prüft auf Wunsch die Release-Seite, lädt die passende
-signierte Version und installiert sie. Rechenkern, Datenbank und Export sind
-unverändert.
+In-app updates: the app checks the release page on request, downloads the
+matching signed build, and installs it. The calculation core, database, and
+export are unchanged.
 
 ### Added
-- *(updater)* signierte In-App-Updates mit tauri-plugin-updater
-- *(settings)* Update-Pruefung und Installation in den Einstellungen
+
+- *(updater)* signed in-app updates with tauri-plugin-updater
+- *(settings)* update check and installation in the settings tab
+
 ### Fixed
-- *(release)* Checkout im Checksums-Job
+
+- *(release)* checkout in the checksums job
+
 ### Maintenance
-- *(release)* Updater-Artefakte signieren und latest.json veroeffentlichen
+
+- *(release)* sign updater artifacts and publish latest.json
 
 ## [0.1.1] — 2026-10-23
 
-Logo in App, Web und Desktop-Paketen; CHANGELOG wird jetzt aus der
-Commit-Historie erzeugt. Rechenkern, Datenbank und Export sind unverändert.
+Logo in the app, the web build, and the desktop packages; the changelog is
+now generated from the commit history. The calculation core, database, and
+export are unchanged.
 
 ### Added
-- *(ui)* OpenPrintCost-Logo in App, Web und Desktop
+
+- *(ui)* OpenPrintCost logo in the app, web, and desktop
+
 ### Documentation
+
 - explain unsigned packages, add SHA256SUMS to releases
+
 ### Maintenance
-- *(changelog)* CHANGELOG aus der Commit-Historie erzeugen
+
+- *(changelog)* generate CHANGELOG from the commit history
 
 ## [0.1.0] — 2026-10-23
 
@@ -120,5 +131,7 @@ Checksums protect against a corrupted or tampered download. Code signing
 (Apple Developer ID / Authenticode) would additionally prove authorship and
 is planned for a later release.
 
-[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/monosystems/OpenPrintCost/releases/tag/v0.1.0
