@@ -26,11 +26,22 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+<!-- changelog:unreleased:end -->
+
+## [0.1.3] — 2026-10-24
+
+The footer now shows the running app version instead of the user-specific
+database path; the path remains visible in Settings. The calculation core,
+database, and export are unchanged.
+
+### Added
+
+- *(ui)* show build number in footer
+
 ### Documentation
 
 - *(changelog)* write the changelog in English
 - *(readme)* note the macOS icon cache after an update
-<!-- changelog:unreleased:end -->
 
 ## [0.1.2] — 2026-10-24
 
@@ -135,7 +146,8 @@ Checksums protect against a corrupted or tampered download. Code signing
 (Apple Developer ID / Authenticode) would additionally prove authorship and
 is planned for a later release.
 
-[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/monosystems/OpenPrintCost/releases/tag/v0.1.0

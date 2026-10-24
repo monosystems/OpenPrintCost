@@ -10,7 +10,7 @@
 # it by hand.
 
 pkgname=openprintcost
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc="Free, local-first cost calculator for 3D printing jobs"
 arch=('x86_64')
