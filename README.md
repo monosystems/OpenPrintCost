@@ -151,6 +151,10 @@ Every update is signed with a minisign key and verified before installation;
 an unsigned or tampered package is rejected. The signature is separate from
 code signing — the packages remain unsigned in the sense described above.
 
+If macOS still shows the previous icon after an update, it kept the old icon
+in its cache: quit the app, then run `killall Dock` in a terminal (or log out
+and back in).
+
 ### Build from source
 
 See [Development](#development) — the desktop app needs the webview system
