@@ -44,9 +44,10 @@ before a tag is cut.
 
 ### Logo assets
 
-The master artwork is `OpenPrintCost 3D-Druck-Kostenlogo.png` in the repo root.
-All derived assets are generated from it — never edit the derived files by
-hand:
+The master artwork for the app and desktop icons is
+`branding/openprintcost-logo-source.png`. The README uses the current logo at
+`branding/openprintcost-logo.png`. All derived assets are generated from the
+master — never edit the derived files by hand:
 
 ```bash
 python3 scripts/make-logo-assets.py        # needs Pillow

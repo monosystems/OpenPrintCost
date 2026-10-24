@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Derive the OpenPrintCost logo assets from the master PNG in the repo root.
+"""Derive the OpenPrintCost logo assets from the master PNG in branding/.
 
-The master file (``OpenPrintCost 3D-Druck-Kostenlogo.png``) is a flattened RGB
+The master file (``branding/openprintcost-logo-source.png``) is a flattened RGB
 image with a white background. This script produces the derived assets that
-the app, the README and the desktop bundles actually use:
+the app and the desktop bundles actually use:
 
   src/assets/logo.png            full logo (mark + wordmark), transparent
   src/assets/logo-mark.png       symbol only, transparent (app header, favicon)
@@ -25,7 +25,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "OpenPrintCost 3D-Druck-Kostenlogo.png"
+SOURCE = ROOT / "branding" / "openprintcost-logo-source.png"
 OUT_FULL = ROOT / "src" / "assets" / "logo.png"
 OUT_MARK = ROOT / "src" / "assets" / "logo-mark.png"
 OUT_FAVICON = ROOT / "public" / "favicon.png"

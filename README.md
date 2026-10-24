@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/logo.png" alt="OpenPrintCost logo" width="480" />
+  <img src="branding/openprintcost-logo.png" alt="OpenPrintCost logo" width="480" />
 </p>
 
 <p align="center">
