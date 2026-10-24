@@ -26,6 +26,9 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Documentation
+
+- *(changelog)* write the changelog in English
 <!-- changelog:unreleased:end -->
 
 ## [0.1.2] — 2026-10-24
