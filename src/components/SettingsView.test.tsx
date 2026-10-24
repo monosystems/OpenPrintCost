@@ -34,3 +34,48 @@ describe("SettingsView", () => {
     await waitFor(() => expect(screen.getByLabelText("Company name")).toHaveValue("Existing"));
   });
 });
+
+describe("SettingsView updates", () => {
+  it("shows the running version from the backend", async () => {
+    const adapter = new MockPlatformAdapter();
+    adapter.appVersion = "9.8.7";
+    render(<SettingsView adapter={adapter} />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Installed version: 9.8.7")).toBeInTheDocument(),
+    );
+  });
+
+  it("reports that the running version is current", async () => {
+    const adapter = new MockPlatformAdapter();
+    const user = userEvent.setup();
+    render(<SettingsView adapter={adapter} />);
+
+    await user.click(screen.getByRole("button", { name: "Check for updates" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "You are running the latest version.",
+    );
+  });
+
+  it("offers an available update and installs it", async () => {
+    const adapter = new MockPlatformAdapter();
+    adapter.availableUpdate = {
+      version: "0.2.0",
+      currentVersion: "0.1.1",
+      notes: "Faster calculations.",
+      date: "2026-10-24T07:00:00Z",
+    };
+    const user = userEvent.setup();
+    render(<SettingsView adapter={adapter} />);
+
+    await user.click(screen.getByRole("button", { name: "Check for updates" }));
+
+    expect(await screen.findByText("Version 0.2.0 is available.")).toBeInTheDocument();
+    expect(screen.getByText("Faster calculations.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Install update" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Update installed");
+  });
+});

@@ -17,6 +17,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  UpdateInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -60,6 +61,14 @@ export interface PlatformAdapter {
 
   // -- Environment --------------------------------------------------------------
   getDatabasePath(): Promise<string>;
+  /** Version of the running application (e.g. `0.1.1`). */
+  getAppVersion(): Promise<string>;
+
+  // -- Updates ------------------------------------------------------------------
+  /** Asks the release server; `null` means the running version is current. */
+  checkForUpdate(): Promise<UpdateInfo | null>;
+  /** Downloads and installs the offered update, then restarts the app. */
+  installUpdate(): Promise<void>;
 
   // -- Calculation profiles ---------------------------------------------------
   listCalculationProfiles(): Promise<CalculationProfile[]>;

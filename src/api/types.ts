@@ -272,3 +272,19 @@ export interface CompanyInfo {
 }
 
 export const emptyCompany: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
+
+// ---------------------------------------------------------------------------
+// Updates
+// ---------------------------------------------------------------------------
+
+/** An update offered by the release server. */
+export interface UpdateInfo {
+  /** Version that would be installed. */
+  version: string;
+  /** Version that is running now. */
+  currentVersion: string;
+  /** Release notes (Markdown), when the server provides them. */
+  notes: string | null;
+  /** Release date (RFC 3339), when known. */
+  date: string | null;
+}

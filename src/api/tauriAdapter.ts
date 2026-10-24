@@ -20,6 +20,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  UpdateInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -110,6 +111,18 @@ export class TauriPlatformAdapter implements PlatformAdapter {
 
   getDatabasePath(): Promise<string> {
     return call("database_path");
+  }
+
+  getAppVersion(): Promise<string> {
+    return call("app_version");
+  }
+
+  checkForUpdate(): Promise<UpdateInfo | null> {
+    return call("check_update");
+  }
+
+  installUpdate(): Promise<void> {
+    return call("install_update");
   }
 
   listCalculationProfiles(): Promise<CalculationProfile[]> {

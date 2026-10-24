@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { useLocale } from "../i18n";
-import type { CompanyInfo } from "../api/types";
+import type { CompanyInfo, UpdateInfo } from "../api/types";
 import { ErrorBanner, Field, PrimaryButton, TextInput } from "./ui";
-
-const APP_VERSION = "0.1.0";
 
 export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
   const { t } = useLocale();
@@ -90,14 +88,107 @@ export function SettingsView({ adapter }: { adapter: PlatformAdapter }) {
         <DatabasePath adapter={adapter} />
       </div>
 
+      <Updates adapter={adapter} onError={setError} />
+
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
           {t.settings.aboutTitle}
         </h3>
-        <p className="mb-2 text-sm text-slate-300">{t.settings.aboutText}</p>
-        <p className="text-xs text-slate-500">Version {APP_VERSION}</p>
+        <p className="text-sm text-slate-300">{t.settings.aboutText}</p>
       </div>
     </section>
+  );
+}
+
+type UpdateStatus = "idle" | "checking" | "current" | "available" | "installing" | "installed";
+
+/** Version, update check, and install — the server manifest is the only source. */
+function Updates({ adapter, onError }: { adapter: PlatformAdapter; onError: (message: string) => void }) {
+  const { t } = useLocale();
+  const [version, setVersion] = useState<string | null>(null);
+  const [status, setStatus] = useState<UpdateStatus>("idle");
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    adapter
+      .getAppVersion()
+      .then(setVersion)
+      .catch(() => setVersion(null));
+  }, [adapter]);
+
+  const check = async () => {
+    setStatus("checking");
+    setUpdate(null);
+    try {
+      const found = await adapter.checkForUpdate();
+      setUpdate(found);
+      setStatus(found ? "available" : "current");
+    } catch (error) {
+      setStatus("idle");
+      onError(error instanceof Error ? error.message : t.errors.updateCheck);
+    }
+  };
+
+  const install = async () => {
+    setStatus("installing");
+    try {
+      await adapter.installUpdate();
+      // The desktop backend restarts the app; this only shows in the mock.
+      setStatus("installed");
+    } catch (error) {
+      setStatus("available");
+      onError(error instanceof Error ? error.message : t.errors.updateInstall);
+    }
+  };
+
+  const busy = status === "checking" || status === "installing";
+
+  return (
+    <div className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-400">
+        {t.settings.updatesTitle}
+      </h3>
+      <p className="text-sm text-slate-300">
+        {t.settings.updatesCurrentVersion(version ?? t.app.unknown)}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <PrimaryButton type="button" onClick={() => void check()} disabled={busy}>
+          {status === "checking" ? t.settings.updatesChecking : t.settings.updatesCheck}
+        </PrimaryButton>
+        {status === "available" && update ? (
+          <PrimaryButton type="button" onClick={() => void install()}>
+            {t.settings.updatesInstall}
+          </PrimaryButton>
+        ) : null}
+      </div>
+
+      {status === "current" ? (
+        <p role="status" className="mt-2 text-sm text-slate-400">
+          {t.settings.updatesUpToDate}
+        </p>
+      ) : null}
+      {status === "installing" ? (
+        <p role="status" className="mt-2 text-sm text-slate-300">
+          {t.settings.updatesInstalling}
+        </p>
+      ) : null}
+      {status === "installed" ? (
+        <p role="status" className="mt-2 text-sm text-emerald-400">
+          {t.settings.updatesInstalled}
+        </p>
+      ) : null}
+      {status === "available" && update ? (
+        <div className="mt-2">
+          <p className="text-sm text-emerald-400">{t.settings.updatesAvailable(update.version)}</p>
+          {update.notes ? (
+            <p className="mt-1 whitespace-pre-line text-xs text-slate-400">{update.notes}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className="mt-3 text-xs text-slate-500">{t.settings.updatesManaged}</p>
+    </div>
   );
 }
 

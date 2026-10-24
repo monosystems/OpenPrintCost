@@ -68,6 +68,8 @@ export const de = {
   },
   errors: {
     dismiss: "Fehlermeldung schließen",
+    updateCheck: "Aktualisierungen konnten nicht abgefragt werden.",
+    updateInstall: "Die Aktualisierung konnte nicht installiert werden.",
     printersLoad: "Drucker konnten nicht geladen werden.",
     printerSave: "Drucker konnte nicht gespeichert werden.",
     printerDelete: "Drucker konnte nicht gelöscht werden.",
@@ -310,6 +312,17 @@ export const de = {
     zipCity: "PLZ und Ort",
     email: "E-Mail",
     saved: "Firmendaten gespeichert.",
+    updatesTitle: "Aktualisierungen",
+    updatesCurrentVersion: (version: string) => `Installierte Version: ${version}`,
+    updatesCheck: "Nach Aktualisierungen suchen",
+    updatesChecking: "Suche nach Aktualisierungen …",
+    updatesUpToDate: "Sie verwenden die neueste Version.",
+    updatesAvailable: (version: string) => `Version ${version} ist verfügbar.`,
+    updatesInstall: "Aktualisierung installieren",
+    updatesInstalling: "Wird heruntergeladen und installiert …",
+    updatesInstalled: "Aktualisierung installiert. Die Anwendung startet neu.",
+    updatesManaged:
+      "Unter Linux (deb, Arch) bitte über den Paketmanager aktualisieren.",
     environmentTitle: "Umgebung",
     aboutTitle: "Über OpenPrintCost",
     aboutText:

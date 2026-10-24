@@ -23,6 +23,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  UpdateInfo,
   Uuid,
   Workstep,
   WorkstepCategory,
@@ -33,6 +34,11 @@ function notFound(entity: string, id: Uuid): AdapterError {
 }
 
 export class MockPlatformAdapter implements PlatformAdapter {
+  /** Version reported to the UI — tests can overwrite it. */
+  appVersion = "0.0.0-mock";
+  /** Update offered by `checkForUpdate`; `null` means up to date. */
+  availableUpdate: UpdateInfo | null = null;
+
   private printers = new Map<Uuid, Printer>();
   private materials = new Map<Uuid, Material>();
   private categories = new Map<Uuid, WorkstepCategory>();
@@ -264,6 +270,19 @@ export class MockPlatformAdapter implements PlatformAdapter {
   // -- Environment --------------------------------------------------------------
   async getDatabasePath(): Promise<string> {
     return ":memory: (Mock)";
+  }
+
+  async getAppVersion(): Promise<string> {
+    return this.appVersion;
+  }
+
+  async checkForUpdate(): Promise<UpdateInfo | null> {
+    return this.availableUpdate;
+  }
+
+  async installUpdate(): Promise<void> {
+    // The real backend restarts the app after installing — nothing to do here.
+    this.availableUpdate = null;
   }
 
   // -- Export ------------------------------------------------------------------
