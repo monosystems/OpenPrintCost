@@ -28,6 +28,27 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.1.5] — 2026-10-24
+
+UI bugfix and design-review release. The calculation core, stored documents,
+export layout, and database schema are unchanged.
+
+### Fixed
+
+- *(ui)* resolve design review findings: semantic colour tokens, Inter and
+  JetBrains Mono, contrast-safe text, visible focus rings, custom checkboxes
+- *(ui)* keep an in-progress calculation alive across tab changes
+- *(ui)* surface the result in a sticky summary panel instead of below the fold
+- *(ui)* load saved calculation profiles into new calculations
+- *(ui)* replace master-data card lists with searchable, sortable tables
+- *(ui)* guide first-run users through printer and material setup
+- *(ui)* add sidebar navigation and import/export toasts
+- *(ui)* guard "New calculation" against discarding unsaved changes
+
+### Documentation
+
+- *(design)* document design system and review
+
 ## [0.1.4] — 2026-10-24
 
 The header now shows a badge when a newer version is available, and the app
