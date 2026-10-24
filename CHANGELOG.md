@@ -28,6 +28,15 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.1.6] — 2026-10-24
+
+Patch release for the new printer dialog. The calculation core, stored
+documents, export layout, and database schema are unchanged.
+
+### Fixed
+
+- *(ui)* align new printer dialog with design system
+
 ## [0.1.5] — 2026-10-24
 
 UI bugfix and design-review release. The calculation core, stored documents,
