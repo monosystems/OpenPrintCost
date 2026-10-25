@@ -40,7 +40,7 @@ jobs:
     if: ${{ !contains(github.ref_name, '-') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The ancestry check below needs the full history.
           fetch-depth: 0
@@ -67,7 +67,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Create draft release
         env:
@@ -134,7 +134,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -220,7 +220,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download the release assets
         # Contains the updater artifacts and their `.sig` files.
@@ -278,7 +278,7 @@ jobs:
       - name: Checkout
         # gh resolves the commit of the release from the repository — without
         # a checkout it aborts with "not a git repository".
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Publish the draft release
         env:
@@ -296,7 +296,7 @@ jobs:
       - name: Checkout
         # gh resolves the repository from the git remote — without a
         # checkout "gh release download" fails with "not a git repository".
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download the release assets
         env:
