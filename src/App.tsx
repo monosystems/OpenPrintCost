@@ -123,7 +123,7 @@ function Shell({ adapter }: { adapter: PlatformAdapter }) {
         <div className="shrink-0 space-y-2 border-t border-line p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <UpdateBadge update={update} onOpen={() => showTab("settings")} />
-            <LanguageSwitcher placement="up" />
+            <LanguageSwitcher placement="up" align="start" />
           </div>
           <p className="font-mono text-[11px] text-ink-faint" title={build}>
             {t.app.build}: {build}
