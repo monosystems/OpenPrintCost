@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   Modal,
   PrimaryButton,
   SecondaryButton,
@@ -76,6 +77,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
   const [editing, setEditing] = useState<HourlyRate | null>(null);
   const [deleting, setDeleting] = useState<HourlyRate | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -110,12 +112,15 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
         ? editing.fixed_rate_override.trim()
         : null,
     };
+    setSaving(true);
     try {
       await adapter.saveHourlyRate(cleaned);
       setEditing(null);
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.rateSave);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -222,81 +227,188 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={rates.some((r) => r.id === editing.id) ? t.rates.editTitle : t.rates.newTitle} onClose={() => setEditing(null)}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Field label={`${t.rates.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.rates.nameExample} />
-              </Field>
+        <Modal
+          title={rates.some((r) => r.id === editing.id) ? t.rates.editTitle : t.rates.newTitle}
+          description={t.rates.formDescription}
+          onClose={() => setEditing(null)}
+          footer={
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-ink-faint">{t.common.requiredHint}</p>
+              <div className="flex justify-end gap-3">
+                <SecondaryButton type="button" onClick={() => setEditing(null)}>
+                  {t.common.cancel}
+                </SecondaryButton>
+                <PrimaryButton type="button" loading={saving} onClick={() => void save()}>
+                  {t.common.save}
+                </PrimaryButton>
+              </div>
             </div>
-            <Field label={t.rates.timeBasis}>
-              <Select
-                value={editing.time_basis}
-                onChange={(v) => set("time_basis", v as TimeBasis)}
-                options={Object.entries(t.domain.timeBasis).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-            <Field label={`${t.rates.machineHours} *`} error={formErrors.machine_hours}>
-              <DecimalInput value={editing.machine_hours} onChange={(v) => set("machine_hours", v)} />
-            </Field>
-            <Field label={`${t.rates.replacement} *`} error={formErrors.replacement_cost}>
-              <DecimalInput value={editing.replacement_cost} onChange={(v) => set("replacement_cost", v)} />
-            </Field>
-            <Field label={`${t.rates.serviceLife} *`} error={formErrors.service_life_years}>
-              <DecimalInput value={editing.service_life_years} onChange={(v) => set("service_life_years", v)} />
-            </Field>
-            <Field label={`${t.rates.interest} *`} error={formErrors.interest_rate_percent}>
-              <DecimalInput value={editing.interest_rate_percent} onChange={(v) => set("interest_rate_percent", v)} />
-            </Field>
-            <Field label={t.rates.fixedOverride} error={formErrors.fixed_rate_override}>
-              <DecimalInput value={editing.fixed_rate_override ?? ""} onChange={(v) => set("fixed_rate_override", v)} />
-            </Field>
-          </div>
+          }
+        >
+          <div className="space-y-6">
+            <FormSection title={t.rates.sectionGeneral}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-7">
+                  <Field label={`${t.rates.name} *`} error={formErrors.name}>
+                    <TextInput
+                      autoFocus
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.name)}
+                      value={editing.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder={t.rates.nameExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-5">
+                  <Field label={t.rates.timeBasis}>
+                    <Select
+                      value={editing.time_basis}
+                      onChange={(v) => set("time_basis", v as TimeBasis)}
+                      options={Object.entries(t.domain.timeBasis).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.rates.fixedOverride} error={formErrors.fixed_rate_override}>
+                    <DecimalInput
+                      aria-invalid={Boolean(formErrors.fixed_rate_override)}
+                      value={editing.fixed_rate_override ?? ""}
+                      onChange={(v) => set("fixed_rate_override", v)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
 
-          <fieldset className="mt-4 rounded-xl border border-line bg-surface/40 p-4">
-            <legend className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-              {t.rates.fixedGroup} {editing.time_basis === "per-year" ? t.rates.perYear : t.rates.perMonth} (€)
-            </legend>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label={`${t.rates.maintenanceFixed} *`} error={formErrors.maintenance_fixed}>
-                <DecimalInput value={editing.maintenance_fixed} onChange={(v) => set("maintenance_fixed", v)} />
-              </Field>
-              <Field label={`${t.rates.rentFixed} *`} error={formErrors.rent_fixed}>
-                <DecimalInput value={editing.rent_fixed} onChange={(v) => set("rent_fixed", v)} />
-              </Field>
-              <Field label={`${t.rates.electricityFixed} *`} error={formErrors.electricity_fixed}>
-                <DecimalInput value={editing.electricity_fixed} onChange={(v) => set("electricity_fixed", v)} />
-              </Field>
-              <Field label={`${t.rates.additionalFixed} *`} error={formErrors.additional_fixed}>
-                <DecimalInput value={editing.additional_fixed} onChange={(v) => set("additional_fixed", v)} />
-              </Field>
-            </div>
-          </fieldset>
+            <FormSection title={t.rates.sectionMachine}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.machineHours} *`} error={formErrors.machine_hours}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.machine_hours)}
+                      value={editing.machine_hours}
+                      onChange={(v) => set("machine_hours", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.replacement} *`} error={formErrors.replacement_cost}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.replacement_cost)}
+                      value={editing.replacement_cost}
+                      onChange={(v) => set("replacement_cost", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.serviceLife} *`} error={formErrors.service_life_years}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.service_life_years)}
+                      value={editing.service_life_years}
+                      onChange={(v) => set("service_life_years", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.interest} *`} error={formErrors.interest_rate_percent}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.interest_rate_percent)}
+                      value={editing.interest_rate_percent}
+                      onChange={(v) => set("interest_rate_percent", v)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
 
-          <fieldset className="mt-4 rounded-xl border border-line bg-surface/40 p-4">
-            <legend className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-              {t.rates.variableGroup}
-            </legend>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label={`${t.rates.maintenanceVariable} *`} error={formErrors.maintenance_variable}>
-                <DecimalInput value={editing.maintenance_variable} onChange={(v) => set("maintenance_variable", v)} />
-              </Field>
-              <Field label={`${t.rates.electricityVariable} *`} error={formErrors.electricity_variable}>
-                <DecimalInput value={editing.electricity_variable} onChange={(v) => set("electricity_variable", v)} />
-              </Field>
-              <Field label={`${t.rates.additionalVariable} *`} error={formErrors.additional_variable}>
-                <DecimalInput value={editing.additional_variable} onChange={(v) => set("additional_variable", v)} />
-              </Field>
-            </div>
-          </fieldset>
+            <FormSection
+              title={`${t.rates.fixedGroup} ${
+                editing.time_basis === "per-year" ? t.rates.perYear : t.rates.perMonth
+              } (€)`}
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.maintenanceFixed} *`} error={formErrors.maintenance_fixed}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.maintenance_fixed)}
+                      value={editing.maintenance_fixed}
+                      onChange={(v) => set("maintenance_fixed", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.rentFixed} *`} error={formErrors.rent_fixed}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.rent_fixed)}
+                      value={editing.rent_fixed}
+                      onChange={(v) => set("rent_fixed", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.electricityFixed} *`} error={formErrors.electricity_fixed}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.electricity_fixed)}
+                      value={editing.electricity_fixed}
+                      onChange={(v) => set("electricity_fixed", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={`${t.rates.additionalFixed} *`} error={formErrors.additional_fixed}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.additional_fixed)}
+                      value={editing.additional_fixed}
+                      onChange={(v) => set("additional_fixed", v)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {t.common.cancel}
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void save()}>
-              {t.common.save}
-            </PrimaryButton>
+            <FormSection title={t.rates.variableGroup}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-4">
+                  <Field label={`${t.rates.maintenanceVariable} *`} error={formErrors.maintenance_variable}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.maintenance_variable)}
+                      value={editing.maintenance_variable}
+                      onChange={(v) => set("maintenance_variable", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={`${t.rates.electricityVariable} *`} error={formErrors.electricity_variable}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.electricity_variable)}
+                      value={editing.electricity_variable}
+                      onChange={(v) => set("electricity_variable", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={`${t.rates.additionalVariable} *`} error={formErrors.additional_variable}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.additional_variable)}
+                      value={editing.additional_variable}
+                      onChange={(v) => set("additional_variable", v)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
           </div>
         </Modal>
       ) : null}
