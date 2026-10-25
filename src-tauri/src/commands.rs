@@ -333,20 +333,37 @@ pub struct UpdateInfo {
     pub date: Option<String>,
 }
 
+/// Baut den Updater für Produktions-Releases.
+///
+/// `releases/latest` liefert GitHub-seitig keine Pre-Releases. Der Comparator
+/// lehnt Versionen mit Pre-Release-Suffix (`0.2.0-dev.1`, `0.2.0-rc.1`)
+/// zusätzlich auf App-Seite ab, damit ein versehentlich veröffentlichtes
+/// Pre-Release nie installiert wird.
+fn production_updater(app: &tauri::AppHandle) -> CommandResult<tauri_plugin_updater::Updater> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    app.updater_builder()
+        .version_comparator(|current, remote| {
+            remote.version.pre.is_empty() && remote.version > current
+        })
+        .build()
+        .map_err(CommandError::from)
+}
+
 /// Fragt den konfigurierten Update-Endpunkt ab.
 ///
 /// Liefert `None`, wenn die laufende Version aktuell ist. Im Debug-Build wird
 /// nicht gesucht: ein Entwickler-Build soll keine Release-Pakete anbieten.
 #[tauri::command]
 pub async fn check_update(app: tauri::AppHandle) -> CommandResult<Option<UpdateInfo>> {
-    use tauri_plugin_updater::UpdaterExt;
-
     if cfg!(debug_assertions) {
         return Ok(None);
     }
 
-    let updater = app.updater().map_err(CommandError::from)?;
-    let update = updater.check().await.map_err(CommandError::from)?;
+    let update = production_updater(&app)?
+        .check()
+        .await
+        .map_err(CommandError::from)?;
     Ok(update.map(|update| UpdateInfo {
         version: update.version.clone(),
         current_version: update.current_version.clone(),
@@ -361,10 +378,11 @@ pub async fn check_update(app: tauri::AppHandle) -> CommandResult<Option<UpdateI
 /// Linux übernimmt das der Neustart am Ende.
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle) -> CommandResult<()> {
-    use tauri_plugin_updater::UpdaterExt;
-
-    let updater = app.updater().map_err(CommandError::from)?;
-    let Some(update) = updater.check().await.map_err(CommandError::from)? else {
+    let Some(update) = production_updater(&app)?
+        .check()
+        .await
+        .map_err(CommandError::from)?
+    else {
         return Err(CommandError::new(
             "Es ist keine Aktualisierung verfügbar.".to_string(),
         ));
