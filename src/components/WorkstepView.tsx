@@ -18,6 +18,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   IconButton,
   Modal,
   PrimaryButton,
@@ -65,6 +66,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
   const [editing, setEditing] = useState<Workstep | null>(null);
   const [deleting, setDeleting] = useState<Workstep | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [deletingCategory, setDeletingCategory] = useState<WorkstepCategory | null>(null);
 
@@ -104,12 +106,15 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
     const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
+    setSaving(true);
     try {
       await adapter.saveWorkstep({ ...editing, name: editing.name.trim() });
       setEditing(null);
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.workstepSave);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -214,9 +219,11 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
     <section aria-label={t.worksteps.title}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.worksteps.title}</h2>
-        <PrimaryButton type="button" onClick={openNew}>
-          {t.worksteps.newButton}
-        </PrimaryButton>
+        {worksteps.length > 0 ? (
+          <PrimaryButton type="button" onClick={openNew}>
+            {t.worksteps.newButton}
+          </PrimaryButton>
+        ) : null}
       </div>
 
       {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
@@ -264,6 +271,11 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
         <EmptyState
           icon={<WrenchIcon />}
           message={t.worksteps.empty}
+          action={
+            <PrimaryButton type="button" onClick={openNew}>
+              {t.worksteps.newButton}
+            </PrimaryButton>
+          }
         />
       ) : (
         <DataTable
@@ -280,56 +292,108 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={worksteps.some((w) => w.id === editing.id) ? t.worksteps.editTitle : t.worksteps.newTitle} onClose={() => setEditing(null)}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Field label={`${t.worksteps.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.worksteps.nameExample} />
-              </Field>
+        <Modal
+          title={worksteps.some((w) => w.id === editing.id) ? t.worksteps.editTitle : t.worksteps.newTitle}
+          description={t.worksteps.formDescription}
+          onClose={() => setEditing(null)}
+          footer={
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-ink-faint">{t.common.requiredHint}</p>
+              <div className="flex justify-end gap-3">
+                <SecondaryButton type="button" onClick={() => setEditing(null)}>
+                  {t.common.cancel}
+                </SecondaryButton>
+                <PrimaryButton type="button" loading={saving} onClick={() => void save()}>
+                  {t.common.save}
+                </PrimaryButton>
+              </div>
             </div>
-            <Field label={t.worksteps.category}>
-              <Select
-                value={editing.category.id}
-                onChange={(id) => {
-                  const found = categories.find((c) => c.id === id);
-                  if (found) set("category", { ...found });
-                }}
-                options={categories.map((c) => ({ value: c.id, label: c.name }))}
-              />
-            </Field>
-            <Field label={t.worksteps.calculationType}>
-              <Select
-                value={editing.calculation_type}
-                onChange={(v) => set("calculation_type", v as WorkstepCalculationType)}
-                options={Object.entries(t.domain.calculationType).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-            <Field label={`${t.worksteps.price} (€) *`} error={formErrors.price}>
-              <DecimalInput value={editing.price} onChange={(v) => set("price", v)} />
-            </Field>
-            <Field label={`${t.worksteps.quantity} *`} error={formErrors.quantity}>
-              <DecimalInput value={editing.quantity} onChange={(v) => set("quantity", v)} />
-            </Field>
-            {editing.calculation_type === "per-hour" ? (
-              <Field label={`${t.worksteps.duration} *`} error={formErrors.duration_hours}>
-                <DecimalInput value={editing.duration_hours} onChange={(v) => set("duration_hours", v)} />
-              </Field>
-            ) : null}
-            <Field label={t.worksteps.timing}>
-              <Select
-                value={editing.timing}
-                onChange={(v) => set("timing", v as WorkstepTiming)}
-                options={Object.entries(t.domain.timing).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {t.common.cancel}
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void save()}>
-              {t.common.save}
-            </PrimaryButton>
+          }
+        >
+          <div className="space-y-6">
+            <FormSection title={t.worksteps.sectionGeneral}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-7">
+                  <Field label={`${t.worksteps.name} *`} error={formErrors.name}>
+                    <TextInput
+                      autoFocus
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.name)}
+                      value={editing.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder={t.worksteps.nameExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-5">
+                  <Field label={t.worksteps.category}>
+                    <Select
+                      value={editing.category.id}
+                      onChange={(id) => {
+                        const found = categories.find((c) => c.id === id);
+                        if (found) set("category", { ...found });
+                      }}
+                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.worksteps.sectionCalculation}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-6">
+                  <Field label={t.worksteps.calculationType}>
+                    <Select
+                      value={editing.calculation_type}
+                      onChange={(v) => set("calculation_type", v as WorkstepCalculationType)}
+                      options={Object.entries(t.domain.calculationType).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.worksteps.timing}>
+                    <Select
+                      value={editing.timing}
+                      onChange={(v) => set("timing", v as WorkstepTiming)}
+                      options={Object.entries(t.domain.timing).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={`${t.worksteps.price} (€) *`} error={formErrors.price}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.price)}
+                      value={editing.price}
+                      onChange={(v) => set("price", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={`${t.worksteps.quantity} *`} error={formErrors.quantity}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.quantity)}
+                      value={editing.quantity}
+                      onChange={(v) => set("quantity", v)}
+                    />
+                  </Field>
+                </div>
+                {editing.calculation_type === "per-hour" ? (
+                  <div className="md:col-span-4">
+                    <Field label={`${t.worksteps.duration} *`} error={formErrors.duration_hours}>
+                      <DecimalInput
+                        aria-required="true"
+                        aria-invalid={Boolean(formErrors.duration_hours)}
+                        value={editing.duration_hours}
+                        onChange={(v) => set("duration_hours", v)}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
+              </div>
+            </FormSection>
           </div>
         </Modal>
       ) : null}
