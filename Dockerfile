@@ -10,7 +10,7 @@
 # On Linux the AppImage bundler additionally needs libfuse2, file, and
 # patchelf.
 
-FROM node:22-bookworm
+FROM node:26-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/usr/local/rustup \
