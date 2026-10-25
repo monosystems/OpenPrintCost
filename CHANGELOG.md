@@ -26,6 +26,9 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Maintenance
+
+- *(ci)* protect main and restrict updates to production releases (#1)
 <!-- changelog:unreleased:end -->
 
 ## [0.1.6] — 2026-10-24
