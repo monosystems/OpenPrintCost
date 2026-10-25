@@ -13,6 +13,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   Modal,
   PrimaryButton,
   SecondaryButton,
@@ -74,6 +75,7 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
   const [editing, setEditing] = useState<CalculationProfile | null>(null);
   const [deleting, setDeleting] = useState<CalculationProfile | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -96,12 +98,15 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
     const errors = validate(editing, t);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
+    setSaving(true);
     try {
       await adapter.saveCalculationProfile({ ...editing, name: editing.name.trim() });
       setEditing(null);
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.profileSave);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -228,44 +233,146 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={profiles.some((p) => p.id === editing.id) ? t.profiles.editTitle : t.profiles.newTitle} onClose={() => setEditing(null)}>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="col-span-2 md:col-span-4">
-              <Field label={`${t.profiles.name} *`} error={formErrors.name}>
-                <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.profiles.nameExample} />
-              </Field>
+        <Modal
+          title={profiles.some((p) => p.id === editing.id) ? t.profiles.editTitle : t.profiles.newTitle}
+          description={t.profiles.formDescription}
+          onClose={() => setEditing(null)}
+          footer={
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-ink-faint">{t.common.requiredHint}</p>
+              <div className="flex justify-end gap-3">
+                <SecondaryButton type="button" onClick={() => setEditing(null)}>
+                  {t.common.cancel}
+                </SecondaryButton>
+                <PrimaryButton type="button" loading={saving} onClick={() => void save()}>
+                  {t.common.save}
+                </PrimaryButton>
+              </div>
             </div>
-            {decimals(t).map(([key, label]) => (
-              <Field key={key} label={label} error={formErrors[key]}>
-                <DecimalInput value={editing[key] as string} onChange={(v) => set(key, v)} />
-              </Field>
-            ))}
-            <Field label={t.profiles.handlingScope}>
-              <Select
-                value={editing.handling_fee_scope}
-                onChange={(v) => set("handling_fee_scope", v as "per-file" | "once")}
-                options={[
-                  { value: "once", label: t.profiles.once },
-                  { value: "per-file", label: t.profiles.perFile },
-                ]}
-              />
-            </Field>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
-            {check(t.profiles.applyEnergy, "apply_energy_costs")}
-            {check(t.profiles.combine, "combine_materials")}
-            {check(t.profiles.multiplyTime, "multiply_print_time_with_quantity")}
-            {check(t.profiles.excludeMachine, "exclude_machine_from_margin")}
-            {check(t.profiles.excludeMaterial, "exclude_material_from_margin")}
-            {check(t.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {t.common.cancel}
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void save()}>
-              {t.common.save}
-            </PrimaryButton>
+          }
+        >
+          <div className="space-y-6">
+            <FormSection title={t.profiles.sectionGeneral}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-12">
+                  <Field label={`${t.profiles.name} *`} error={formErrors.name}>
+                    <TextInput
+                      autoFocus
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.name)}
+                      value={editing.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder={t.profiles.nameExample}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.profiles.sectionCalculation}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-3">
+                  <Field label={t.profiles.failRate} error={formErrors.fail_rate_percent}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.fail_rate_percent)}
+                      value={editing.fail_rate_percent}
+                      onChange={(v) => set("fail_rate_percent", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-3">
+                  <Field label={t.profiles.tax} error={formErrors.tax_rate_percent}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.tax_rate_percent)}
+                      value={editing.tax_rate_percent}
+                      onChange={(v) => set("tax_rate_percent", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-3">
+                  <Field label={t.profiles.margin} error={formErrors.margin_percent}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.margin_percent)}
+                      value={editing.margin_percent}
+                      onChange={(v) => set("margin_percent", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-3">
+                  <Field label={t.profiles.handlingFee} error={formErrors.handling_fee}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.handling_fee)}
+                      value={editing.handling_fee}
+                      onChange={(v) => set("handling_fee", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.profiles.handlingScope}>
+                    <Select
+                      value={editing.handling_fee_scope}
+                      onChange={(v) => set("handling_fee_scope", v as "per-file" | "once")}
+                      options={[
+                        { value: "once", label: t.profiles.once },
+                        { value: "per-file", label: t.profiles.perFile },
+                      ]}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.profiles.printTimeFactor} error={formErrors.print_time_factor}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.print_time_factor)}
+                      value={editing.print_time_factor}
+                      onChange={(v) => set("print_time_factor", v)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.profiles.sectionEnergy}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-6">
+                  <Field label={t.profiles.energyPrice} error={formErrors.energy_price_per_kwh}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.energy_price_per_kwh)}
+                      value={editing.energy_price_per_kwh}
+                      onChange={(v) => set("energy_price_per_kwh", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.profiles.powerLevel} error={formErrors.power_level_percent}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.power_level_percent)}
+                      value={editing.power_level_percent}
+                      onChange={(v) => set("power_level_percent", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-12">
+                  {check(t.profiles.applyEnergy, "apply_energy_costs")}
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.profiles.sectionOptions}>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {check(t.profiles.combine, "combine_materials")}
+                {check(t.profiles.multiplyTime, "multiply_print_time_with_quantity")}
+                {check(t.profiles.excludeMachine, "exclude_machine_from_margin")}
+                {check(t.profiles.excludeMaterial, "exclude_material_from_margin")}
+                {check(t.profiles.excludeWorksteps, "exclude_worksteps_from_margin")}
+              </div>
+            </FormSection>
           </div>
         </Modal>
       ) : null}
