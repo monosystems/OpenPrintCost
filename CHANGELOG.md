@@ -26,6 +26,13 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Fixed
+
+- *(ui)* align new hourly rate dialog with design system
+- *(ui)* align new material dialog with design system
+- *(ui)* align new work step dialog with design system
+- *(ui)* align profile dialog and keep language menu in view
+
 ### Maintenance
 
 - *(ci)* protect main and restrict updates to production releases (#1)
