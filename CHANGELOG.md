@@ -26,6 +26,15 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+<!-- changelog:unreleased:end -->
+
+## [0.1.7] — 2026-10-25
+
+Patch release aligning the material, work step, hourly rate, and profile
+dialogs with the design system and keeping the language dropdown inside the
+sidebar. The calculation core, stored documents, export layout, and database
+schema are unchanged.
+
 ### Fixed
 
 - *(ui)* align new hourly rate dialog with design system
@@ -36,7 +45,6 @@ frozen when the release is cut.
 ### Maintenance
 
 - *(ci)* protect main and restrict updates to production releases (#1)
-<!-- changelog:unreleased:end -->
 
 ## [0.1.6] — 2026-10-24
 
