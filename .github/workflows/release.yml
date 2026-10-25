@@ -1,11 +1,15 @@
 name: Release
 
-# On tags of the form v*, builds installable packages and attaches them to
-# the GitHub Release:
+# On stable tags of the form v<major>.<minor>.<patch>, builds installable
+# packages and attaches them to the GitHub Release:
 #
 #   Linux    — .deb (Debian/Ubuntu), .AppImage (Arch, Fedora, everything else)
 #   Windows  — .msi (WiX), .exe (NSIS)
 #   macOS    — .dmg, universal (Apple Silicon + Intel)
+#
+# Dev and pre-release tags (v0.2.0-dev.1, v0.2.0-rc.1) are never published:
+# they are built as CI artifacts by bundle.yml only. The in-app updater follows
+# releases/latest and must only ever receive production releases.
 #
 # The release is created as a draft first, the matrix jobs upload their
 # assets to it, and only a fully successful build publishes it. This avoids
@@ -17,7 +21,11 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,9 +35,24 @@ jobs:
   check-version:
     name: Versions match the tag
     runs-on: ubuntu-latest
+    # Stable tags only. Every dependent job is skipped with this one, so a
+    # dev tag can never reach create-release — even if it is pushed by mistake.
+    if: ${{ !contains(github.ref_name, '-') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The ancestry check below needs the full history.
+          fetch-depth: 0
+
+      - name: Release must come from main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "error: tag $GITHUB_REF_NAME points to a commit that is not on main." >&2
+            exit 1
+          fi
 
       - name: Check versions
         # Single source of truth: scripts/check-version.sh compares all
@@ -40,6 +63,8 @@ jobs:
     name: Create draft release
     needs: check-version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,13 +101,10 @@ jobs:
             gh release edit "$TAG" --draft=true --notes "$NOTES"
             exit 0
           fi
-          PRERELEASE=""
-          if [[ "$TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
           gh release create "$TAG" \
             --draft \
             --title "OpenPrintCost $TAG" \
-            --notes "$NOTES" \
-            $PRERELEASE
+            --notes "$NOTES"
 
   release:
     name: Build package (${{ matrix.label }})
@@ -108,6 +130,8 @@ jobs:
             # the `.app.tar.gz` for the `app` target, never for `dmg` alone.
             args: --target universal-apple-darwin --bundles app,dmg
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -160,7 +184,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "OpenPrintCost ${{ github.ref_name }}"
           releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
           # The updater manifest is assembled by the `update-manifest` job —
           # one complete JSON for all platforms. tauri-action would upload a
           # partial one per matrix job.
@@ -193,6 +216,8 @@ jobs:
     name: Updater manifest
     needs: [create-release, release]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -247,6 +272,8 @@ jobs:
     name: Publish release
     needs: [create-release, release, update-manifest]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         # gh resolves the commit of the release from the repository — without
@@ -263,6 +290,8 @@ jobs:
     name: Checksums
     needs: [create-release, release, update-manifest]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         # gh resolves the repository from the git remote — without a

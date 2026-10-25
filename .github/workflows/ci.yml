@@ -7,11 +7,38 @@ on:
     branches: ["**"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  pr-title:
+    name: PR title
+    # Squash merges use the PR title as the commit subject, so it must be a
+    # Conventional Commit — that is what feeds the changelog. Dependabot
+    # security updates use their own title and are exempt.
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Conventional Commit title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._/-]+\))?!?: .+'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "error: PR title must be a Conventional Commit, e.g. 'fix(ui): align dialog'." >&2
+            echo "got: $TITLE" >&2
+            exit 1
+          fi
+
   version:
     name: Version consistency
     runs-on: ubuntu-latest

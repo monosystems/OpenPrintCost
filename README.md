@@ -145,6 +145,10 @@ version is available, a badge appears in the sidebar. The badge opens
 **Settings → Updates**, where the release notes and **Install update** live.
 You can also check manually there.
 
+The updater only receives production releases. Dev and pre-release builds are
+CI artifacts and are never published as GitHub releases; the app additionally
+rejects versions with a pre-release suffix.
+
 The app downloads the matching package and installs it.
 
 | Package | In-app update |

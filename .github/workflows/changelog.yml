@@ -10,11 +10,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# The workflow commits the regenerated CHANGELOG.md directly to `main`.
-# If branch protection forbids that, let the workflow open a pull request
-# instead (same script, `gh pr create` instead of `git push`).
+# The workflow opens (or updates) a pull request instead of pushing to
+# `main` directly. The PR is created with `GITHUB_TOKEN`, so GitHub does not
+# start CI for it; a maintainer merges the changelog-only PR with the admin
+# pull-request bypass of the `main-protection` ruleset.
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: changelog-${{ github.ref }}
@@ -49,17 +51,31 @@ jobs:
       - name: Update the unreleased section
         run: ./scripts/update-changelog.py unreleased
 
-      - name: Commit the result
+      - name: Open or update the changelog pull request
         # The commit type `chore` is skipped by the changelog generator
         # (see cliff.toml) — the automation does not document itself.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if git diff --quiet -- CHANGELOG.md; then
             echo "CHANGELOG.md is already up to date"
             exit 0
           fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c automation/changelog
           git add CHANGELOG.md
           git commit -m "chore(changelog): update unreleased section"
-          git push
+          git push --force origin HEAD:automation/changelog
+
+          if [[ "$(gh pr list --head automation/changelog --state open --json number --jq 'length')" == "0" ]]; then
+            gh pr create \
+              --base main \
+              --head automation/changelog \
+              --title "chore(changelog): update unreleased section" \
+              --body "Generated from the commits on \`main\` by the Changelog workflow. This PR only updates the \`[Unreleased]\` section; merge it with the admin pull-request bypass after reviewing the diff."
+          else
+            echo "updated the existing changelog pull request"
+          fi

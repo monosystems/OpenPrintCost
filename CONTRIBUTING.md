@@ -148,7 +148,9 @@ changelog, so **the subject must be English**; the commit body may be German.
 ```
 
 * The CI workflow `.github/workflows/changelog.yml` runs `unreleased` after
-  every push to `main` and commits the result.
+  every push to `main` and opens or updates the `automation/changelog` pull
+  request. Merge that changelog-only PR with the admin pull-request bypass;
+  it is created with `GITHUB_TOKEN`, so no CI run is attached to it.
 * Only the part between `<!-- changelog:unreleased:start -->` and
   `<!-- changelog:unreleased:end -->` is regenerated. Notes written by hand
   outside the markers are kept.
@@ -165,6 +167,10 @@ changelog section is refused — the release notes are never invented.
 
 ## Pull requests
 
+* `main` is protected: changes land through a pull request, required CI
+  checks must pass, and the branches must be up to date.
+* The PR title must be a Conventional Commit — with squash merges it becomes
+  the commit subject and therefore the changelog entry.
 * Description: what, why, how verified (list gates).
 * Checklist (see PR template): gates green, no new warnings,
   spec updated (if technically relevant), no scope creep.
@@ -176,14 +182,20 @@ changelog section is refused — the release notes are never invented.
 1. Set the version: `./scripts/set-version.sh 0.2.0`. It writes all
    version sources (workspace `Cargo.toml`, `package.json`,
    `src-tauri/tauri.conf.json`) and verifies them.
-2. Freeze the changelog: `./scripts/update-changelog.py release 0.2.0`.
-   It moves the `[Unreleased]` section to the new version, adds the release
-   date and starts a new `[Unreleased]` section.
-3. Commit, tag (`git tag v0.2.0`), push (`git push --tags`).
+2. Merge any open `automation/changelog` PR, then freeze the changelog:
+   `./scripts/update-changelog.py release 0.2.0`. It moves the
+   `[Unreleased]` section to the new version, adds the release date and starts
+   a new `[Unreleased]` section.
+3. Commit on `main`, tag (`git tag v0.2.0`), push (`git push --tags`).
+   Release tags are protected and must point to a commit on `main`; the
+   release workflow verifies the ancestry before building.
 4. The release workflow (`.github/workflows/release.yml`) builds `.deb`,
    AppImage, `.msi` and `.dmg` and attaches them to the GitHub Release.
    It fails if the tag and the version sources disagree, or if
-   `CHANGELOG.md` has no section for the released version.
+   `CHANGELOG.md` has no section for the released version. Tags with a
+   pre-release suffix (`-dev.1`, `-rc.1`) are skipped entirely: dev builds
+   stay CI artifacts, and the in-app updater only receives production
+   releases.
 5. Write release notes: what is new, what broke, thanks to contributors.
    The section from `CHANGELOG.md` is used as the base and can be edited in
    the GitHub release afterwards.
