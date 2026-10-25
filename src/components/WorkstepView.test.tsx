@@ -34,6 +34,21 @@ describe("WorkstepView", () => {
     expect(await adapter.listWorksteps()).toHaveLength(1);
   });
 
+  it("groups the work step form into labelled sections", async () => {
+    const adapter = new MockPlatformAdapter();
+    await adapter.saveWorkstepCategory({ id: newId(), name: "Post-processing", color: null });
+    const user = userEvent.setup();
+    render(<WorkstepView adapter={adapter} />);
+    await waitFor(() => expect(screen.queryByText(en.common.loading)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: en.worksteps.newButton }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByText(en.worksteps.sectionGeneral)).toBeInTheDocument();
+    expect(within(dialog).getByText(en.worksteps.sectionCalculation)).toBeInTheDocument();
+    expect(within(dialog).getByText(en.common.requiredHint)).toBeInTheDocument();
+  });
+
   it("zeigt einen Hinweis beim Delete benutzter Kategorien", async () => {
     const adapter = new MockPlatformAdapter();
     const category = { id: newId(), name: "Cleaning", color: null };
