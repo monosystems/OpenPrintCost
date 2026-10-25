@@ -9,7 +9,13 @@ import { ChevronDownIcon, GlobeIcon } from "./icons";
  * does not widen the header. Keyboard support: Escape closes and returns
  * focus to the trigger, clicking outside closes.
  */
-export function LanguageSwitcher({ placement = "down" }: { placement?: "down" | "up" }) {
+export function LanguageSwitcher({
+  placement = "down",
+  align = "end",
+}: {
+  placement?: "down" | "up";
+  align?: "start" | "end";
+}) {
   const { t, locale, setLocale } = useLocale();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,9 +72,9 @@ export function LanguageSwitcher({ placement = "down" }: { placement?: "down" | 
           ref={listRef}
           role="listbox"
           aria-label={t.app.language}
-          className={`absolute right-0 z-50 w-44 overflow-hidden rounded-card border border-line-strong bg-raised py-1 shadow-2xl ${
-            placement === "up" ? "bottom-full mb-2" : "mt-2"
-          }`}
+          className={`absolute z-50 w-44 overflow-hidden rounded-card border border-line-strong bg-raised py-1 shadow-2xl ${
+            align === "start" ? "left-0" : "right-0"
+          } ${placement === "up" ? "bottom-full mb-2" : "mt-2"}`}
         >
           {LOCALES.map((code) => (
             <li key={code} role="none">

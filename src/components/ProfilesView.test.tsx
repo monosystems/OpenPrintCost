@@ -19,6 +19,22 @@ describe("ProfilesView", () => {
     expect(await adapter.listCalculationProfiles()).toHaveLength(1);
   });
 
+  it("groups the profile form into labelled sections", async () => {
+    const adapter = new MockPlatformAdapter();
+    const user = userEvent.setup();
+    render(<ProfilesView adapter={adapter} />);
+    await waitFor(() => expect(screen.queryByText("Loading …")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByText("Profile")).toBeInTheDocument();
+    expect(within(dialog).getByText("Calculation")).toBeInTheDocument();
+    expect(within(dialog).getByText("Energy")).toBeInTheDocument();
+    expect(within(dialog).getByText("Options")).toBeInTheDocument();
+    expect(within(dialog).getByText("Fields marked * are required.")).toBeInTheDocument();
+  });
+
   it("rejects an empty name", async () => {
     const adapter = new MockPlatformAdapter();
     const user = userEvent.setup();

@@ -71,6 +71,8 @@ Components use semantic utilities (`bg-surface`, `text-ink-muted`,
 | `--color-surface` | `#0b1220` | Sidebar, cards, table shell |
 | `--color-raised` | `#111a2b` | Controls, popovers, secondary buttons |
 | `--color-raised-hover` | `#17233a` | Hover state for raised controls |
+| `--color-field` | `rgba(255,255,255,0.04)` | Input surface, lifts off any parent |
+| `--color-field-hover` | `rgba(255,255,255,0.06)` | Hover state for inputs |
 | `--color-line` | `rgba(255,255,255,0.08)` | Standard card border / divider |
 | `--color-line-strong` | `rgba(255,255,255,0.14)` | Inputs, active borders, secondary buttons |
 | `--color-ink` | `#eef2f7` | Primary text |
@@ -194,7 +196,7 @@ Components use semantic utilities (`bg-surface`, `text-ink-muted`,
 | Danger ghost | red text, red-soft hover; used for row deletes |
 | Danger filled | only in confirmation dialogs |
 | Icon button | 32 px, icon only, always `aria-label` + `title` |
-| Inputs / selects | canvas background, strong border, 36 px, focus border + global outline |
+| Inputs / selects | translucent field surface (lighter than parent), strong border, 36 px, focus border + global outline |
 | Decimal input | right-aligned, tabular numerals |
 | Checkbox | native input + custom 16 px box, brand fill, focus ring on the box |
 | Field | visible 11 px label, 14 px control, error outside the label (`role="alert"`) |
