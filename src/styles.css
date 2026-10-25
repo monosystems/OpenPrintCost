@@ -4,6 +4,7 @@
  * Design tokens — the single source of truth for the dark UI.
  *
  * Canvas is the page, surface is a card, raised is a control or popover.
+ * Fields use a translucent light overlay so they lift off cards and modals alike.
  * Borders are translucent white so elevation reads as luminance, not shadow.
  * Brand colours come from the logo: blue #0070F0, teal #00B080, navy #002060.
  */
@@ -19,6 +20,8 @@
   --color-surface: #0b1220;
   --color-raised: #111a2b;
   --color-raised-hover: #17233a;
+  --color-field: rgb(255 255 255 / 0.04);
+  --color-field-hover: rgb(255 255 255 / 0.06);
   --color-line: rgb(255 255 255 / 0.08);
   --color-line-strong: rgb(255 255 255 / 0.14);
 

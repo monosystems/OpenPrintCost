@@ -5,8 +5,8 @@ import { CheckIcon, SpinnerIcon, XIcon } from "./icons";
 /** Small UI kit for master-data management (dark theme). */
 
 const inputClass =
-  "h-9 w-full rounded-control border border-line-strong bg-canvas px-3 text-sm " +
-  "text-ink placeholder:text-ink-faint transition-colors hover:border-ink-faint " +
+  "h-9 w-full rounded-control border border-line-strong bg-field px-3 text-sm " +
+  "text-ink placeholder:text-ink-faint transition-colors hover:border-ink-faint hover:bg-field-hover " +
   "focus:border-brand";
 
 const labelClass =
@@ -224,7 +224,7 @@ export function Checkbox({
       />
       <span
         aria-hidden="true"
-        className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border border-line-strong bg-canvas transition-colors peer-checked:border-brand peer-checked:bg-brand peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus peer-disabled:opacity-50 peer-checked:[&>svg]:opacity-100"
+        className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border border-line-strong bg-field transition-colors peer-checked:border-brand peer-checked:bg-brand peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus peer-disabled:opacity-50 peer-checked:[&>svg]:opacity-100"
       >
         <CheckIcon className="h-3 w-3 text-white opacity-0 transition-opacity" />
       </span>

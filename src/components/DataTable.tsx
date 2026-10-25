@@ -78,7 +78,7 @@ export function DataTable<T>({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t.common.searchPlaceholder}
             aria-label={t.common.search}
-            className="h-9 w-full rounded-control border border-line-strong bg-canvas pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint transition-colors [&::-webkit-search-cancel-button]:hidden hover:border-ink-faint focus:border-brand"
+            className="h-9 w-full rounded-control border border-line-strong bg-field pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint transition-colors [&::-webkit-search-cancel-button]:hidden hover:border-ink-faint hover:bg-field-hover focus:border-brand"
           />
           {query ? (
             <button
