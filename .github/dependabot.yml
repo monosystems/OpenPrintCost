@@ -12,6 +12,11 @@ updates:
       prefix: "chore"
       include: scope
     groups:
+      # These two majors must move together: plugin-react 6 peers on Vite 8.
+      vite-react:
+        patterns:
+          - "vite"
+          - "@vitejs/plugin-react"
       npm-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
