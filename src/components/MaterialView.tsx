@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   Modal,
   PrimaryButton,
   SecondaryButton,
@@ -61,6 +62,7 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
   const [editing, setEditing] = useState<Material | null>(null);
   const [deleting, setDeleting] = useState<Material | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -95,12 +97,15 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       manufacturer: editing.manufacturer?.trim() ? editing.manufacturer.trim() : null,
       shop_link: editing.shop_link?.trim() ? editing.shop_link.trim() : null,
     };
+    setSaving(true);
     try {
       await adapter.saveMaterial(cleaned);
       setEditing(null);
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.materialSave);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -221,58 +226,132 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
       )}
 
       {editing ? (
-        <Modal title={materials.some((m) => m.id === editing.id) ? t.materials.editTitle : t.materials.newTitle} onClose={() => setEditing(null)}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label={`${t.materials.name} *`} error={formErrors.name}>
-              <TextInput value={editing.name} onChange={(e) => set("name", e.target.value)} placeholder={t.materials.nameExample} />
-            </Field>
-            <Field label={`${t.materials.type} *`} error={formErrors.material_type}>
-              <TextInput value={editing.material_type} onChange={(e) => set("material_type", e.target.value)} placeholder={t.materials.typeExample} />
-            </Field>
-            <Field label={t.materials.family}>
-              <Select
-                value={editing.family}
-                onChange={(v) => set("family", v as MaterialFamily)}
-                options={Object.entries(t.domain.family).map(([value, label]) => ({ value, label }))}
-              />
-            </Field>
-            <Field label={t.materials.manufacturer}>
-              <TextInput value={editing.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} />
-            </Field>
-            <Field label={`${t.materials.density} *`} error={formErrors.density_g_cm3}>
-              <DecimalInput value={editing.density_g_cm3} onChange={(v) => set("density_g_cm3", v)} />
-            </Field>
-            <Field label={`${t.materials.price} *`} error={formErrors.price}>
-              <DecimalInput value={editing.price} onChange={(v) => set("price", v)} />
-            </Field>
-            <Field label={`${t.materials.packageSize} *`} error={formErrors.package_size}>
-              <DecimalInput value={editing.package_size} onChange={(v) => set("package_size", v)} />
-            </Field>
-            <Field label={t.materials.unit}>
-              <Select
-                value={editing.unit}
-                onChange={(v) => set("unit", v as MaterialUnit)}
-                options={[
-                  { value: "kg", label: t.materials.unitKg },
-                  { value: "g", label: t.materials.unitG },
-                  { value: "lb", label: t.materials.unitLb },
-                  { value: "oz", label: t.materials.unitOz },
-                ]}
-              />
-            </Field>
-            <div className="md:col-span-2">
-              <Field label={t.materials.shopLink}>
-                <TextInput value={editing.shop_link ?? ""} onChange={(e) => set("shop_link", e.target.value)} placeholder="https://…" />
-              </Field>
+        <Modal
+          title={materials.some((m) => m.id === editing.id) ? t.materials.editTitle : t.materials.newTitle}
+          description={t.materials.formDescription}
+          onClose={() => setEditing(null)}
+          footer={
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-ink-faint">{t.common.requiredHint}</p>
+              <div className="flex justify-end gap-3">
+                <SecondaryButton type="button" onClick={() => setEditing(null)}>
+                  {t.common.cancel}
+                </SecondaryButton>
+                <PrimaryButton type="button" loading={saving} onClick={() => void save()}>
+                  {t.common.save}
+                </PrimaryButton>
+              </div>
             </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton type="button" onClick={() => setEditing(null)}>
-              {t.common.cancel}
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={() => void save()}>
-              {t.common.save}
-            </PrimaryButton>
+          }
+        >
+          <div className="space-y-6">
+            <FormSection title={t.materials.sectionMaterial}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-7">
+                  <Field label={`${t.materials.name} *`} error={formErrors.name}>
+                    <TextInput
+                      autoFocus
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.name)}
+                      value={editing.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder={t.materials.nameExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-5">
+                  <Field label={`${t.materials.type} *`} error={formErrors.material_type}>
+                    <TextInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.material_type)}
+                      value={editing.material_type}
+                      onChange={(e) => set("material_type", e.target.value)}
+                      placeholder={t.materials.typeExample}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.materials.family}>
+                    <Select
+                      value={editing.family}
+                      onChange={(v) => set("family", v as MaterialFamily)}
+                      options={Object.entries(t.domain.family).map(([value, label]) => ({ value, label }))}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-6">
+                  <Field label={t.materials.manufacturer}>
+                    <TextInput
+                      value={editing.manufacturer ?? ""}
+                      onChange={(e) => set("manufacturer", e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.materials.sectionTechnical}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-4">
+                  <Field label={`${t.materials.density} *`} error={formErrors.density_g_cm3}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.density_g_cm3)}
+                      value={editing.density_g_cm3}
+                      onChange={(v) => set("density_g_cm3", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={`${t.materials.packageSize} *`} error={formErrors.package_size}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.package_size)}
+                      value={editing.package_size}
+                      onChange={(v) => set("package_size", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={t.materials.unit}>
+                    <Select
+                      value={editing.unit}
+                      onChange={(v) => set("unit", v as MaterialUnit)}
+                      options={[
+                        { value: "kg", label: t.materials.unitKg },
+                        { value: "g", label: t.materials.unitG },
+                        { value: "lb", label: t.materials.unitLb },
+                        { value: "oz", label: t.materials.unitOz },
+                      ]}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title={t.materials.sectionPrice}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div className="md:col-span-4">
+                  <Field label={`${t.materials.price} *`} error={formErrors.price}>
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.price)}
+                      value={editing.price}
+                      onChange={(v) => set("price", v)}
+                    />
+                  </Field>
+                </div>
+                <div className="md:col-span-8">
+                  <Field label={t.materials.shopLink}>
+                    <TextInput
+                      value={editing.shop_link ?? ""}
+                      onChange={(e) => set("shop_link", e.target.value)}
+                      placeholder="https://…"
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
           </div>
         </Modal>
       ) : null}
