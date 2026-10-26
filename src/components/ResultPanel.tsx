@@ -58,6 +58,29 @@ export function ResultPanel({
           {result ? result.project_name : t.calculation.notCalculatedHint}
         </p>
 
+        {result ? (
+          <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+                {t.calculation.baseLabel}
+              </dt>
+              <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+                {formatMoney(result.base_total, locale)} €
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+                {t.calculation.pricePerPiece}
+              </dt>
+              <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+                {result.price_per_piece
+                  ? `${formatMoney(result.price_per_piece, locale)} €`
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+
         <div className="mt-5 space-y-2">
           <PrimaryButton
             type="button"
@@ -111,6 +134,11 @@ export function CompactSummary({
           <p className="truncate text-lg font-semibold tabular-nums text-accent" aria-live="polite">
             {result ? `${formatMoney(result.total, locale)} €` : "—"}
           </p>
+          {result?.price_per_piece ? (
+            <p className="truncate text-[11px] tabular-nums text-ink-faint">
+              {t.calculation.pricePerPiece}: {formatMoney(result.price_per_piece, locale)} €
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SecondaryButton

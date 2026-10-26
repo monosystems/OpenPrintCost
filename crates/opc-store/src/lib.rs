@@ -40,12 +40,17 @@
 
 #![forbid(unsafe_code)]
 
+pub mod document;
 pub mod error;
 pub mod memory;
 pub mod port;
 pub mod record;
 pub mod sqlite;
 
+pub use document::{
+    CALCULATION_DOCUMENT_FORMAT, CALCULATION_DOCUMENT_VERSION, CalculationDocument, from_json,
+    to_json,
+};
 pub use error::{StoreError, StoreResult};
 pub use memory::MemoryStore;
 pub use port::{

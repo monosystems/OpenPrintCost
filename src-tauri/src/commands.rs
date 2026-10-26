@@ -14,8 +14,12 @@ use opc_core::model::{
     Workstep, WorkstepCategory,
 };
 use opc_store::record::{CalculationSummary, StoredCalculation};
+use std::io::Read;
 use tauri::State;
 use uuid::Uuid;
+
+/// Obergrenze für eingelesene Kalkulationsdateien.
+const MAX_CALCULATION_JSON_BYTES: u64 = 10 * 1024 * 1024;
 
 /// Parst eine UUID aus der übergebenen Zeichenkette.
 fn parse_id(value: &str) -> CommandResult<Uuid> {
@@ -290,6 +294,87 @@ pub fn delete_calculation(state: State<'_, AppState>, id: String) -> CommandResu
         .map_err(CommandError::from)
 }
 
+/// Schreibt eine Kalkulation als versioniertes JSON-Dokument.
+///
+/// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
+#[tauri::command]
+pub fn export_calculation_json(
+    app: tauri::AppHandle,
+    calculation: CalculationInput,
+) -> CommandResult<Option<String>> {
+    let json = opc_store::document::to_json(&calculation).map_err(CommandError::from)?;
+    save_bytes_via_dialog(
+        &app,
+        json.as_bytes(),
+        "json",
+        "Kalkulationsdatei",
+        &format!("{}-kalkulation.json", calculation.project_name),
+    )
+}
+
+/// Öffnet den Dateidialog und liest eine Kalkulationsdatei ein.
+#[tauri::command]
+pub fn import_calculation_json(app: tauri::AppHandle) -> CommandResult<Option<CalculationInput>> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let selected = app
+        .dialog()
+        .file()
+        .add_filter("Kalkulationsdatei", &["json"])
+        .blocking_pick_file();
+    let Some(selected) = selected else {
+        return Ok(None);
+    };
+    let path = selected
+        .into_path()
+        .map_err(|error| CommandError::new(format!("Pfad ist ungültig: {error}")))?;
+
+    let metadata = std::fs::metadata(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{}' konnte nicht geprüft werden: {error}",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(CommandError::new(format!(
+            "'{}' ist keine reguläre Datei.",
+            path.display()
+        )));
+    }
+    if metadata.len() > MAX_CALCULATION_JSON_BYTES {
+        return Err(CommandError::new(format!(
+            "Datei '{}' ist zu groß (maximal 10 MB).",
+            path.display()
+        )));
+    }
+
+    let file = std::fs::File::open(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{}' konnte nicht geöffnet werden: {error}",
+            path.display()
+        ))
+    })?;
+    let mut text = String::new();
+    file.take(MAX_CALCULATION_JSON_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|error| {
+            CommandError::new(format!(
+                "Datei '{}' konnte nicht gelesen werden: {error}",
+                path.display()
+            ))
+        })?;
+    if text.len() as u64 > MAX_CALCULATION_JSON_BYTES {
+        return Err(CommandError::new(format!(
+            "Datei '{}' ist zu groß (maximal 10 MB).",
+            path.display()
+        )));
+    }
+
+    opc_store::document::from_json(&text)
+        .map(Some)
+        .map_err(CommandError::from)
+}
+
 // ---------------------------------------------------------------------------
 // Berechnung
 // ---------------------------------------------------------------------------
@@ -496,6 +581,45 @@ fn to_company(company: &opc_store::CompanyInfo) -> opc_export::CompanyInfo {
     }
 }
 
+/// Reduziert einen beliebigen Namen auf einen sicheren Dateistamm.
+///
+/// Der Name kann aus einem importierten Dokument stammen. Pfadtrenner,
+/// Steuerzeichen und Windows-reservierte Zeichen werden ersetzt; absolute
+/// Pfade und `..`-Segmente können so nicht in den Speichern-Dialog gelangen.
+fn safe_file_stem(file_name: &str) -> String {
+    let base = std::path::Path::new(file_name)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    let stem = match base.rsplit_once('.') {
+        Some((stem, extension)) if !stem.is_empty() && extension.len() <= 8 => stem,
+        _ => base,
+    };
+    let sanitized: String = stem
+        .chars()
+        .map(|character| {
+            if character.is_control()
+                || matches!(
+                    character,
+                    '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+                )
+            {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect();
+    let sanitized = sanitized.trim().trim_start_matches('.').trim();
+    let mut result: String = sanitized.chars().take(80).collect();
+    result = result.trim_end_matches(['.', ' ']).to_string();
+    if result.is_empty() {
+        "kalkulation".to_string()
+    } else {
+        result
+    }
+}
+
 /// Fragt per Speichern-Dialog nach dem Pfad und schreibt die Bytes.
 fn save_bytes_via_dialog(
     app: &tauri::AppHandle,
@@ -506,11 +630,12 @@ fn save_bytes_via_dialog(
 ) -> CommandResult<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
 
+    let file_name = format!("{}.{}", safe_file_stem(file_name), extension);
     let path = app
         .dialog()
         .file()
         .add_filter(filter_name, &[extension])
-        .set_file_name(file_name)
+        .set_file_name(&file_name)
         .blocking_save_file();
     match path {
         None => Ok(None),
@@ -526,5 +651,30 @@ fn save_bytes_via_dialog(
             })?;
             Ok(Some(file_path.to_string_lossy().to_string()))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_file_stem;
+
+    #[test]
+    fn dateiname_entfernt_pfade_und_reservierte_zeichen() {
+        assert_eq!(safe_file_stem("/home/user/.bashrc"), "bashrc");
+        assert_eq!(safe_file_stem("../../foo.json"), "foo");
+        assert_eq!(safe_file_stem("C:\\Users\\foo.json"), "C__Users_foo");
+        assert_eq!(safe_file_stem("..\\..\\foo.json"), "_.._foo");
+    }
+
+    #[test]
+    fn leerer_dateiname_faellt_zurueck() {
+        assert_eq!(safe_file_stem(""), "kalkulation");
+        assert_eq!(safe_file_stem(".."), "kalkulation");
+    }
+
+    #[test]
+    fn dateiname_wird_begrenzt() {
+        let stem = safe_file_stem(&"a".repeat(200));
+        assert_eq!(stem.len(), 80);
     }
 }

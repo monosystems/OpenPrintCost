@@ -125,7 +125,7 @@ export function CalculationResultView({
         );
       })}
 
-      <dl className="grid grid-cols-2 gap-4 rounded-card border border-line bg-surface p-4 text-sm md:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-4 rounded-card border border-line bg-surface p-4 text-sm md:grid-cols-3 xl:grid-cols-6">
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.base}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">
@@ -148,6 +148,22 @@ export function CalculationResultView({
           <dt className="text-xs text-ink-faint">{t.calculation.sums.total}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-accent">
             {formatMoney(result.total, locale)} €
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-faint">{t.calculation.sums.costPerPiece}</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">
+            {result.cost_per_piece
+              ? `${formatMoney(result.cost_per_piece, locale)} €`
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-faint">{t.calculation.sums.pricePerPiece}</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-accent">
+            {result.price_per_piece
+              ? `${formatMoney(result.price_per_piece, locale)} €`
+              : "—"}
           </dd>
         </div>
       </dl>

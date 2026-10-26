@@ -201,10 +201,11 @@ Components use semantic utilities (`bg-surface`, `text-ink-muted`,
 | Checkbox | native input + custom 16 px box, brand fill, focus ring on the box |
 | Field | visible 11 px label, 14 px control, error outside the label (`role="alert"`) |
 | Empty state | icon + description + one action |
-| Modal | raised surface, 12 px radius, divided header/body/footer, backdrop blur, Escape/backdrop close; long forms scroll the body and keep actions in the footer |
+| Modal | raised surface, 12 px radius, divided header/body/footer, backdrop blur, Escape/backdrop close, trapped focus with return to the trigger; long forms scroll the body and keep actions in the footer |
 | Form section | 11 px uppercase label + hairline rule; 24 px between groups; fields on a 12-column grid |
-| Toast | fixed bottom-right, auto-dismiss after 5 s, `role="status"`, info/success/warning tones |
-| Result panel | sticky, 30 px teal total, primary Calculate, secondary Save/Details, cost breakdown |
+| Printability hint | 12 px status line under the part dimensions: teal when it fits, warning tone when an axis exceeds the build volume |
+| Toast | fixed bottom-right on desktop, full-width sheet on narrow widths, auto-dismiss after 5 s, `role="status"`, info/success/warning tones |
+| Result panel | sticky, 30 px teal selling price, production cost and price per piece, primary Calculate, secondary Save/Details, cost breakdown |
 | Table | search + sortable headers + right-aligned numbers; no shadows |
 | Sidebar item | 36 px row, 16 px icon, brand-soft active state |
 
@@ -237,19 +238,19 @@ as icons.
   `role="status"`, `aria-live`, `aria-sort`, `aria-current`.
 - Every input has a visible label or an equivalent `aria-label`; numeric
   fields that previously relied on placeholders now have labels.
-- Modals close on Escape and backdrop click.
+- Modals close on Escape and backdrop click; focus stays inside the dialog,
+  Tab wraps at both ends, and closing returns focus to the trigger.
 - Language switcher supports Escape, outside click and focus return.
 - Global `:focus-visible` outline is never removed.
 - `prefers-reduced-motion` disables transitions and smooth scrolling.
+- An automated `axe-core` pass covers the empty calculation view, the open
+  form, and a modal at WCAG A/AA level (contrast excluded because jsdom has
+  no layout engine).
 
 ### Known gaps
 
-- **Modal focus trap** is not implemented yet; focus can leave the dialog.
-- **Automated axe pass** has not been run; the checks above are manual.
 - **Mobile layout below 1024 px** is not designed; the desktop window has a
   1024 px minimum.
-- Toast can overlap form controls at 900 px browser width (below the app’s
-  supported minimum).
 
 ---
 
@@ -324,14 +325,10 @@ When adding a screen or component:
 
 ## 10. Open Items (not visual-system work)
 
-1. **Result semantics** — “Total cost” includes margin and tax; split
-   “cost” vs. “selling price” in engine and UI.
-2. **Price per piece** — deliver from the backend; do not calculate in the UI.
-3. **Modal focus trap** and automated accessibility audit.
-4. **Toast placement** at very narrow browser widths.
-5. **Long table headers** at 1024 px: monitor wrapping; short labels are
+1. **Long table headers** at 1024 px: monitor wrapping; short labels are
    already used for printer rate and flat rate.
-6. **Light theme** — explicitly out of scope for this iteration.
+2. **Light theme** — explicitly out of scope for this iteration.
 
-These items belong to product/UX/accessibility work, not to the
-popular-web-designs review.
+Resolved in 0.2.0: cost vs. selling-price semantics, price per piece from the
+engine, modal focus trap, automated axe pass, and narrow-width toast
+placement.

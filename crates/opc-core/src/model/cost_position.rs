@@ -36,7 +36,7 @@ pub enum CostGroup {
     Margin,
     /// Steuer.
     Tax,
-    /// Gesamtkosten.
+    /// Verkaufspreis inklusive Marge und Steuer.
     Total,
 }
 
@@ -108,6 +108,13 @@ pub struct FileSummary {
     pub material_g: Decimal,
     /// Materialverbrauch aus der Fehlerrate in Gramm (`material_g_fehler`).
     pub material_g_fail: Decimal,
+    /// Außenmaße des Stücks in mm (Breite X, Tiefe Y, Höhe Z), falls bekannt.
+    pub dimensions_mm: Option<[Decimal; 3]>,
+    /// Ob das Stück in das Bauvolumen des verwendeten Druckers passt.
+    ///
+    /// `None`, wenn keine Maße hinterlegt sind oder das Bauvolumen nicht
+    /// vollständig gepflegt ist (eine Kante ist 0).
+    pub fits_build_volume: Option<bool>,
 }
 
 /// Das vollständige Ergebnis einer Kalkulation.
@@ -119,7 +126,7 @@ pub struct CalculationResult {
     pub project_name: String,
     /// Erstellungszeitpunkt (ISO-8601-String, vom Aufrufer geliefert).
     pub created_at: Option<String>,
-    /// Geordnete Liste aller Kostenpositionen inkl. Gesamtkosten.
+    /// Geordnete Liste aller Kostenpositionen inkl. Verkaufspreis.
     pub positions: Vec<CostPosition>,
     /// Basiskosten vor Marge und Steuer (exakt).
     pub base_total: Decimal,
@@ -127,10 +134,20 @@ pub struct CalculationResult {
     pub margin_total: Decimal,
     /// Summe der Steuer (exakt).
     pub tax_total: Decimal,
-    /// Gesamtkosten (exakt).
+    /// Verkaufspreis inklusive Marge und Steuer (exakt).
     pub total: Decimal,
     /// Angewandter Maschinenstundensatz in €/h.
     pub machine_hour_rate: Decimal,
+    /// Summe der Stückzahlen aller Dateien.
+    pub total_quantity: u32,
+    /// Durchschnittliche Herstellkosten je Stück (exakt).
+    ///
+    /// Enthält alle Projektkosten anteilig; `None`, wenn die Gesamtstückzahl
+    /// 0 ist.
+    pub cost_per_piece: Option<Decimal>,
+    /// Durchschnittlicher Verkaufspreis je Stück inklusive Marge und Steuer
+    /// (exakt); `None`, wenn die Gesamtstückzahl 0 ist.
+    pub price_per_piece: Option<Decimal>,
     /// Mengengerüste je Datei.
     pub files: Vec<FileSummary>,
 }

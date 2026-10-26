@@ -11,6 +11,8 @@
 
 export type Uuid = string;
 export type DecimalString = string;
+/** Width (X), depth (Y), height (Z) in millimetres. */
+export type DimensionsMm = [DecimalString, DecimalString, DecimalString];
 
 export type PrintProcess = "fdm" | "sla" | "powder-bed";
 export type MaterialFamily = "filament" | "resin" | "powder";
@@ -128,6 +130,7 @@ export interface CalculationFileInput {
   quantity: number;
   print_time_hours: DecimalString;
   volume_cm3: DecimalString | null;
+  dimensions_mm: DimensionsMm | null;
   weight_g: DecimalString | null;
   materials: FileMaterial[];
   material_changes: number;
@@ -202,6 +205,8 @@ export interface FileSummary {
   print_time_hours_fail: DecimalString;
   material_g: DecimalString;
   material_g_fail: DecimalString;
+  dimensions_mm: DimensionsMm | null;
+  fits_build_volume: boolean | null;
 }
 
 export interface CalculationResult {
@@ -214,6 +219,9 @@ export interface CalculationResult {
   tax_total: DecimalString;
   total: DecimalString;
   machine_hour_rate: DecimalString;
+  total_quantity: number;
+  cost_per_piece: DecimalString | null;
+  price_per_piece: DecimalString | null;
   files: FileSummary[];
 }
 
@@ -256,6 +264,7 @@ export interface StlInfo {
   volume_cm3: DecimalString;
   triangle_count: number;
   bounding_box_mm: [[number, number, number], [number, number, number]] | null;
+  dimensions_mm: DimensionsMm | null;
 }
 
 // ---------------------------------------------------------------------------

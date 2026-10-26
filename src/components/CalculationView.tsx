@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
+import { checkPrintability } from "../api/printability";
 import { useLocale, useStrings, type Strings } from "../i18n";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
@@ -14,6 +15,7 @@ import {
   type CalculationSummary,
   type CompanyInfo,
   type CustomSurcharge,
+  type DimensionsMm,
   type HourlyRate,
   type Material,
   type Printer,
@@ -57,7 +59,10 @@ type CalculationHint =
   | { kind: "fileTime" }
   | { kind: "triangles"; count: number }
   | { kind: "exportSaved"; path: string }
-  | { kind: "exportCancelled" };
+  | { kind: "exportCancelled" }
+  | { kind: "importCancelled" }
+  | { kind: "jsonSaved"; path: string }
+  | { kind: "jsonImported"; name: string };
 
 function hintText(hint: CalculationHint, t: Strings): string {
   switch (hint.kind) {
@@ -74,6 +79,12 @@ function hintText(hint: CalculationHint, t: Strings): string {
       return t.calculation.exportSaved(hint.path);
     case "exportCancelled":
       return t.calculation.exportCancelled;
+    case "importCancelled":
+      return t.calculation.importCancelled;
+    case "jsonSaved":
+      return t.calculation.jsonSaved(hint.path);
+    case "jsonImported":
+      return t.calculation.jsonImported(hint.name);
   }
 }
 
@@ -105,6 +116,7 @@ function emptyFile(): CalculationFileInput {
     quantity: 1,
     print_time_hours: "0",
     volume_cm3: null,
+    dimensions_mm: null,
     weight_g: null,
     materials: [],
     material_changes: 0,
@@ -160,10 +172,12 @@ export function CalculationView({
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
+  const [transferring, setTransferring] = useState<"import" | "export" | null>(null);
   const [baseLoading, setBaseLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
+  const [confirmImport, setConfirmImport] = useState(false);
   const isWide = useMediaQuery("(min-width: 1280px)");
   const resultRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -325,6 +339,53 @@ export function CalculationView({
     }
   };
 
+  const exportJson = async () => {
+    if (!current || transferring) return;
+    setTransferring("export");
+    try {
+      const path = await adapter.exportCalculationJson(current);
+      setHint(path ? { kind: "jsonSaved", path } : { kind: "exportCancelled" });
+      setError(null);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : t.errors.calculationExport);
+    } finally {
+      setTransferring(null);
+    }
+  };
+
+  const importJson = async () => {
+    if (transferring) return;
+    setTransferring("import");
+    try {
+      const document = await adapter.importCalculationFile();
+      if (!document) {
+        setConfirmImport(false);
+        setHint({ kind: "importCancelled" });
+        return;
+      }
+      setCurrent(structuredClone(document));
+      setResult(null);
+      setProfileOpen(false);
+      setConfirmImport(false);
+      setDirty(true);
+      setError(null);
+      setHint({ kind: "jsonImported", name: document.project_name });
+    } catch (error) {
+      setConfirmImport(false);
+      fail(error instanceof Error ? error.message : t.errors.calculationImport);
+    } finally {
+      setTransferring(null);
+    }
+  };
+
+  const requestImport = () => {
+    if (current && dirty) {
+      setConfirmImport(true);
+      return;
+    }
+    void importJson();
+  };
+
   const updateFile = (fileId: string, patch: Partial<CalculationFileInput>) => {
     setResult(null);
     setDirty(true);
@@ -382,7 +443,10 @@ export function CalculationView({
             : { kind: "fileTime" },
         );
       } else if (kind === "stl" && "volume_cm3" in info) {
-        updateFile(fileId, { volume_cm3: info.volume_cm3 });
+        updateFile(fileId, {
+          volume_cm3: info.volume_cm3,
+          dimensions_mm: info.dimensions_mm,
+        });
         setHint({ kind: "triangles", count: info.triangle_count });
       }
     } catch (error) {
@@ -435,13 +499,31 @@ export function CalculationView({
 
   return (
     <section aria-label={t.calculation.title} aria-busy={calculating}>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.calculation.title}</h2>
-        {current ? (
-          <SecondaryButton type="button" onClick={requestNewCalculation}>
-            {t.calculation.newButton}
+        <div className="flex flex-wrap items-center gap-2">
+          <SecondaryButton
+            type="button"
+            onClick={requestImport}
+            loading={transferring === "import"}
+          >
+            {t.calculation.importJson}
           </SecondaryButton>
-        ) : null}
+          {current ? (
+            <SecondaryButton
+              type="button"
+              onClick={() => void exportJson()}
+              loading={transferring === "export"}
+            >
+              {t.calculation.exportJson}
+            </SecondaryButton>
+          ) : null}
+          {current ? (
+            <SecondaryButton type="button" onClick={requestNewCalculation}>
+              {t.calculation.newButton}
+            </SecondaryButton>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
@@ -589,6 +671,7 @@ export function CalculationView({
                       <FileCard
                         key={file.id}
                         file={file}
+                        printer={current.printer}
                         materials={materials}
                         onChange={(patch) => updateFile(file.id, patch)}
                         onRemove={() => removeFile(file.id)}
@@ -684,6 +767,16 @@ export function CalculationView({
         />
       ) : null}
 
+      {confirmImport ? (
+        <ConfirmDialog
+          title={t.calculation.importConfirmTitle}
+          message={t.calculation.importConfirmMessage}
+          confirmLabel={t.calculation.importConfirm}
+          onConfirm={() => void importJson()}
+          onCancel={() => setConfirmImport(false)}
+        />
+      ) : null}
+
       {confirmNew ? (
         <ConfirmDialog
           title={t.calculation.discardTitle}
@@ -698,9 +791,11 @@ export function CalculationView({
         <Toast
           message={hintText(hint, t)}
           tone={
-            hint.kind === "exportCancelled"
+            hint.kind === "exportCancelled" || hint.kind === "importCancelled"
               ? "warning"
-              : hint.kind === "exportSaved"
+              : hint.kind === "exportSaved" ||
+                  hint.kind === "jsonSaved" ||
+                  hint.kind === "jsonImported"
                 ? "success"
                 : "info"
           }
@@ -957,6 +1052,7 @@ function ProfileForm({
 
 function FileCard({
   file,
+  printer,
   materials,
   onChange,
   onRemove,
@@ -965,6 +1061,7 @@ function FileCard({
   onImport,
 }: {
   file: CalculationFileInput;
+  printer: Printer;
   materials: Material[];
   onChange: (patch: Partial<CalculationFileInput>) => void;
   onRemove: () => void;
@@ -976,6 +1073,15 @@ function FileCard({
   const { locale } = useLocale();
   const [materialPick, setMaterialPick] = useState("");
   const num = (value: string | null) => emptyDecimal(value);
+  const printability = checkPrintability(file.dimensions_mm, printer);
+  const setDimension = (index: 0 | 1 | 2, value: string) => {
+    const next: DimensionsMm = file.dimensions_mm
+      ? [...file.dimensions_mm]
+      : ["0", "0", "0"];
+    next[index] = value === "" ? "0" : value;
+    const hasValue = next.some((dimension) => Number(dimension) > 0);
+    onChange({ dimensions_mm: hasValue ? next : null });
+  };
 
   return (
     <li className="rounded-card border border-line bg-surface p-4">
@@ -1027,6 +1133,54 @@ function FileCard({
           <Field label={t.calculation.weight}>
             <DecimalInput value={num(file.weight_g)} onChange={(v) => onChange({ weight_g: v ? v : null })} />
           </Field>
+        </div>
+      </div>
+      <div className="mt-4">
+        <div className="mb-2 flex items-center gap-3">
+          <h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            {t.calculation.dimensions}
+          </h4>
+          <span aria-hidden="true" className="h-px flex-1 bg-line" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+          {(["x", "y", "z"] as const).map((axis, index) => (
+            <div key={axis} className="md:col-span-3">
+              <Field
+                label={
+                  axis === "x"
+                    ? t.calculation.axisX
+                    : axis === "y"
+                      ? t.calculation.axisY
+                      : t.calculation.axisZ
+                }
+              >
+                <DecimalInput
+                  value={file.dimensions_mm?.[index] ?? "0"}
+                  onChange={(value) => setDimension(index as 0 | 1 | 2, value)}
+                />
+              </Field>
+            </div>
+          ))}
+          <div className="flex items-end md:col-span-3">
+            {printability ? (
+              <p
+                aria-live="polite"
+                className={`pb-2 text-xs font-medium ${
+                  printability.fits ? "text-accent" : "text-warning"
+                }`}
+              >
+                {printability.fits
+                  ? t.calculation.fitsBuildVolume(
+                      String(Math.round(printability.utilizationPercent)),
+                    )
+                  : t.calculation.exceedsBuildVolume(
+                      printability.axes
+                        .map((axis) => axis.toUpperCase())
+                        .join(", "),
+                    )}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">

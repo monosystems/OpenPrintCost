@@ -125,6 +125,11 @@ pub struct CalculationFileInput {
     pub print_time_hours: Decimal,
     /// Volumen eines Stücks in cm³ (z. B. aus einem STL-Mesh).
     pub volume_cm3: Option<Decimal>,
+    /// Außenmaße eines Stücks in mm (Breite X, Tiefe Y, Höhe Z).
+    ///
+    /// Wird beim STL-Import aus dem Begrenzungsrahmen übernommen und dient
+    /// dem Druckbarkeits-Check gegen das Bauvolumen des Druckers.
+    pub dimensions_mm: Option<[Decimal; 3]>,
     /// Optionales explizites Stückgewicht in Gramm (z. B. bei Harz).
     pub weight_g: Option<Decimal>,
     /// Materialien, die für diese Datei benötigt werden (Multi-Material).
@@ -146,6 +151,7 @@ impl CalculationFileInput {
             quantity,
             print_time_hours,
             volume_cm3: None,
+            dimensions_mm: None,
             weight_g: None,
             materials: Vec::new(),
             material_changes: 0,

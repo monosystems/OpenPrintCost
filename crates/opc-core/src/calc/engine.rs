@@ -32,6 +32,7 @@
 //! Gesamtkosten, denn der verworfene Druck ist bezahlt.
 
 use crate::calc::energy;
+use crate::calc::fit;
 use crate::calc::machine_hour_rate;
 use crate::calc::margin;
 use crate::calc::material;
@@ -86,9 +87,20 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
     let tax_total = tax_total + project_scope.tax;
     let total = total + project_scope.total;
 
-    let mut total_position = CostPosition::new(CostGroup::Total, "Gesamtkosten", total);
+    let mut total_position = CostPosition::new(CostGroup::Total, "Verkaufspreis", total);
     total_position.detail = Some(format!("{} €", money::format_de(total, 2)));
     positions.push(total_position);
+
+    let total_quantity = file_summaries
+        .iter()
+        .map(|summary| summary.quantity)
+        .fold(0u32, u32::saturating_add);
+    let (cost_per_piece, price_per_piece) = if total_quantity == 0 {
+        (None, None)
+    } else {
+        let pieces = Decimal::from(total_quantity);
+        (Some(base_total / pieces), Some(total / pieces))
+    };
 
     Ok(CalculationResult {
         id: input.id,
@@ -100,6 +112,9 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
         tax_total,
         total,
         machine_hour_rate: hourly_rate,
+        total_quantity,
+        cost_per_piece,
+        price_per_piece,
         files: file_summaries,
     })
 }
@@ -363,6 +378,10 @@ fn calculate_file(
         print_time_hours_fail: print_time_fail,
         material_g: material_g_total,
         material_g_fail: material_g_fail_total,
+        dimensions_mm: file.dimensions_mm,
+        fits_build_volume: file
+            .dimensions_mm
+            .and_then(|dimensions| fit::fits_build_volume(dimensions, &input.printer)),
     };
 
     Ok((positions, summary))

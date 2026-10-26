@@ -49,6 +49,11 @@ pub struct StlInfo {
     pub triangle_count: u64,
     /// Begrenzungsrahmen in mm: ((min_x, min_y, min_z), (max_x, max_y, max_z)).
     pub bounding_box_mm: Option<([f64; 3], [f64; 3])>,
+    /// Kantenlängen des Begrenzungsrahmens in mm (Breite, Tiefe, Höhe).
+    ///
+    /// Wird auf Mikrometer gerundet, damit Gleitkomma-Reste wie
+    /// `19.999999999` nicht in die Anzeige wandern.
+    pub dimensions_mm: Option<[Decimal; 3]>,
 }
 
 /// Parst eine STL-Datei aus einem Byte-Slice und berechnet das Volumen.
@@ -224,11 +229,18 @@ pub fn analyze(triangles: &[Triangle]) -> StlInfo {
     } else {
         Some((min, max))
     };
+    let dimensions_mm = bounding_box_mm.map(|(min, max)| {
+        [0, 1, 2].map(|axis| {
+            let value = max[axis] - min[axis];
+            decimal_from_f64((value * 1000.0).round() / 1000.0)
+        })
+    });
 
     StlInfo {
         volume_cm3,
         triangle_count: triangles.len() as u64,
         bounding_box_mm,
+        dimensions_mm,
     }
 }
 

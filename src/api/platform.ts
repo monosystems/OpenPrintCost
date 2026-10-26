@@ -94,6 +94,15 @@ export interface PlatformAdapter {
   importGcodeFile(path: string): Promise<GcodeInfo>;
   importStlFile(path: string): Promise<StlInfo>;
 
+  // -- Calculation documents -----------------------------------------------------
+  /** Writes a versioned JSON document via the save dialog. */
+  exportCalculationJson(calculation: CalculationInput): Promise<string | null>;
+  /**
+   * Opens the JSON file dialog in the backend, validates the document, and
+   * returns it. `null` means the dialog was cancelled.
+   */
+  importCalculationFile(): Promise<CalculationInput | null>;
+
   // -- Export ------------------------------------------------------------------
   /**
    * Renders the result and saves it via the file dialog.

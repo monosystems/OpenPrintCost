@@ -178,6 +178,13 @@ export class TauriPlatformAdapter implements PlatformAdapter {
     return call("import_stl_file", { path });
   }
 
+  exportCalculationJson(calculation: CalculationInput): Promise<string | null> {
+    return call("export_calculation_json", { calculation });
+  }
+  importCalculationFile(): Promise<CalculationInput | null> {
+    return call("import_calculation_json");
+  }
+
   exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
     return call("export_result_pdf", { result, company });
   }
