@@ -28,6 +28,33 @@ describe("PrinterView", () => {
     expect(await adapter.listPrinters()).toHaveLength(1);
   });
 
+  it("calculates the build volume from the maximum print size", async () => {
+    const { user, adapter } = await renderView();
+
+    await user.click(screen.getByRole("button", { name: "New printer" }));
+    await user.type(screen.getByPlaceholderText("e.g. Prusa MK4S"), "Prusa XL");
+    const width = screen.getByLabelText("Max. width X (mm) *");
+    const depth = screen.getByLabelText("Max. depth Y (mm) *");
+    const height = screen.getByLabelText("Max. height Z (mm) *");
+    await user.clear(width);
+    await user.type(width, "250");
+    await user.clear(depth);
+    await user.type(depth, "210");
+    await user.clear(height);
+    await user.type(height, "220");
+
+    expect(screen.getByText("11,550,000 mm³")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(async () => expect(await adapter.listPrinters()).toHaveLength(1));
+    expect((await adapter.listPrinters())[0]).toMatchObject({
+      build_width_mm: "250",
+      build_depth_mm: "210",
+      build_height_mm: "220",
+    });
+  });
+
   it("groups the printer form into labelled sections", async () => {
     const { user } = await renderView();
 
@@ -72,7 +99,9 @@ describe("PrinterView", () => {
       process: "fdm",
       material_family: "filament",
       power_watts: "100",
-      build_volume_mm3: "1000",
+      build_width_mm: "10",
+      build_depth_mm: "10",
+      build_height_mm: "10",
       purchase_price: "500",
       hourly_rate: null,
       nozzle_wear_cost: null,

@@ -37,7 +37,15 @@ export function Field({
 }
 
 /** Visual grouping inside long forms; the fields themselves stay shared inputs. */
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+export function FormSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section>
       <div className="mb-4 flex items-center gap-3">
@@ -45,6 +53,7 @@ export function FormSection({ title, children }: { title: string; children: Reac
           {title}
         </h3>
         <span aria-hidden="true" className="h-px flex-1 bg-line" />
+        {action}
       </div>
       {children}
     </section>
@@ -193,7 +202,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       {...props}
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-raised hover:text-ink ${
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink ${
         danger ? "hover:text-danger" : ""
       } ${className}`}
     >
@@ -249,7 +258,7 @@ export function EmptyState({
   return (
     <div className="rounded-card border border-dashed border-line-strong bg-surface/40 px-6 py-12 text-center">
       {icon ? (
-        <div className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-xl border border-line bg-raised text-ink-muted">
+        <div className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-card border border-line bg-raised text-ink-muted">
           {icon}
         </div>
       ) : null}

@@ -33,3 +33,29 @@ function formatDecimal(value: string, min: number, max?: number, locale: Locale 
 export function isDecimalString(value: string): boolean {
   return /^-?\d+(\.\d+)?$/.test(value.trim());
 }
+
+/**
+ * Multiplies non-negative decimal strings exactly and returns a plain decimal
+ * string without trailing zeros. Returns `null` if any value is not a plain
+ * decimal number.
+ */
+export function multiplyDecimalStrings(values: ReadonlyArray<string>): string | null {
+  let digits = 1n;
+  let scale = 0;
+  for (const value of values) {
+    const match = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
+    if (!match) return null;
+    const fraction = match[2] ?? "";
+    digits *= BigInt(match[1] + fraction);
+    scale += fraction.length;
+  }
+
+  let result = digits.toString();
+  if (scale > 0) {
+    result = result.padStart(scale + 1, "0");
+    const fraction = result.slice(-scale).replace(/0+$/, "");
+    const integer = result.slice(0, -scale);
+    result = fraction.length > 0 ? `${integer}.${fraction}` : integer;
+  }
+  return result;
+}

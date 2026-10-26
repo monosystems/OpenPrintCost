@@ -118,8 +118,8 @@ impl SqliteStore {
 
 /// Spaltenauswahl für Druckerzeilen (Reihenfolge wie `row_to_printer`).
 const PRINTER_COLUMNS: &str = "id, model, manufacturer, process, material_family, \
-     power_watts, build_volume_mm3, purchase_price, hourly_rate, nozzle_wear_cost, \
-     build_plate_wear_cost, material_change_cost, properties";
+     power_watts, build_width_mm, build_depth_mm, build_height_mm, purchase_price, \
+     hourly_rate, nozzle_wear_cost, build_plate_wear_cost, material_change_cost, properties";
 
 /// Spaltenauswahl für Materialzeilen.
 const MATERIAL_COLUMNS: &str = "id, name, material_type, family, manufacturer, shop_link, \
@@ -182,10 +182,12 @@ impl PrinterRepository for SqliteStore {
             connection
                 .execute(
                     "INSERT INTO printers (id, model, manufacturer, process, material_family,
-                         power_watts, build_volume_mm3, purchase_price, hourly_rate,
-                         nozzle_wear_cost, build_plate_wear_cost, material_change_cost,
-                         properties, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                         power_watts, build_volume_mm3, build_width_mm, build_depth_mm,
+                         build_height_mm, purchase_price, hourly_rate, nozzle_wear_cost,
+                         build_plate_wear_cost, material_change_cost, properties,
+                         created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+                         ?15, ?16, ?17, ?18)
                      ON CONFLICT (id) DO UPDATE SET
                          model = excluded.model,
                          manufacturer = excluded.manufacturer,
@@ -193,6 +195,9 @@ impl PrinterRepository for SqliteStore {
                          material_family = excluded.material_family,
                          power_watts = excluded.power_watts,
                          build_volume_mm3 = excluded.build_volume_mm3,
+                         build_width_mm = excluded.build_width_mm,
+                         build_depth_mm = excluded.build_depth_mm,
+                         build_height_mm = excluded.build_height_mm,
                          purchase_price = excluded.purchase_price,
                          hourly_rate = excluded.hourly_rate,
                          nozzle_wear_cost = excluded.nozzle_wear_cost,
@@ -207,7 +212,10 @@ impl PrinterRepository for SqliteStore {
                         mapping::enum_to_text(&printer.process)?,
                         mapping::enum_to_text(&printer.material_family)?,
                         mapping::decimal_to_text(printer.power_watts),
-                        mapping::decimal_to_text(printer.build_volume_mm3),
+                        mapping::decimal_to_text(printer.build_volume_mm3()),
+                        mapping::decimal_to_text(printer.build_width_mm),
+                        mapping::decimal_to_text(printer.build_depth_mm),
+                        mapping::decimal_to_text(printer.build_height_mm),
                         mapping::decimal_to_text(printer.purchase_price),
                         printer.hourly_rate.map(mapping::decimal_to_text),
                         printer.nozzle_wear_cost.map(mapping::decimal_to_text),
