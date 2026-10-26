@@ -10,6 +10,7 @@
  * alphabetically.
  */
 import { AdapterError, type PlatformAdapter } from "./platform";
+import { checkPrintability } from "./printability";
 import type {
   CalculationInput,
   CalculationProfile,
@@ -46,6 +47,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
   private rates = new Map<Uuid, HourlyRate>();
   private profiles = new Map<Uuid, CalculationProfile>();
   private calculations = new Map<Uuid, { stored: StoredCalculation; updatedAt: string }>();
+  private lastExportedCalculation: CalculationInput | null = null;
 
   // -- Printers -------------------------------------------------------------
   async listPrinters(): Promise<Printer[]> {
@@ -209,7 +211,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     positions.push({
       id: crypto.randomUUID(),
       group: "total",
-      label: "Total cost",
+      label: "Selling price",
       detail: `${total} €`,
       quantity: null,
       unit: null,
@@ -219,6 +221,9 @@ export class MockPlatformAdapter implements PlatformAdapter {
       is_fail_rate: false,
       excluded_from_margin: false,
     });
+    const totalQuantity = calculation.files.reduce((sum, file) => sum + file.quantity, 0);
+    const perPiece =
+      totalQuantity > 0 ? (Number(total) / totalQuantity).toFixed(2) : null;
     return {
       id: calculation.id,
       project_name: calculation.project_name,
@@ -229,6 +234,9 @@ export class MockPlatformAdapter implements PlatformAdapter {
       tax_total: "0",
       total,
       machine_hour_rate: "0",
+      total_quantity: totalQuantity,
+      cost_per_piece: perPiece,
+      price_per_piece: perPiece,
       files: calculation.files.map((file) => ({
         file_id: file.id,
         file_name: file.file_name,
@@ -237,8 +245,24 @@ export class MockPlatformAdapter implements PlatformAdapter {
         print_time_hours_fail: "0",
         material_g: "0",
         material_g_fail: "0",
+        dimensions_mm: file.dimensions_mm,
+        fits_build_volume:
+          checkPrintability(file.dimensions_mm, calculation.printer)?.fits ?? null,
       })),
     };
+  }
+
+  // -- Calculation documents ----------------------------------------------------
+  async exportCalculationJson(calculation: CalculationInput): Promise<string | null> {
+    const path = `${calculation.project_name.trim() || "calculation"}.json`;
+    this.lastExportedCalculation = structuredClone(calculation);
+    return path;
+  }
+
+  async importCalculationFile(): Promise<CalculationInput | null> {
+    return this.lastExportedCalculation
+      ? structuredClone(this.lastExportedCalculation)
+      : null;
   }
 
   // -- File import --------------------------------------------------------------
@@ -264,6 +288,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
         [0, 0, 0],
         [40, 30, 25],
       ],
+      dimensions_mm: ["40", "30", "25"],
     };
   }
 

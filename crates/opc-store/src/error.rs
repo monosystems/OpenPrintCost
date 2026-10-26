@@ -61,6 +61,30 @@ pub enum StoreError {
         /// Fehlerbeschreibung.
         message: String,
     },
+    /// Eine Kalkulationsdatei ist strukturell ungültig.
+    #[error("Kalkulationsdatei ist ungültig: {message}")]
+    InvalidDocument {
+        /// Fehlerbeschreibung.
+        message: String,
+    },
+    /// Eine Kalkulationsdatei gehört zu einem anderen Dateiformat.
+    #[error("Unbekanntes Kalkulationsformat '{found}' (erwartet '{expected}')")]
+    UnsupportedDocument {
+        /// Gefundenes Format.
+        found: String,
+        /// Erwartetes Format.
+        expected: String,
+    },
+    /// Eine Kalkulationsdatei wurde mit einer neueren Version geschrieben.
+    #[error(
+        "Kalkulationsdatei hat Version {found}; unterstützt wird höchstens Version {supported}"
+    )]
+    UnsupportedDocumentVersion {
+        /// Gefundene Version.
+        found: u32,
+        /// Höchste unterstützte Version.
+        supported: u32,
+    },
 }
 
 impl StoreError {

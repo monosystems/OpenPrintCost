@@ -68,11 +68,17 @@ including failure-rate costing, margin, and tax.
 
 - Import **G-code or STL**. Supported slicers: PrusaSlicer, OrcaSlicer,
   Bambu Studio, Cura, Simplify3D, IdeaMaker, CraftWare.
+- **Printability check:** STL outer dimensions are compared with the selected
+  printer's build volume, with a warning when an axis does not fit.
 - Time source priority: **slicer comment wins**, otherwise geometric
   simulation from moves and filament use.
 - Material assignment, work steps, extra items, surcharges, margin, and tax —
   per file and for the whole project.
+- **Production cost vs. selling price**, with price and cost per piece
+  delivered by the calculation core.
 - Failure-rate costing and grouped line items with file attribution.
+- **Calculation documents as JSON** — export, import, and move a project
+  between installations without an account.
 
 **Export**
 

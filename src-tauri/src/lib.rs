@@ -73,6 +73,8 @@ pub fn run() {
             commands::get_calculation,
             commands::save_calculation,
             commands::delete_calculation,
+            commands::export_calculation_json,
+            commands::import_calculation_json,
             commands::calculate,
             commands::database_path,
             commands::app_version,

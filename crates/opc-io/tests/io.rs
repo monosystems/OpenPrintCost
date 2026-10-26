@@ -100,6 +100,20 @@ fn binaeres_stl_eines_wuerfels_hat_exaktes_volumen() {
         info.bounding_box_mm,
         Some(([0.0, 0.0, 0.0], [10.0, 10.0, 10.0]))
     );
+    assert_eq!(info.dimensions_mm, Some([dec!(10), dec!(10), dec!(10)]));
+}
+
+#[test]
+fn stl_masse_werden_auf_mikrometer_gerundet() {
+    // Ein einzelnes schräges Dreieck erzeugt krumme Gleitkomma-Kanten.
+    let triangles = vec![opc_io::Triangle {
+        a: [0.0, 0.0, 0.0],
+        b: [10.1, 0.0, 0.0],
+        c: [0.0, 5.2, 2.3],
+    }];
+    let info = parse_stl(&to_binary_stl(&triangles)).expect("muss parsen");
+
+    assert_eq!(info.dimensions_mm, Some([dec!(10.1), dec!(5.2), dec!(2.3)]));
 }
 
 #[test]
@@ -320,6 +334,10 @@ fn mengen_verlassen_die_crate_als_decimal_string() {
     assert!(
         json.contains("\"volume_cm3\":\"1\""),
         "Volumen muss exakt als String serialisiert werden: {json}"
+    );
+    assert!(
+        json.contains("\"dimensions_mm\":[\"10\",\"10\",\"10\"]"),
+        "Maße müssen als Decimal-Strings serialisiert werden: {json}"
     );
 }
 

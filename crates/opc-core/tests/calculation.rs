@@ -708,6 +708,24 @@ fn ergebnis_ist_round_trip_faehig() {
 }
 
 #[test]
+fn alte_dokumente_ohne_bauteilmass_lassen_sich_lesen() {
+    let input = base_input();
+    let mut document = serde_json::to_value(&input).expect("Serialisierung muss gelingen");
+    for file in document["files"]
+        .as_array_mut()
+        .expect("Dateiliste muss ein Array sein")
+    {
+        file.as_object_mut()
+            .expect("Datei muss ein Objekt sein")
+            .remove("dimensions_mm");
+    }
+
+    let restored: CalculationInput =
+        serde_json::from_value(document).expect("altes Dokument muss lesbar bleiben");
+    assert_eq!(restored.files[0].dimensions_mm, None);
+}
+
+#[test]
 fn alle_entitaeten_tragen_uuid_v4() {
     let input = base_input();
     let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
@@ -801,4 +819,95 @@ fn einmalige_handlungspauschale_traegt_ihre_eigene_marge() {
     assert_eq!(result.margin_total, dec!(11.076));
     assert_eq!(result.tax_total, dec!(12.62664));
     assert_eq!(result.total, dec!(79.08264));
+}
+
+// ---------------------------------------------------------------------------
+// Verkaufspreis und Stückpreis
+// ---------------------------------------------------------------------------
+
+#[test]
+fn gesamtposition_heisst_verkaufspreis() {
+    let input = base_input();
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    let total = result
+        .positions
+        .iter()
+        .find(|position| position.group == CostGroup::Total)
+        .expect("Gesamtposition fehlt");
+
+    assert_eq!(total.label, "Verkaufspreis");
+    assert_eq!(total.amount, result.total);
+}
+
+#[test]
+fn stueckpreise_werden_aus_der_gesamtmenge_geliefert() {
+    let mut input = base_input();
+    input.files[0].quantity = 3;
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    // Material 37,20 g × 0,025 = 0,93
+    // Maschine 6 h × 25 = 150,00
+    // Energie 0,6 kWh × 0,35 = 0,21
+    // Summe = 151,14; ohne Marge/Steuer ist der Verkaufspreis gleich den Kosten.
+    assert_eq!(result.total_quantity, 3);
+    assert_eq!(result.base_total, dec!(151.14));
+    assert_eq!(result.total, dec!(151.14));
+    assert_eq!(result.cost_per_piece, Some(dec!(50.38)));
+    assert_eq!(result.price_per_piece, Some(dec!(50.38)));
+}
+
+#[test]
+fn stueckpreise_sind_bei_null_stueckzahl_none() {
+    let mut input = base_input();
+    input.files[0].quantity = 0;
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    assert_eq!(result.total_quantity, 0);
+    assert_eq!(result.cost_per_piece, None);
+    assert_eq!(result.price_per_piece, None);
+}
+
+// ---------------------------------------------------------------------------
+// Druckbarkeit
+// ---------------------------------------------------------------------------
+
+#[test]
+fn dateizusammenfassung_meldet_passendes_bauvolumen() {
+    let mut input = base_input();
+    input.printer.build_width_mm = dec!(250);
+    input.printer.build_depth_mm = dec!(210);
+    input.printer.build_height_mm = dec!(220);
+    input.files[0].dimensions_mm = Some([dec!(100), dec!(80), dec!(50)]);
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    assert_eq!(
+        result.files[0].dimensions_mm,
+        Some([dec!(100), dec!(80), dec!(50)])
+    );
+    assert_eq!(result.files[0].fits_build_volume, Some(true));
+}
+
+#[test]
+fn dateizusammenfassung_meldet_zu_grosses_bauteil() {
+    let mut input = base_input();
+    input.printer.build_width_mm = dec!(250);
+    input.printer.build_depth_mm = dec!(210);
+    input.printer.build_height_mm = dec!(220);
+    input.files[0].dimensions_mm = Some([dec!(100), dec!(80), dec!(221)]);
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    assert_eq!(result.files[0].fits_build_volume, Some(false));
+}
+
+#[test]
+fn ohne_masse_bleibt_die_druckbarkeit_unbekannt() {
+    let result = calculate(&base_input()).expect("Berechnung muss erfolgreich sein");
+
+    assert_eq!(result.files[0].dimensions_mm, None);
+    assert_eq!(result.files[0].fits_build_volume, None);
 }

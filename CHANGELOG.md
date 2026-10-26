@@ -28,6 +28,30 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.2.0] — 2026-10-26
+
+Version 0.2.0 adds printability checks against the printer build volume,
+separates production cost from selling price (including per-piece values),
+introduces versioned JSON calculation documents for export/import, and closes
+the documented modal-focus and automated accessibility gaps.
+
+### Added
+
+- *(calculation)* STL dimensions and a build-volume check against the selected
+  printer, with editable X/Y/Z dimensions and a live fit warning
+- *(calculation)* production cost vs. selling price plus cost and price per
+  piece, delivered by the calculation core
+- *(calculation)* versioned JSON documents for exporting and importing
+  calculations, with format/version validation
+- *(ui)* modal focus trap with focus return and automated `axe-core` coverage
+- *(export)* part dimensions and fit status in PDF and Excel
+
+### Changed
+
+- *(export)* PDF/Excel summaries now distinguish production cost from selling
+  price and include per-piece values
+- *(ui)* toast notifications adapt to narrow window widths
+
 ## [0.1.8] — 2026-10-26
 
 Patch release for printer setup and the new calculation workspace. The

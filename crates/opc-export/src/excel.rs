@@ -7,6 +7,7 @@
 
 use crate::error::{ExportError, ExportResult};
 use opc_core::model::{CalculationResult, CostGroup};
+use opc_core::money;
 use rust_decimal::prelude::ToPrimitive;
 use rust_xlsxwriter::{Format, Workbook};
 
@@ -32,7 +33,7 @@ fn group_label(group: CostGroup) -> &'static str {
         CostGroup::CustomSurcharge => "Zuschläge",
         CostGroup::Margin => "Gewinnmarge",
         CostGroup::Tax => "Steuer",
-        CostGroup::Total => "Gesamtkosten",
+        CostGroup::Total => "Verkaufspreis",
     }
 }
 
@@ -84,15 +85,21 @@ pub fn render_excel(
         overview,
         write_number(row, 1, number(result.machine_hour_rate))
     );
+    row += 1;
+    w!(overview, write_string(row, 0, "Stückzahl gesamt"));
+    w!(
+        overview,
+        write_number(row, 1, f64::from(result.total_quantity))
+    );
     row += 2;
 
     for (key, amount) in [
-        ("Basis (€)", result.base_total),
+        ("Herstellkosten (€)", result.base_total),
         ("Marge (€)", result.margin_total),
         ("Steuer (€)", result.tax_total),
-        ("Gesamt (€)", result.total),
+        ("Verkaufspreis (€)", result.total),
     ] {
-        let is_total = key.starts_with("Gesamt");
+        let is_total = key.starts_with("Verkaufspreis");
         w!(overview, write_string_with_format(row, 0, key, &bold));
         if is_total {
             w!(
@@ -103,6 +110,21 @@ pub fn render_excel(
             w!(overview, write_number(row, 1, number(amount)));
         }
         row += 1;
+    }
+    if let Some(cost_per_piece) = result.cost_per_piece {
+        w!(overview, write_string(row, 0, "Kosten je Stück (€)"));
+        w!(overview, write_number(row, 1, number(cost_per_piece)));
+        row += 1;
+    }
+    if let Some(price_per_piece) = result.price_per_piece {
+        w!(
+            overview,
+            write_string_with_format(row, 0, "Preis je Stück (€)", &bold)
+        );
+        w!(
+            overview,
+            write_number_with_format(row, 1, number(price_per_piece), &bold)
+        );
     }
 
     // --- Positionen ----------------------------------------------------------
@@ -165,6 +187,8 @@ pub fn render_excel(
         "Druckzeit Fehler (h)",
         "Material (g)",
         "Material Fehler (g)",
+        "Maße (mm)",
+        "Passt ins Bauvolumen",
     ]
     .iter()
     .enumerate()
@@ -185,6 +209,27 @@ pub fn render_excel(
         );
         w!(files, write_number(row, 4, number(file.material_g)));
         w!(files, write_number(row, 5, number(file.material_g_fail)));
+        if let Some(dimensions) = file.dimensions_mm {
+            w!(
+                files,
+                write_string(
+                    row,
+                    6,
+                    format!(
+                        "{} × {} × {}",
+                        money::format_de(dimensions[0], 2),
+                        money::format_de(dimensions[1], 2),
+                        money::format_de(dimensions[2], 2)
+                    )
+                )
+            );
+        }
+        if let Some(fits) = file.fits_build_volume {
+            w!(
+                files,
+                write_string(row, 7, if fits { "ja" } else { "nein" })
+            );
+        }
     }
 
     workbook

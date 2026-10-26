@@ -20,11 +20,15 @@ fn fixture_result() -> opc_core::model::CalculationResult {
 
     let mut file = CalculationFileInput::new("Würfel.stl", 1, dec!(2));
     file.volume_cm3 = Some(dec!(10));
+    file.dimensions_mm = Some([dec!(20), dec!(20), dec!(20)]);
     file.materials.push(FileMaterial::new(material));
 
     let mut printer = Printer::new("Export-Drucker", opc_core::model::PrintProcess::Fdm);
     printer.power_watts = dec!(100);
     printer.hourly_rate = Some(dec!(25));
+    printer.build_width_mm = dec!(250);
+    printer.build_depth_mm = dec!(210);
+    printer.build_height_mm = dec!(220);
 
     let mut input = CalculationInput::new("Exportprojekt", printer);
     input.profile = CalculationProfile {
@@ -54,8 +58,16 @@ fn pdf_beginnt_mit_magic_und_enthaelt_den_projektnamen() {
         "Projektname fehlt im PDF-Text: {text}"
     );
     assert!(
-        text.contains("Gesamtkosten"),
+        text.contains("Verkaufspreis"),
         "Gruppe fehlt im PDF-Text: {text}"
+    );
+    assert!(
+        text.contains("Preis je Stück"),
+        "Stückpreis fehlt im PDF-Text: {text}"
+    );
+    assert!(
+        text.contains("20,00 × 20,00 × 20,00 mm"),
+        "Dateimaße fehlen im PDF-Text: {text}"
     );
 }
 
@@ -137,20 +149,31 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
         .expect("Blatt muss lesbar sein");
     let total_row = overview
         .rows()
-        .position(|row| row.first() == Some(&Data::String("Gesamt (€)".to_string())))
-        .expect("Gesamt-Zeile fehlt");
-    let total = overview.get((total_row, 1)).expect("Gesamt-Wert fehlt");
+        .position(|row| row.first() == Some(&Data::String("Verkaufspreis (€)".to_string())))
+        .expect("Verkaufspreis-Zeile fehlt");
+    let total = overview
+        .get((total_row, 1))
+        .expect("Verkaufspreis-Wert fehlt");
     assert!(
         matches!(total, Data::Float(_)),
-        "Gesamt muss eine Zahl sein, keine Formel: {total:?}"
+        "Verkaufspreis muss eine Zahl sein, keine Formel: {total:?}"
     );
     if let Data::Float(value) = total {
         let expected: f64 = result.total.to_string().parse().unwrap();
         assert!(
             (value - expected).abs() < 0.01,
-            "Gesamt weicht ab: {value} vs {expected}"
+            "Verkaufspreis weicht ab: {value} vs {expected}"
         );
     }
+
+    let per_piece_row = overview
+        .rows()
+        .position(|row| row.first() == Some(&Data::String("Preis je Stück (€)".to_string())))
+        .expect("Stückpreis-Zeile fehlt");
+    assert!(
+        matches!(overview.get((per_piece_row, 1)), Some(Data::Float(_))),
+        "Stückpreis muss eine Zahl sein"
+    );
 
     // Positionen: jede Betrags-Zelle ist eine Zahl (keine Formel).
     let positions = excel
@@ -176,4 +199,9 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
         Some(&Data::String("Würfel.stl".to_string()))
     );
     assert_eq!(files.get((1, 1)), Some(&Data::Float(1.0)));
+    assert_eq!(
+        files.get((1, 6)),
+        Some(&Data::String("20,00 × 20,00 × 20,00".to_string()))
+    );
+    assert_eq!(files.get((1, 7)), Some(&Data::String("ja".to_string())));
 }

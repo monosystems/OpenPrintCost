@@ -114,6 +114,19 @@ describe("MockPlatformAdapter (calculations)", () => {
     expect(await adapter.getCompanyInfo()).toMatchObject({ name: "Muster GmbH" });
   });
 
+  it("round-trips calculation documents through the mock", async () => {
+    const adapter = new MockPlatformAdapter();
+    const input = calculation(printer());
+
+    expect(await adapter.importCalculationFile()).toBeNull();
+
+    const path = await adapter.exportCalculationJson(input);
+    expect(path).toBe("Enclosure.json");
+
+    const imported = await adapter.importCalculationFile();
+    expect(imported).toEqual(input);
+  });
+
   it("returns demo import data and demo export paths", async () => {    const adapter = new MockPlatformAdapter();
     const gcode = await adapter.importGcodeFile("demo");
     expect(gcode.used_comments).toBe(true);

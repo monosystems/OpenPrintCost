@@ -70,7 +70,7 @@ describe("CalculationView", () => {
 
     await user.click(screen.getByRole("button", { name: "Calculate" }));
     await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
-    expect(screen.getByText("Total cost", { selector: "h4" })).toBeInTheDocument();
+    expect(screen.getByText("Selling price", { selector: "h4" })).toBeInTheDocument();
   });
 
   it("groups the calculation form into labelled sections", async () => {
@@ -248,5 +248,60 @@ describe("CalculationView", () => {
 
     await user.click(screen.getByRole("button", { name: "Customize" }));
     expect(screen.getByLabelText("Margin (%)")).toHaveValue("25");
+  });
+
+  it("imports STL dimensions and warns when the part exceeds the build volume", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import STL" }));
+
+    await waitFor(() => expect(within(fileCard).getByLabelText("Width X")).toHaveValue("40"));
+    expect(within(fileCard).getByLabelText("Depth Y")).toHaveValue("30");
+    expect(within(fileCard).getByLabelText("Height Z")).toHaveValue("25");
+    expect(within(fileCard).getByText("Fits — largest axis at 40 %")).toBeInTheDocument();
+
+    const width = within(fileCard).getByLabelText("Width X");
+    await user.clear(width);
+    await user.type(width, "150");
+    expect(
+      await within(fileCard).findByText("Exceeds build volume (X)"),
+    ).toBeInTheDocument();
+  });
+
+  it("exports and imports a calculation as JSON", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Transfer");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    await user.click(screen.getByRole("button", { name: "Export JSON" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Transfer.json"),
+    );
+
+    const project = screen.getByPlaceholderText("e.g. Enclosure series");
+    await user.clear(project);
+    await user.type(project, "Changed");
+
+    await user.click(screen.getByRole("button", { name: "Import JSON" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("e.g. Enclosure series")).toHaveValue("Transfer"),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(/Transfer.*imported/);
   });
 });

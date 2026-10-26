@@ -1,4 +1,4 @@
-import { useEffect, useId, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
 import { useStrings } from "../i18n";
 import { CheckIcon, SpinnerIcon, XIcon } from "./icons";
 
@@ -311,7 +311,7 @@ export function Toast({
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-6 right-6 z-40 flex max-w-sm items-start gap-3 rounded-card border px-4 py-3 shadow-2xl ${tones[tone]}`}
+      className={`fixed bottom-4 left-4 right-4 z-40 flex max-w-none items-start gap-3 rounded-card border px-4 py-3 shadow-2xl sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm ${tones[tone]}`}
     >
       <p className="text-sm">{message}</p>
       <IconButton
@@ -324,6 +324,10 @@ export function Toast({
     </div>
   );
 }
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+  'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
   title,
@@ -341,14 +345,69 @@ export function Modal({
   const t = useStrings();
   const titleId = useId();
   const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    closeRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () =>
+      Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (element) => !element.hasAttribute("disabled"),
+      );
+
+    const initial =
+      dialog.querySelector<HTMLElement>("[data-autofocus]") ??
+      (document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body &&
+      dialog.contains(document.activeElement)
+        ? document.activeElement
+        : null) ??
+      focusable()[0] ??
+      dialog;
+    initial.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, []);
 
   return (
     <div
@@ -358,10 +417,12 @@ export function Modal({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-card border border-line-strong bg-raised shadow-2xl"
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">

@@ -6,6 +6,7 @@
 
 pub mod energy;
 pub mod engine;
+pub mod fit;
 pub mod machine_hour_rate;
 pub mod margin;
 pub mod material;

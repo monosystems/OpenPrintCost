@@ -36,7 +36,7 @@ const GROUPS: &[(CostGroup, &str)] = &[
     (CostGroup::CustomSurcharge, "Zuschläge"),
     (CostGroup::Margin, "Gewinnmarge"),
     (CostGroup::Tax, "Steuer"),
-    (CostGroup::Total, "Gesamtkosten"),
+    (CostGroup::Total, "Verkaufspreis"),
 ];
 
 /// Erzeugt den PDF-Report als Byte-Folge.
@@ -77,6 +77,28 @@ pub fn render_pdf(
     ));
     lines.push((String::new(), false));
 
+    if !result.files.is_empty() {
+        lines.push(("Dateien".to_string(), true));
+        for file in &result.files {
+            let mut line = format!("{} — {} Stk.", file.file_name, file.quantity);
+            if let Some(dimensions) = file.dimensions_mm {
+                line.push_str(&format!(
+                    " — Maße: {} × {} × {} mm",
+                    money::format_de(dimensions[0], 2),
+                    money::format_de(dimensions[1], 2),
+                    money::format_de(dimensions[2], 2)
+                ));
+            }
+            match file.fits_build_volume {
+                Some(true) => line.push_str(" — passt ins Bauvolumen"),
+                Some(false) => line.push_str(" — überschreitet das Bauvolumen"),
+                None => {}
+            }
+            lines.push((truncate(&line, 105), false));
+        }
+        lines.push((String::new(), false));
+    }
+
     for (group, label) in GROUPS {
         let positions: Vec<_> = result
             .positions
@@ -100,12 +122,15 @@ pub fn render_pdf(
 
     lines.push(("Summen".to_string(), true));
     for (key, amount) in [
-        ("Basis", result.base_total),
+        ("Herstellkosten", result.base_total),
         ("Marge", result.margin_total),
         ("Steuer", result.tax_total),
-        ("Gesamt", result.total),
+        ("Verkaufspreis", result.total),
     ] {
-        lines.push((kv(key, amount), amount == result.total));
+        lines.push((kv(key, amount), key == "Verkaufspreis"));
+    }
+    if let Some(price_per_piece) = result.price_per_piece {
+        lines.push((kv("Preis je Stück", price_per_piece), false));
     }
 
     // Zeilen auf Seiten verteilen.
