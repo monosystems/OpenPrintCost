@@ -31,6 +31,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "company_info",
         sql: include_str!("migrations/0002_company_info.sql"),
     },
+    Migration {
+        version: 3,
+        name: "printer_build_dimensions",
+        sql: include_str!("migrations/0003_printer_build_dimensions.sql"),
+    },
 ];
 
 /// Die höchste von dieser Version unterstützte Schema-Version.

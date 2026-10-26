@@ -32,7 +32,9 @@ fn test_printer() -> Printer {
     let mut printer = Printer::new("Prusa MK4S", PrintProcess::Fdm);
     printer.manufacturer = Some("Prusa Research".to_string());
     printer.power_watts = dec!(110);
-    printer.build_volume_mm3 = dec!(249_216_000);
+    printer.build_width_mm = dec!(250);
+    printer.build_depth_mm = dec!(210);
+    printer.build_height_mm = dec!(220);
     printer.purchase_price = dec!(1499);
     printer.hourly_rate = Some(dec!(12.5));
     printer.nozzle_wear_cost = Some(dec!(4.5));
@@ -148,7 +150,10 @@ fn drucker_speichern_alle_felder_exakt() {
         assert_eq!(loaded.manufacturer.as_deref(), Some("Prusa Research"));
         assert_eq!(loaded.process, PrintProcess::Fdm);
         assert_eq!(loaded.power_watts, dec!(110));
-        assert_eq!(loaded.build_volume_mm3, dec!(249_216_000));
+        assert_eq!(loaded.build_width_mm, dec!(250));
+        assert_eq!(loaded.build_depth_mm, dec!(210));
+        assert_eq!(loaded.build_height_mm, dec!(220));
+        assert_eq!(loaded.build_volume_mm3(), dec!(11_550_000));
         assert_eq!(loaded.purchase_price, dec!(1499));
         assert_eq!(loaded.hourly_rate, Some(dec!(12.5)));
         assert_eq!(loaded.nozzle_wear_cost, Some(dec!(4.5)));

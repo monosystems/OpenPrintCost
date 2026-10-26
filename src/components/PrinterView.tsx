@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
+import {
+  formatMoney,
+  formatQuantity,
+  isDecimalString,
+  multiplyDecimalStrings,
+} from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
 import { DataTable, type DataColumn } from "./DataTable";
@@ -28,7 +33,9 @@ function emptyPrinter(): Printer {
     process: "fdm",
     material_family: "filament",
     power_watts: "0",
-    build_volume_mm3: "0",
+    build_width_mm: "0",
+    build_depth_mm: "0",
+    build_height_mm: "0",
     purchase_price: "0",
     hourly_rate: null,
     nozzle_wear_cost: null,
@@ -45,7 +52,9 @@ function validate(printer: Printer, t: Strings): Errors {
   if (printer.model.trim() === "") errors.model = t.validation.required(t.validation.modelName);
   for (const [key, label] of [
     ["power_watts", t.printers.power],
-    ["build_volume_mm3", t.printers.volume],
+    ["build_width_mm", t.printers.width],
+    ["build_depth_mm", t.printers.depth],
+    ["build_height_mm", t.printers.height],
     ["purchase_price", t.printers.price],
   ] as const) {
     if (!isDecimalString(printer[key])) errors[key] = t.validation.decimal(label);
@@ -139,6 +148,14 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
   const set = <K extends keyof Printer>(key: K, value: Printer[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
+
+  const buildVolume = editing
+    ? multiplyDecimalStrings([
+        editing.build_width_mm,
+        editing.build_depth_mm,
+        editing.build_height_mm,
+      ])
+    : null;
 
   const columns: ReadonlyArray<DataColumn<Printer>> = [
     {
@@ -309,20 +326,48 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
             <FormSection title={t.printers.sectionTechnical}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Field label={`${t.printers.width} *`} error={formErrors.build_width_mm}>
+                      <DecimalInput
+                        aria-required="true"
+                        aria-invalid={Boolean(formErrors.build_width_mm)}
+                        value={editing.build_width_mm}
+                        onChange={(v) => set("build_width_mm", v)}
+                      />
+                    </Field>
+                    <Field label={`${t.printers.depth} *`} error={formErrors.build_depth_mm}>
+                      <DecimalInput
+                        aria-required="true"
+                        aria-invalid={Boolean(formErrors.build_depth_mm)}
+                        value={editing.build_depth_mm}
+                        onChange={(v) => set("build_depth_mm", v)}
+                      />
+                    </Field>
+                    <Field label={`${t.printers.height} *`} error={formErrors.build_height_mm}>
+                      <DecimalInput
+                        aria-required="true"
+                        aria-invalid={Boolean(formErrors.build_height_mm)}
+                        value={editing.build_height_mm}
+                        onChange={(v) => set("build_height_mm", v)}
+                      />
+                    </Field>
+                  </div>
+                  <p className="mt-2 text-xs text-ink-faint">
+                    {t.printers.volume}:{" "}
+                    <span className="font-mono tabular-nums text-ink-muted">
+                      {buildVolume === null ? "—" : `${formatQuantity(buildVolume, locale)} mm³`}
+                    </span>
+                    {" · "}
+                    {t.printers.volumeHint}
+                  </p>
+                </div>
                 <Field label={`${t.printers.power} *`} error={formErrors.power_watts}>
                   <DecimalInput
                     aria-required="true"
                     aria-invalid={Boolean(formErrors.power_watts)}
                     value={editing.power_watts}
                     onChange={(v) => set("power_watts", v)}
-                  />
-                </Field>
-                <Field label={`${t.printers.volume} *`} error={formErrors.build_volume_mm3}>
-                  <DecimalInput
-                    aria-required="true"
-                    aria-invalid={Boolean(formErrors.build_volume_mm3)}
-                    value={editing.build_volume_mm3}
-                    onChange={(v) => set("build_volume_mm3", v)}
                   />
                 </Field>
               </div>

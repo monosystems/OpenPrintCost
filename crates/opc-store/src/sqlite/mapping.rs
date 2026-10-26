@@ -125,13 +125,15 @@ pub(crate) fn row_to_printer(row: &Row) -> rusqlite::Result<Printer> {
     let process = enum_from_text::<PrintProcess>(&column(row, 3)?)?;
     let material_family = enum_from_text::<MaterialFamily>(&column(row, 4)?)?;
     let power_watts = decimal_from_text(&column(row, 5)?)?;
-    let build_volume_mm3 = decimal_from_text(&column(row, 6)?)?;
-    let purchase_price = decimal_from_text(&column(row, 7)?)?;
-    let hourly_rate = optional_decimal_from_text(optional_column(row, 8)?)?;
-    let nozzle_wear_cost = optional_decimal_from_text(optional_column(row, 9)?)?;
-    let build_plate_wear_cost = optional_decimal_from_text(optional_column(row, 10)?)?;
-    let material_change_cost = optional_decimal_from_text(optional_column(row, 11)?)?;
-    let properties = properties_from_text(&column(row, 12)?)?;
+    let build_width_mm = decimal_from_text(&column(row, 6)?)?;
+    let build_depth_mm = decimal_from_text(&column(row, 7)?)?;
+    let build_height_mm = decimal_from_text(&column(row, 8)?)?;
+    let purchase_price = decimal_from_text(&column(row, 9)?)?;
+    let hourly_rate = optional_decimal_from_text(optional_column(row, 10)?)?;
+    let nozzle_wear_cost = optional_decimal_from_text(optional_column(row, 11)?)?;
+    let build_plate_wear_cost = optional_decimal_from_text(optional_column(row, 12)?)?;
+    let material_change_cost = optional_decimal_from_text(optional_column(row, 13)?)?;
+    let properties = properties_from_text(&column(row, 14)?)?;
 
     Ok(Printer {
         id: parse_uuid(&id)?,
@@ -140,7 +142,9 @@ pub(crate) fn row_to_printer(row: &Row) -> rusqlite::Result<Printer> {
         process,
         material_family,
         power_watts,
-        build_volume_mm3,
+        build_width_mm,
+        build_depth_mm,
+        build_height_mm,
         purchase_price,
         hourly_rate,
         nozzle_wear_cost,

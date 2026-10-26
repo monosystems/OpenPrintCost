@@ -33,9 +33,9 @@ export function CalculationResultView({
   );
 
   return (
-    <section aria-label={t.calculation.resultTitle} className="mt-8">
+    <section aria-label={t.calculation.resultTitle} className="mt-6">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <h3 className="text-xl font-semibold tracking-tight text-ink">
+        <h3 className="text-base font-semibold tracking-tight text-ink">
           {t.calculation.resultTitle}: {result.project_name}
         </h3>
         {onExportPdf || onExportExcel ? (
@@ -71,7 +71,7 @@ export function CalculationResultView({
           .reduce((sum, amount) => sum + Number(amount), 0);
         const isTotal = group === "total";
         return (
-          <div key={group} className="mb-4 overflow-hidden rounded-xl border border-line">
+          <div key={group} className="mb-4 overflow-hidden rounded-card border border-line">
             <div
               className={`flex items-center justify-between px-4 py-2.5 ${
                 isTotal ? "bg-brand-soft" : "bg-surface"
@@ -125,7 +125,7 @@ export function CalculationResultView({
         );
       })}
 
-      <dl className="grid grid-cols-2 gap-4 rounded-xl border border-line bg-surface p-4 text-sm md:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-4 rounded-card border border-line bg-surface p-4 text-sm md:grid-cols-4">
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.base}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">

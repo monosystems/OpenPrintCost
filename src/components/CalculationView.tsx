@@ -37,6 +37,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  FormSection,
   GhostButton,
   IconButton,
   PrimaryButton,
@@ -434,21 +435,14 @@ export function CalculationView({
 
   return (
     <section aria-label={t.calculation.title} aria-busy={calculating}>
-      <div className="mb-5 flex items-center justify-between gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.calculation.title}</h2>
-        {baseLoading || printers.length > 0 || current ? (
-          current ? (
-            <SecondaryButton type="button" onClick={requestNewCalculation}>
-              {t.calculation.newButton}
-            </SecondaryButton>
-          ) : (
-            <PrimaryButton type="button" onClick={requestNewCalculation}>
-              {t.calculation.newButton}
-            </PrimaryButton>
-          )
+        {current ? (
+          <SecondaryButton type="button" onClick={requestNewCalculation}>
+            {t.calculation.newButton}
+          </SecondaryButton>
         ) : null}
       </div>
-
 
       {error ? (
         <div ref={errorRef} className="scroll-mt-24">
@@ -461,13 +455,13 @@ export function CalculationView({
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
             {t.calculation.savedTitle}
           </h3>
-          <ul className="space-y-1">
+          <ul className="divide-y divide-line">
             {saved.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
+              <li key={entry.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
                 <button
                   type="button"
                   onClick={() => void loadSaved(entry.id)}
-                  className="min-w-0 truncate text-left text-brand-ink hover:text-ink hover:underline"
+                  className="min-w-0 flex-1 truncate rounded-control px-1 py-0.5 text-left text-brand-ink transition-colors hover:bg-raised/40 hover:text-ink"
                 >
                   {entry.project_name}
                   <span className="ml-2 text-xs text-ink-faint">
@@ -497,6 +491,11 @@ export function CalculationView({
             icon={<CalculatorIcon />}
             title={t.calculation.emptyTitle}
             description={t.calculation.empty}
+            action={
+              <PrimaryButton type="button" onClick={requestNewCalculation}>
+                {t.calculation.newButton}
+              </PrimaryButton>
+            }
           />
         )
       ) : (
@@ -511,130 +510,139 @@ export function CalculationView({
                 onSave={() => void save()}
               />
             ) : null}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label={`${t.calculation.projectName} *`}>
-              <TextInput
-                value={current.project_name}
-                onChange={(e) => update({ project_name: e.target.value })}
-                placeholder={t.calculation.projectExample}
-              />
-            </Field>
-            <Field label={t.calculation.notes}>
-              <TextInput
-                value={current.notes ?? ""}
-                onChange={(e) => update({ notes: e.target.value ? e.target.value : null })}
-              />
-            </Field>
-            <Field label={t.calculation.printer}>
-              <Select
-                value={current.printer.id}
-                onChange={(id) => {
-                  const found = printers.find((p) => p.id === id);
-                  if (found) update({ printer: { ...found } });
-                }}
-                options={printers.map((p) => ({ value: p.id, label: p.model }))}
-              />
-            </Field>
-            <Field label={t.calculation.hourlyRate}>
-              <Select
-                value={current.hourly_rate?.id ?? ""}
-                onChange={(id) => {
-                  const found = rates.find((r) => r.id === id);
-                  update({ hourly_rate: found ? { ...found } : null });
-                }}
-                options={[
-                  { value: "", label: t.calculation.hourlyRateNone },
-                  ...rates.map((r) => ({ value: r.id, label: r.name })),
-                ]}
-              />
-            </Field>
-          </div>
-
-          <ProfileSection
-            profile={current.profile}
-            profiles={profiles}
-            open={profileOpen}
-            onToggle={() => setProfileOpen((open) => !open)}
-            onSelect={selectProfile}
-            onChange={updateProfile}
-          />
-
-          <div className="mt-6">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                {t.calculation.filesTitle}
-              </h3>
-              <SecondaryButton
-                type="button"
-                onClick={() => update({ files: [...current.files, emptyFile()] })}
-              >
-                <PlusIcon />
-                {t.calculation.addFile}
-              </SecondaryButton>
-            </div>
-            {current.files.length === 0 ? (
-              <EmptyState message={t.calculation.noFiles} />
-            ) : (
-              <ul className="space-y-3">
-                {current.files.map((file) => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                    materials={materials}
-                    onChange={(patch) => updateFile(file.id, patch)}
-                    onRemove={() => removeFile(file.id)}
-                    onAddMaterial={(materialId) => addMaterialToFile(file.id, materialId)}
-                    onRemoveMaterial={(index) =>
-                      updateFile(file.id, { materials: file.materials.filter((_, i) => i !== index) })
-                    }
-                    onImport={(kind) => void importIntoFile(file.id, kind)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="mt-6 rounded-card border border-line bg-surface p-4">
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-              {t.calculation.workstepsTitle}
-            </h3>
-            {allWorksteps.length === 0 ? (
-              <p className="text-sm text-ink-faint">{t.worksteps.noneAvailable}</p>
-            ) : (
-              <ul className="space-y-2.5">
-                {allWorksteps.map((workstep) => {
-                  const selected = current.worksteps.some((w) => w.id === workstep.id);
-                  return (
-                    <li key={workstep.id}>
-                      <Checkbox
-                        checked={selected}
-                        onChange={() => toggleWorkstep(workstep)}
-                        label={
-                          <>
-                            {workstep.name}
-                            <span className="ml-2 text-xs text-ink-faint">
-                              ({formatMoney(workstep.price, locale)} €)
-                            </span>
-                          </>
-                        }
+            <div className="space-y-6">
+              <FormSection title={t.calculation.sectionProject}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                  <div className="md:col-span-7">
+                    <Field label={`${t.calculation.projectName} *`}>
+                      <TextInput
+                        value={current.project_name}
+                        onChange={(e) => update({ project_name: e.target.value })}
+                        placeholder={t.calculation.projectExample}
                       />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+                    </Field>
+                  </div>
+                  <div className="md:col-span-5">
+                    <Field label={t.calculation.notes}>
+                      <TextInput
+                        value={current.notes ?? ""}
+                        onChange={(e) => update({ notes: e.target.value ? e.target.value : null })}
+                      />
+                    </Field>
+                  </div>
+                  <div className="md:col-span-6">
+                    <Field label={t.calculation.printer}>
+                      <Select
+                        value={current.printer.id}
+                        onChange={(id) => {
+                          const found = printers.find((p) => p.id === id);
+                          if (found) update({ printer: { ...found } });
+                        }}
+                        options={printers.map((p) => ({ value: p.id, label: p.model }))}
+                      />
+                    </Field>
+                  </div>
+                  <div className="md:col-span-6">
+                    <Field label={t.calculation.hourlyRate}>
+                      <Select
+                        value={current.hourly_rate?.id ?? ""}
+                        onChange={(id) => {
+                          const found = rates.find((r) => r.id === id);
+                          update({ hourly_rate: found ? { ...found } : null });
+                        }}
+                        options={[
+                          { value: "", label: t.calculation.hourlyRateNone },
+                          ...rates.map((r) => ({ value: r.id, label: r.name })),
+                        ]}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </FormSection>
 
-          <ItemEditor
-            items={current.additional_items}
-            files={current.files}
-            onChange={(items) => update({ additional_items: items })}
-          />
-          <SurchargeEditor
-            surcharges={current.custom_surcharges}
-            onChange={(surcharges) => update({ custom_surcharges: surcharges })}
-          />
+              <ProfileSection
+                profile={current.profile}
+                profiles={profiles}
+                open={profileOpen}
+                onToggle={() => setProfileOpen((open) => !open)}
+                onSelect={selectProfile}
+                onChange={updateProfile}
+              />
 
+              <FormSection
+                title={t.calculation.filesTitle}
+                action={
+                  <SecondaryButton
+                    type="button"
+                    onClick={() => update({ files: [...current.files, emptyFile()] })}
+                  >
+                    <PlusIcon />
+                    {t.calculation.addFile}
+                  </SecondaryButton>
+                }
+              >
+                {current.files.length === 0 ? (
+                  <EmptyState message={t.calculation.noFiles} />
+                ) : (
+                  <ul className="space-y-3">
+                    {current.files.map((file) => (
+                      <FileCard
+                        key={file.id}
+                        file={file}
+                        materials={materials}
+                        onChange={(patch) => updateFile(file.id, patch)}
+                        onRemove={() => removeFile(file.id)}
+                        onAddMaterial={(materialId) => addMaterialToFile(file.id, materialId)}
+                        onRemoveMaterial={(index) =>
+                          updateFile(file.id, {
+                            materials: file.materials.filter((_, i) => i !== index),
+                          })
+                        }
+                        onImport={(kind) => void importIntoFile(file.id, kind)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </FormSection>
+
+              <FormSection title={t.calculation.workstepsTitle}>
+                {allWorksteps.length === 0 ? (
+                  <p className="text-sm text-ink-faint">{t.worksteps.noneAvailable}</p>
+                ) : (
+                  <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
+                    {allWorksteps.map((workstep) => {
+                      const selected = current.worksteps.some((w) => w.id === workstep.id);
+                      return (
+                        <li key={workstep.id} className="px-4 py-2.5">
+                          <Checkbox
+                            checked={selected}
+                            onChange={() => toggleWorkstep(workstep)}
+                            label={
+                              <>
+                                {workstep.name}
+                                <span className="ml-2 text-xs text-ink-faint">
+                                  ({formatMoney(workstep.price, locale)} €)
+                                </span>
+                              </>
+                            }
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </FormSection>
+
+              <ItemEditor
+                items={current.additional_items}
+                files={current.files}
+                onChange={(items) => update({ additional_items: items })}
+              />
+              <SurchargeEditor
+                surcharges={current.custom_surcharges}
+                onChange={(surcharges) => update({ custom_surcharges: surcharges })}
+              />
+            </div>
           </div>
 
           {isWide ? (
@@ -712,7 +720,7 @@ function SetupChecklist({ onNavigate }: { onNavigate?: (tab: CalculationTarget) 
   return (
     <div className="rounded-card border border-line bg-surface p-6">
       <div className="mb-5 flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-card bg-brand-soft text-brand-ink">
           <CalculatorIcon className="h-5 w-5" />
         </div>
         <div>
@@ -767,11 +775,11 @@ function SetupStep({
 }) {
   return (
     <li
-      className={`flex flex-wrap items-center gap-3 rounded-lg border border-line bg-canvas/40 px-3 py-3 ${
+      className={`flex flex-wrap items-center gap-3 rounded-control border border-line bg-canvas/40 px-3 py-3 ${
         muted ? "opacity-60" : ""
       }`}
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-raised text-ink-muted">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-control bg-raised text-ink-muted">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -819,61 +827,64 @@ function ProfileSection({
   ];
 
   return (
-    <section className="mt-6 rounded-card border border-line bg-surface/40 p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Field label={t.calculation.profileLegend}>
-            <Select value={profile.id} onChange={onSelect} options={options} />
-          </Field>
-        </div>
+    <FormSection
+      title={t.calculation.profileLegend}
+      action={
         <div className="flex flex-wrap items-center gap-2">
           {adjusted ? (
             <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning">
               {t.calculation.profileAdjusted}
             </span>
           ) : null}
-          <GhostButton type="button" onClick={onToggle} className="mb-0.5">
+          <GhostButton type="button" onClick={onToggle}>
             <ChevronDownIcon
               className={`transition-transform ${open ? "rotate-180" : ""}`}
             />
             {open ? t.calculation.profileHide : t.calculation.profileEdit}
           </GhostButton>
         </div>
+      }
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-end">
+        <div className="md:col-span-5">
+          <Field label={t.calculation.profileSelect}>
+            <Select value={profile.id} onChange={onSelect} options={options} />
+          </Field>
+        </div>
+        <dl className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-control border border-line bg-field md:col-span-7">
+          <div className="px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+              {t.calculation.profileTax}
+            </dt>
+            <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+              {profile.tax_rate_percent} %
+            </dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+              {t.calculation.profileMargin}
+            </dt>
+            <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+              {profile.margin_percent} %
+            </dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+              {t.calculation.profileFailRate}
+            </dt>
+            <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
+              {profile.fail_rate_percent} %
+            </dd>
+          </div>
+        </dl>
       </div>
 
-      <dl className="mt-3 grid grid-cols-3 gap-3">
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
-            {t.profiles.tax}
-          </dt>
-          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
-            {profile.tax_rate_percent} %
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
-            {t.profiles.margin}
-          </dt>
-          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
-            {profile.margin_percent} %
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
-            {t.profiles.failRate}
-          </dt>
-          <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
-            {profile.fail_rate_percent} %
-          </dd>
-        </div>
-      </dl>
-
       {open ? (
-        <div className="mt-4 border-t border-line pt-4">
+        <div className="mt-6 border-t border-line pt-6">
           <ProfileForm profile={profile} onChange={onChange} />
         </div>
       ) : null}
-    </section>
+    </FormSection>
   );
 }
 
@@ -891,9 +902,11 @@ function ProfileForm({
     label: string,
     key: "fail_rate_percent" | "tax_rate_percent" | "margin_percent" | "handling_fee" | "energy_price_per_kwh" | "power_level_percent" | "print_time_factor",
   ) => (
-    <Field label={label}>
-      <DecimalInput value={profile[key]} onChange={(v) => set(key, v)} />
-    </Field>
+    <div className="md:col-span-4">
+      <Field label={label}>
+        <DecimalInput value={profile[key]} onChange={(v) => set(key, v)} />
+      </Field>
+    </div>
   );
   const check = (label: string, key: "apply_energy_costs" | "combine_materials" | "multiply_print_time_with_quantity" | "exclude_machine_from_margin" | "exclude_material_from_margin" | "exclude_worksteps_from_margin") => (
     <Checkbox
@@ -905,7 +918,7 @@ function ProfileForm({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
         {num(t.profiles.failRate, "fail_rate_percent")}
         {num(t.profiles.tax, "tax_rate_percent")}
         {num(t.profiles.margin, "margin_percent")}
@@ -913,16 +926,18 @@ function ProfileForm({
         {num(t.profiles.energyPrice, "energy_price_per_kwh")}
         {num(t.profiles.powerLevel, "power_level_percent")}
         {num(t.profiles.printTimeFactor, "print_time_factor")}
-        <Field label={t.profiles.handlingScope}>
-          <Select
-            value={profile.handling_fee_scope}
-            onChange={(v) => onChange({ handling_fee_scope: v as "per-file" | "once" })}
-            options={[
-              { value: "once", label: t.profiles.once },
-              { value: "per-file", label: t.profiles.perFile },
-            ]}
-          />
-        </Field>
+        <div className="md:col-span-4">
+          <Field label={t.profiles.handlingScope}>
+            <Select
+              value={profile.handling_fee_scope}
+              onChange={(v) => onChange({ handling_fee_scope: v as "per-file" | "once" })}
+              options={[
+                { value: "once", label: t.profiles.once },
+                { value: "per-file", label: t.profiles.perFile },
+              ]}
+            />
+          </Field>
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
         {check(t.profiles.applyEnergy, "apply_energy_costs")}
@@ -963,8 +978,8 @@ function FileCard({
   const num = (value: string | null) => emptyDecimal(value);
 
   return (
-    <li className="rounded-xl border border-line bg-surface p-4">
-      <div className="mb-3 flex items-end gap-2">
+    <li className="rounded-card border border-line bg-surface p-4">
+      <div className="mb-4 flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <Field label={t.calculation.fileNameAria}>
             <TextInput
@@ -984,29 +999,37 @@ function FileCard({
           <XIcon />
         </IconButton>
       </div>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Field label={t.calculation.quantity}>
-          <TextInput
-            value={String(file.quantity)}
-            inputMode="numeric"
-            className="text-right tabular-nums"
-            onChange={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10);
-              onChange({ quantity: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 });
-            }}
-          />
-        </Field>
-        <Field label={t.calculation.printTime}>
-          <DecimalInput value={file.print_time_hours} onChange={(v) => onChange({ print_time_hours: v })} />
-        </Field>
-        <Field label={t.calculation.volume}>
-          <DecimalInput value={num(file.volume_cm3)} onChange={(v) => onChange({ volume_cm3: v ? v : null })} />
-        </Field>
-        <Field label={t.calculation.weight}>
-          <DecimalInput value={num(file.weight_g)} onChange={(v) => onChange({ weight_g: v ? v : null })} />
-        </Field>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <div className="md:col-span-3">
+          <Field label={t.calculation.quantity}>
+            <TextInput
+              value={String(file.quantity)}
+              inputMode="numeric"
+              className="text-right tabular-nums"
+              onChange={(e) => {
+                const parsed = Number.parseInt(e.target.value, 10);
+                onChange({ quantity: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 });
+              }}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <Field label={t.calculation.printTime}>
+            <DecimalInput value={file.print_time_hours} onChange={(v) => onChange({ print_time_hours: v })} />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <Field label={t.calculation.volume}>
+            <DecimalInput value={num(file.volume_cm3)} onChange={(v) => onChange({ volume_cm3: v ? v : null })} />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <Field label={t.calculation.weight}>
+            <DecimalInput value={num(file.weight_g)} onChange={(v) => onChange({ weight_g: v ? v : null })} />
+          </Field>
+        </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <SecondaryButton type="button" onClick={() => onImport("gcode")}>
           {t.calculation.importGcode}
         </SecondaryButton>
@@ -1014,14 +1037,19 @@ function FileCard({
           {t.calculation.importStl}
         </SecondaryButton>
       </div>
-      <div className="mt-3">
-        <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">{t.calculation.fileMaterials}</h4>
+      <div className="mt-4">
+        <div className="mb-2 flex items-center gap-3">
+          <h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+            {t.calculation.fileMaterials}
+          </h4>
+          <span aria-hidden="true" className="h-px flex-1 bg-line" />
+        </div>
         {file.materials.length === 0 ? (
           <p className="mb-2 text-xs text-ink-faint">{t.calculation.noFileMaterials}</p>
         ) : (
-          <ul className="mb-2 space-y-1">
+          <ul className="mb-2 divide-y divide-line overflow-hidden rounded-control border border-line">
             {file.materials.map((entry, index) => (
-              <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+              <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
                 <span className="text-ink">
                   {entry.material.name}
                   <span className="ml-2 text-xs text-ink-faint">{formatMoney(entry.material.price, locale)} €</span>
@@ -1038,7 +1066,7 @@ function FileCard({
           </ul>
         )}
         {materials.length > 0 ? (
-          <div className="flex gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <Select
               value={materialPick}
               onChange={setMaterialPick}
@@ -1102,16 +1130,16 @@ function ItemEditor({
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-line bg-surface p-4">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {t.calculation.itemsTitle}
-      </h3>
+    <FormSection title={t.calculation.itemsTitle}>
       {items.length > 0 ? (
-        <ul className="mb-3 space-y-1">
+        <ul className="mb-4 divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
           {items.map((item, index) => (
-            <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-ink">
-                {item.name} · {item.quantity} × {formatMoney(item.price, locale)} €
+            <li key={item.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
+              <span className="min-w-0 text-ink">
+                <span className="font-medium">{item.name}</span>
+                <span className="ml-2 text-xs text-ink-faint">
+                  {item.quantity} × {formatMoney(item.price, locale)} €
+                </span>
                 <span className="ml-2 text-xs text-ink-faint">
                   {item.file_id
                     ? `${t.calculation.itemFilePrefix}: ${files.find((f) => f.id === item.file_id)?.file_name ?? "?"}`
@@ -1129,37 +1157,47 @@ function ItemEditor({
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-2 items-end gap-2 md:grid-cols-5">
-        <Field label={t.calculation.itemName}>
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t.common.namePlaceholder}
-            aria-label={t.calculation.itemName}
-          />
-        </Field>
-        <Field label={t.calculation.itemPrice}>
-          <DecimalInput value={price} onChange={setPrice} aria-label={t.calculation.itemPrice} />
-        </Field>
-        <Field label={t.calculation.itemQuantity}>
-          <DecimalInput value={quantity} onChange={setQuantity} aria-label={t.calculation.itemQuantity} />
-        </Field>
-        <Field label={t.calculation.itemTarget}>
-          <Select
-            value={fileId}
-            onChange={setFileId}
-            options={[
-              { value: "", label: t.common.project },
-              ...files.map((f) => ({ value: f.id, label: f.file_name || t.calculation.unnamedFile })),
-            ]}
-            aria-label={t.calculation.itemTarget}
-          />
-        </Field>
-        <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
-          {t.common.add}
-        </SecondaryButton>
+      <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-12">
+        <div className="md:col-span-3">
+          <Field label={t.calculation.itemName}>
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t.common.namePlaceholder}
+              aria-label={t.calculation.itemName}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={t.calculation.itemPrice}>
+            <DecimalInput value={price} onChange={setPrice} aria-label={t.calculation.itemPrice} />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={t.calculation.itemQuantity}>
+            <DecimalInput value={quantity} onChange={setQuantity} aria-label={t.calculation.itemQuantity} />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={t.calculation.itemTarget}>
+            <Select
+              value={fileId}
+              onChange={setFileId}
+              options={[
+                { value: "", label: t.common.project },
+                ...files.map((f) => ({ value: f.id, label: f.file_name || t.calculation.unnamedFile })),
+              ]}
+              aria-label={t.calculation.itemTarget}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
+            {t.common.add}
+          </SecondaryButton>
+        </div>
       </div>
-    </div>
+    </FormSection>
   );
 }
 
@@ -1189,18 +1227,18 @@ function SurchargeEditor({
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-line bg-surface p-4">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-        {t.calculation.surchargesTitle}
-      </h3>
+    <FormSection title={t.calculation.surchargesTitle}>
       {surcharges.length > 0 ? (
-        <ul className="mb-3 space-y-1">
+        <ul className="mb-4 divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
           {surcharges.map((surcharge, index) => (
-            <li key={surcharge.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-ink">
-                {surcharge.name} · {surcharge.percent} %
+            <li key={surcharge.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
+              <span className="min-w-0 text-ink">
+                <span className="font-medium">{surcharge.name}</span>
+                <span className="ml-2 text-xs text-ink-faint">{surcharge.percent} %</span>
                 <span className="ml-2 text-xs text-ink-faint">
-                  {surcharge.timing === "before-margin" ? t.calculation.beforeMargin : t.calculation.afterMargin}
+                  {surcharge.timing === "before-margin"
+                    ? t.calculation.beforeMargin
+                    : t.calculation.afterMargin}
                 </span>
               </span>
               <IconButton
@@ -1214,33 +1252,45 @@ function SurchargeEditor({
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-2 items-end gap-2 md:grid-cols-4">
-        <Field label={t.calculation.surchargeName}>
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t.common.namePlaceholder}
-            aria-label={t.calculation.surchargeName}
-          />
-        </Field>
-        <Field label={t.calculation.surchargePercent}>
-          <DecimalInput value={percent} onChange={setPercent} aria-label={t.calculation.surchargePercent} />
-        </Field>
-        <Field label={t.calculation.surchargeTiming}>
-          <Select
-            value={timing}
-            onChange={(v) => setTiming(v as SurchargeTiming)}
-            options={[
-              { value: "before-margin", label: t.calculation.beforeMargin },
-              { value: "after-margin", label: t.calculation.afterMargin },
-            ]}
-            aria-label={t.calculation.surchargeTiming}
-          />
-        </Field>
-        <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
-          {t.common.add}
-        </SecondaryButton>
+      <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-12">
+        <div className="md:col-span-4">
+          <Field label={t.calculation.surchargeName}>
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t.common.namePlaceholder}
+              aria-label={t.calculation.surchargeName}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-2">
+          <Field label={t.calculation.surchargePercent}>
+            <DecimalInput
+              value={percent}
+              onChange={setPercent}
+              aria-label={t.calculation.surchargePercent}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <Field label={t.calculation.surchargeTiming}>
+            <Select
+              value={timing}
+              onChange={(v) => setTiming(v as SurchargeTiming)}
+              options={[
+                { value: "before-margin", label: t.calculation.beforeMargin },
+                { value: "after-margin", label: t.calculation.afterMargin },
+              ]}
+              aria-label={t.calculation.surchargeTiming}
+            />
+          </Field>
+        </div>
+        <div className="md:col-span-3">
+          <SecondaryButton type="button" disabled={!valid} onClick={add} className="w-full">
+            {t.common.add}
+          </SecondaryButton>
+        </div>
       </div>
-    </div>
+    </FormSection>
   );
 }

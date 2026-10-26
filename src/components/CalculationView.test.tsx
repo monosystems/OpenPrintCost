@@ -14,7 +14,9 @@ function seed(adapter: MockPlatformAdapter) {
       process: "fdm",
       material_family: "filament",
       power_watts: "110",
-      build_volume_mm3: "1000000",
+      build_width_mm: "100",
+      build_depth_mm: "100",
+      build_height_mm: "100",
       purchase_price: "799",
       hourly_rate: null,
       nozzle_wear_cost: null,
@@ -45,7 +47,7 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Enclosure-Test");
     await user.click(screen.getByRole("button", { name: "Add file" }));
 
@@ -71,13 +73,33 @@ describe("CalculationView", () => {
     expect(screen.getByText("Total cost", { selector: "h4" })).toBeInTheDocument();
   });
 
+  it("groups the calculation form into labelled sections", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+
+    for (const name of [
+      "Project & printer",
+      "Calculation profile",
+      "Files",
+      "Work steps",
+      "Additional items",
+      "Percentage surcharges",
+    ]) {
+      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+    }
+  });
+
   it("takes the G-code print time from the import", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.click(screen.getByRole("button", { name: "Add file" }));
 
     const fileCard = (await screen.findByLabelText("File name")).closest("li");
@@ -96,7 +118,7 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Export-Test");
     await user.click(screen.getByRole("button", { name: "Add file" }));
     await user.click(screen.getByRole("button", { name: "Calculate" }));
@@ -118,7 +140,7 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.click(screen.getByRole("button", { name: "Calculate" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/project name/i);
   });
@@ -139,7 +161,7 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Pending-Test");
     await user.click(screen.getByRole("button", { name: "Add file" }));
     await user.click(screen.getByRole("button", { name: "Calculate" }));
@@ -157,7 +179,7 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Stale-Test");
     await user.click(screen.getByRole("button", { name: "Add file" }));
     await user.click(screen.getByRole("button", { name: "Calculate" }));
@@ -173,17 +195,17 @@ describe("CalculationView", () => {
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Draft");
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent(/unsaved changes/i);
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.getByPlaceholderText("e.g. Enclosure series")).toHaveValue("Draft");
 
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
     const dialogAgain = await screen.findByRole("dialog");
     await user.click(within(dialogAgain).getByRole("button", { name: "Discard" }));
 
@@ -215,9 +237,9 @@ describe("CalculationView", () => {
 
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
-    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
 
-    const select = screen.getByRole("combobox", { name: "Calculation profile" });
+    const select = screen.getByRole("combobox", { name: "Profile" });
     await screen.findByRole("option", { name: "Standard 19" });
     await user.selectOptions(select, profile.id);
 

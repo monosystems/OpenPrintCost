@@ -26,7 +26,9 @@ export interface Printer {
   process: PrintProcess;
   material_family: MaterialFamily;
   power_watts: DecimalString;
-  build_volume_mm3: DecimalString;
+  build_width_mm: DecimalString;
+  build_depth_mm: DecimalString;
+  build_height_mm: DecimalString;
   purchase_price: DecimalString;
   hourly_rate: DecimalString | null;
   nozzle_wear_cost: DecimalString | null;
