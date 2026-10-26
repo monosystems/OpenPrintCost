@@ -28,6 +28,25 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.1.8] — 2026-10-26
+
+Patch release for printer setup and the new calculation workspace. The
+calculation core, calculation results, and export layout are unchanged.
+Existing databases are migrated automatically.
+
+### Added
+
+- *(printers)* enter the maximum print size (X/Y/Z) and derive the build
+  volume automatically
+- *(ui)* align the new calculation workspace with the design system: labelled
+  form sections, 12-column grid, consistent cards/lists, and a primary action
+  in the empty state
+
+### Changed
+
+- *(store)* schema migration 3 stores printer build dimensions alongside the
+  legacy build-volume column
+
 ## [0.1.7] — 2026-10-25
 
 Patch release aligning the material, work step, hourly rate, and profile
