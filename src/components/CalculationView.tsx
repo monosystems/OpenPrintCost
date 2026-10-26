@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlatformAdapter } from "../api/platform";
+import { currencySymbol } from "../api/currency";
 import { formatMoney, isDecimalString } from "../api/format";
 import { checkPrintability } from "../api/printability";
 import { useLocale, useStrings, type Strings } from "../i18n";
@@ -178,6 +179,7 @@ export function CalculationView({
   const [dirty, setDirty] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
   const [confirmImport, setConfirmImport] = useState(false);
+  const currency = currencySymbol(company.currency);
   const isWide = useMediaQuery("(min-width: 1280px)");
   const resultRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -586,6 +588,7 @@ export function CalculationView({
             {!isWide ? (
               <CompactSummary
                 result={result}
+                currency={currency}
                 calculating={calculating}
                 saving={saving}
                 onCalculate={() => void calculate()}
@@ -645,6 +648,7 @@ export function CalculationView({
               <ProfileSection
                 profile={current.profile}
                 profiles={profiles}
+                currency={currency}
                 open={profileOpen}
                 onToggle={() => setProfileOpen((open) => !open)}
                 onSelect={selectProfile}
@@ -671,6 +675,7 @@ export function CalculationView({
                       <FileCard
                         key={file.id}
                         file={file}
+                        currency={currency}
                         printer={current.printer}
                         materials={materials}
                         onChange={(patch) => updateFile(file.id, patch)}
@@ -704,7 +709,7 @@ export function CalculationView({
                               <>
                                 {workstep.name}
                                 <span className="ml-2 text-xs text-ink-faint">
-                                  ({formatMoney(workstep.price, locale)} €)
+                                  ({formatMoney(workstep.price, locale)} {currency})
                                 </span>
                               </>
                             }
@@ -719,6 +724,7 @@ export function CalculationView({
               <ItemEditor
                 items={current.additional_items}
                 files={current.files}
+                currency={currency}
                 onChange={(items) => update({ additional_items: items })}
               />
               <SurchargeEditor
@@ -733,6 +739,7 @@ export function CalculationView({
               <div className="xl:sticky xl:top-6">
                 <ResultPanel
                   result={result}
+                  currency={currency}
                   calculating={calculating}
                   saving={saving}
                   onCalculate={() => void calculate()}
@@ -750,6 +757,7 @@ export function CalculationView({
           <CalculationResultView
             result={result}
             files={current.files}
+            currency={currency}
             onExportPdf={() => void exportFile("pdf")}
             onExportExcel={() => void exportFile("xlsx")}
             exporting={exporting}
@@ -893,6 +901,7 @@ function SetupStep({
 function ProfileSection({
   profile,
   profiles,
+  currency,
   open,
   onToggle,
   onSelect,
@@ -900,6 +909,7 @@ function ProfileSection({
 }: {
   profile: CalculationProfile;
   profiles: CalculationProfile[];
+  currency: string;
   open: boolean;
   onToggle: () => void;
   onSelect: (id: string) => void;
@@ -976,7 +986,7 @@ function ProfileSection({
 
       {open ? (
         <div className="mt-6 border-t border-line pt-6">
-          <ProfileForm profile={profile} onChange={onChange} />
+          <ProfileForm profile={profile} currency={currency} onChange={onChange} />
         </div>
       ) : null}
     </FormSection>
@@ -985,9 +995,11 @@ function ProfileSection({
 
 function ProfileForm({
   profile,
+  currency,
   onChange,
 }: {
   profile: CalculationProfile;
+  currency: string;
   onChange: (patch: Partial<CalculationProfile>) => void;
 }) {
   const t = useStrings();
@@ -1017,8 +1029,8 @@ function ProfileForm({
         {num(t.profiles.failRate, "fail_rate_percent")}
         {num(t.profiles.tax, "tax_rate_percent")}
         {num(t.profiles.margin, "margin_percent")}
-        {num(t.profiles.handlingFee, "handling_fee")}
-        {num(t.profiles.energyPrice, "energy_price_per_kwh")}
+        {num(`${t.profiles.handlingFee} (${currency})`, "handling_fee")}
+        {num(`${t.profiles.energyPrice} (${currency}/kWh)`, "energy_price_per_kwh")}
         {num(t.profiles.powerLevel, "power_level_percent")}
         {num(t.profiles.printTimeFactor, "print_time_factor")}
         <div className="md:col-span-4">
@@ -1052,6 +1064,7 @@ function ProfileForm({
 
 function FileCard({
   file,
+  currency,
   printer,
   materials,
   onChange,
@@ -1061,6 +1074,7 @@ function FileCard({
   onImport,
 }: {
   file: CalculationFileInput;
+  currency: string;
   printer: Printer;
   materials: Material[];
   onChange: (patch: Partial<CalculationFileInput>) => void;
@@ -1206,7 +1220,7 @@ function FileCard({
               <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
                 <span className="text-ink">
                   {entry.material.name}
-                  <span className="ml-2 text-xs text-ink-faint">{formatMoney(entry.material.price, locale)} €</span>
+                  <span className="ml-2 text-xs text-ink-faint">{formatMoney(entry.material.price, locale)} {currency}</span>
                 </span>
                 <IconButton
                   label={t.calculation.removeMaterialLabel(entry.material.name)}
@@ -1256,10 +1270,12 @@ function FileCard({
 function ItemEditor({
   items,
   files,
+  currency,
   onChange,
 }: {
   items: AdditionalItem[];
   files: CalculationFileInput[];
+  currency: string;
   onChange: (items: AdditionalItem[]) => void;
 }) {
   const t = useStrings();
@@ -1292,7 +1308,7 @@ function ItemEditor({
               <span className="min-w-0 text-ink">
                 <span className="font-medium">{item.name}</span>
                 <span className="ml-2 text-xs text-ink-faint">
-                  {item.quantity} × {formatMoney(item.price, locale)} €
+                  {item.quantity} × {formatMoney(item.price, locale)} {currency}
                 </span>
                 <span className="ml-2 text-xs text-ink-faint">
                   {item.file_id

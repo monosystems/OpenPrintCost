@@ -322,7 +322,13 @@ export class MockPlatformAdapter implements PlatformAdapter {
   }
 
   // -- Company info ---------------------------------------------------------------
-  private company: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
+  private company: CompanyInfo = {
+    name: "",
+    street: "",
+    zip_city: "",
+    email: "",
+    currency: "EUR",
+  };
 
   async getCompanyInfo(): Promise<CompanyInfo> {
     return { ...this.company };

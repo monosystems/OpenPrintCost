@@ -1,4 +1,5 @@
 import { formatMoney } from "../api/format";
+import { localizeDetail } from "../api/currency";
 import { useLocale } from "../i18n";
 import type {
   CalculationFileInput,
@@ -16,12 +17,15 @@ function fileNameOf(position: CostPosition, files: CalculationFileInput[]): stri
 export function CalculationResultView({
   result,
   files,
+  currency = "€",
   onExportPdf,
   onExportExcel,
   exporting = null,
 }: {
   result: CalculationResult;
   files: CalculationFileInput[];
+  /** Anzeige-Symbol (reine Darstellung, keine Umrechnung). */
+  currency?: string;
   onExportPdf?: () => void;
   onExportExcel?: () => void;
   exporting?: "pdf" | "xlsx" | null;
@@ -89,7 +93,7 @@ export function CalculationResultView({
                   isTotal ? "text-accent" : "text-ink"
                 }`}
               >
-                {formatMoney(subtotal.toFixed(2), locale)} €
+                {formatMoney(subtotal.toFixed(2), locale)} {currency}
               </span>
             </div>
             {!isTotal ? (
@@ -108,13 +112,13 @@ export function CalculationResultView({
                           ) : null}
                         </p>
                         <p className="truncate text-xs text-ink-faint">
-                          {[position.detail, file ? `${t.calculation.resultFilePrefix}: ${file}` : null]
+                          {[position.detail ? localizeDetail(position.detail, currency) : null, file ? `${t.calculation.resultFilePrefix}: ${file}` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
                       </div>
                       <span className="shrink-0 text-sm tabular-nums text-ink">
-                        {formatMoney(position.amount, locale)} €
+                        {formatMoney(position.amount, locale)} {currency}
                       </span>
                     </li>
                   );
@@ -129,32 +133,32 @@ export function CalculationResultView({
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.base}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">
-            {formatMoney(result.base_total, locale)} €
+            {formatMoney(result.base_total, locale)} {currency}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.margin}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">
-            {formatMoney(result.margin_total, locale)} €
+            {formatMoney(result.margin_total, locale)} {currency}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.tax}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">
-            {formatMoney(result.tax_total, locale)} €
+            {formatMoney(result.tax_total, locale)} {currency}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.total}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-accent">
-            {formatMoney(result.total, locale)} €
+            {formatMoney(result.total, locale)} {currency}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-faint">{t.calculation.sums.costPerPiece}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-ink">
             {result.cost_per_piece
-              ? `${formatMoney(result.cost_per_piece, locale)} €`
+              ? `${formatMoney(result.cost_per_piece, locale)} ${currency}`
               : "—"}
           </dd>
         </div>
@@ -162,7 +166,7 @@ export function CalculationResultView({
           <dt className="text-xs text-ink-faint">{t.calculation.sums.pricePerPiece}</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-accent">
             {result.price_per_piece
-              ? `${formatMoney(result.price_per_piece, locale)} €`
+              ? `${formatMoney(result.price_per_piece, locale)} ${currency}`
               : "—"}
           </dd>
         </div>

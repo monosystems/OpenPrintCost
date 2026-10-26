@@ -110,6 +110,7 @@ describe("MockPlatformAdapter (calculations)", () => {
       street: "Druckweg 1",
       zip_city: "12345 Ort",
       email: "info@example.invalid",
+      currency: "EUR",
     });
     expect(await adapter.getCompanyInfo()).toMatchObject({ name: "Muster GmbH" });
   });

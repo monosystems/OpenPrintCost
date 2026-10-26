@@ -35,7 +35,7 @@ pub use pdf::render_pdf;
 ///
 /// Die Oberfläche für Firmendaten gehört zu Block 7 — bis dahin wird eine
 /// leere `CompanyInfo` übergeben und der Kopf zeigt nur Projektdaten.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompanyInfo {
     /// Firmenname.
     pub name: String,
@@ -45,4 +45,41 @@ pub struct CompanyInfo {
     pub zip_city: String,
     /// E-Mail-Adresse.
     pub email: String,
+    /// Währungscode (ISO 4217, z. B. "EUR") — reines Anzeige-Symbol.
+    pub currency: String,
+}
+
+impl Default for CompanyInfo {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            street: String::new(),
+            zip_city: String::new(),
+            email: String::new(),
+            currency: "EUR".to_string(),
+        }
+    }
+}
+
+/// Anzeigesymbol eines Währungscodes (EUR → €, USD → $, GBP → £,
+/// sonst der Code selbst, z. B. "CHF").
+pub fn currency_symbol(code: &str) -> &str {
+    match code.trim().to_uppercase().as_str() {
+        "EUR" | "" => "€",
+        "USD" => "$",
+        "GBP" => "£",
+        "JPY" | "CNY" | "RMB" => "¥",
+        _ => code.trim(),
+    }
+}
+
+/// Ersetzt das im Rechenkern fest verdrahtete €-Zeichen in Detailtexten
+/// durch das Anzeige-Symbol (reine Darstellung, keine Umrechnung).
+pub fn localize_detail(detail: &str, currency: &str) -> String {
+    let symbol = currency_symbol(currency);
+    if symbol == "€" {
+        detail.to_string()
+    } else {
+        detail.replace('€', symbol)
+    }
 }

@@ -830,20 +830,29 @@ impl CalculationRepository for SqliteStore {
 impl CompanyRepository for SqliteStore {
     fn get_company_info(&self) -> StoreResult<CompanyInfo> {
         self.with_connection(|connection| {
-            let row: Option<(String, String, String, String)> = connection
+            let row: Option<(String, String, String, String, Option<String>)> = connection
                 .query_row(
-                    "SELECT name, street, zip_city, email FROM company_info WHERE id = 1",
+                    "SELECT name, street, zip_city, email, currency FROM company_info WHERE id = 1",
                     [],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                        ))
+                    },
                 )
                 .optional()
                 .map_err(backend)?;
             Ok(row
-                .map(|(name, street, zip_city, email)| CompanyInfo {
+                .map(|(name, street, zip_city, email, currency)| CompanyInfo {
                     name,
                     street,
                     zip_city,
                     email,
+                    currency: currency.unwrap_or_else(crate::record::default_currency),
                 })
                 .unwrap_or_default())
         })
@@ -853,14 +862,21 @@ impl CompanyRepository for SqliteStore {
         self.with_connection_mut(|connection| {
             connection
                 .execute(
-                    "INSERT INTO company_info (id, name, street, zip_city, email)
-                     VALUES (1, ?1, ?2, ?3, ?4)
+                    "INSERT INTO company_info (id, name, street, zip_city, email, currency)
+                     VALUES (1, ?1, ?2, ?3, ?4, ?5)
                      ON CONFLICT (id) DO UPDATE SET
                          name = excluded.name,
                          street = excluded.street,
                          zip_city = excluded.zip_city,
-                         email = excluded.email",
-                    params![info.name, info.street, info.zip_city, info.email],
+                         email = excluded.email,
+                         currency = excluded.currency",
+                    params![
+                        info.name,
+                        info.street,
+                        info.zip_city,
+                        info.email,
+                        info.currency
+                    ],
                 )
                 .map_err(backend)?;
             Ok(())

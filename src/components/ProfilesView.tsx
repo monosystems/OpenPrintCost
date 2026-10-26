@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { newId, type CalculationProfile } from "../api/types";
 import { DataTable, type DataColumn } from "./DataTable";
 import { CalculatorIcon } from "./icons";
@@ -69,6 +70,7 @@ function validate(profile: CalculationProfile, t: Strings): Errors {
 
 export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
   const { t, locale } = useLocale();
+  const currency = useCurrencySymbol(adapter);
   const [profiles, setProfiles] = useState<CalculationProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,10 +157,10 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
     },
     {
       key: "handling",
-      header: t.profiles.handlingFee,
+      header: `${t.profiles.handlingFee} (${currency})`,
       align: "right",
       sortValue: (profile) => Number(profile.handling_fee),
-      render: (profile) => `${formatMoney(profile.handling_fee, locale)} €`,
+      render: (profile) => `${formatMoney(profile.handling_fee, locale)} ${currency}`,
     },
     {
       key: "actions",
@@ -302,7 +304,10 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
                   </Field>
                 </div>
                 <div className="md:col-span-3">
-                  <Field label={t.profiles.handlingFee} error={formErrors.handling_fee}>
+                  <Field
+                    label={`${t.profiles.handlingFee} (${currency})`}
+                    error={formErrors.handling_fee}
+                  >
                     <DecimalInput
                       aria-required="true"
                       aria-invalid={Boolean(formErrors.handling_fee)}
@@ -339,7 +344,10 @@ export function ProfilesView({ adapter }: { adapter: PlatformAdapter }) {
             <FormSection title={t.profiles.sectionEnergy}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-6">
-                  <Field label={t.profiles.energyPrice} error={formErrors.energy_price_per_kwh}>
+                  <Field
+                    label={`${t.profiles.energyPrice} (${currency}/kWh)`}
+                    error={formErrors.energy_price_per_kwh}
+                  >
                     <DecimalInput
                       aria-required="true"
                       aria-invalid={Boolean(formErrors.energy_price_per_kwh)}

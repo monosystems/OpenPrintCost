@@ -79,6 +79,7 @@ fn pdf_zeigt_firmendaten_wenn_vorhanden() {
         street: "Druckweg 1".to_string(),
         zip_city: "12345 Beispielstadt".to_string(),
         email: "info@example.invalid".to_string(),
+        currency: "EUR".to_string(),
     };
     let pdf = render_pdf(&result, &company).expect("PDF muss erzeugen");
 

@@ -3,6 +3,7 @@ import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type HourlyRate, type TimeBasis } from "../api/types";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { DataTable, type DataColumn } from "./DataTable";
 import { ClockIcon } from "./icons";
 import {
@@ -71,6 +72,7 @@ function validate(rate: HourlyRate, t: Strings): Errors {
 
 export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
   const { t, locale } = useLocale();
+  const currency = useCurrencySymbol(adapter);
   const [rates, setRates] = useState<HourlyRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,12 +162,12 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
     },
     {
       key: "override",
-      header: t.rates.fixedOverrideShort,
+      header: `${t.rates.fixedOverrideShort} (${currency}/h)`,
       align: "right",
       sortValue: (rate) => Number(rate.fixed_rate_override ?? 0),
       render: (rate) =>
         rate.fixed_rate_override
-          ? `${formatMoney(rate.fixed_rate_override, locale)} €/h`
+          ? `${formatMoney(rate.fixed_rate_override, locale)} ${currency}/h`
           : "—",
     },
     {
@@ -270,7 +272,10 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
                   </Field>
                 </div>
                 <div className="md:col-span-6">
-                  <Field label={t.rates.fixedOverride} error={formErrors.fixed_rate_override}>
+                  <Field
+                    label={`${t.rates.fixedOverride} (${currency}/h)`}
+                    error={formErrors.fixed_rate_override}
+                  >
                     <DecimalInput
                       aria-invalid={Boolean(formErrors.fixed_rate_override)}
                       value={editing.fixed_rate_override ?? ""}
@@ -294,7 +299,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
                   </Field>
                 </div>
                 <div className="md:col-span-6">
-                  <Field label={`${t.rates.replacement} *`} error={formErrors.replacement_cost}>
+                  <Field label={`${t.rates.replacement} (${currency}) *`} error={formErrors.replacement_cost}>
                     <DecimalInput
                       aria-required="true"
                       aria-invalid={Boolean(formErrors.replacement_cost)}
@@ -329,7 +334,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
             <FormSection
               title={`${t.rates.fixedGroup} ${
                 editing.time_basis === "per-year" ? t.rates.perYear : t.rates.perMonth
-              } (€)`}
+              } (${currency})`}
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-6">
@@ -375,7 +380,7 @@ export function HourlyRateView({ adapter }: { adapter: PlatformAdapter }) {
               </div>
             </FormSection>
 
-            <FormSection title={t.rates.variableGroup}>
+            <FormSection title={`${t.rates.variableGroup} (${currency}/h)`}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-4">
                   <Field label={`${t.rates.maintenanceVariable} *`} error={formErrors.maintenance_variable}>

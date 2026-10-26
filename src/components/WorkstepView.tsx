@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import {
   newId,
   type Workstep,
@@ -59,6 +60,7 @@ function validate(workstep: Workstep, t: Strings): Errors {
 
 export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
   const { t, locale } = useLocale();
+  const currency = useCurrencySymbol(adapter);
   const [worksteps, setWorksteps] = useState<Workstep[]>([]);
   const [categories, setCategories] = useState<WorkstepCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,10 +182,10 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
     },
     {
       key: "price",
-      header: t.worksteps.price,
+      header: `${t.worksteps.price} (${currency})`,
       align: "right",
       sortValue: (workstep) => Number(workstep.price),
-      render: (workstep) => `${formatMoney(workstep.price, locale)} €`,
+      render: (workstep) => `${formatMoney(workstep.price, locale)} ${currency}`,
     },
     {
       key: "timing",
@@ -361,7 +363,7 @@ export function WorkstepView({ adapter }: { adapter: PlatformAdapter }) {
                   </Field>
                 </div>
                 <div className="md:col-span-4">
-                  <Field label={`${t.worksteps.price} (€) *`} error={formErrors.price}>
+                  <Field label={`${t.worksteps.price} (${currency}) *`} error={formErrors.price}>
                     <DecimalInput
                       aria-required="true"
                       aria-invalid={Boolean(formErrors.price)}
