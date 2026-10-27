@@ -27,7 +27,7 @@ export function SettingsView({
   const reload = useCallback(async () => {
     try {
       const loaded = await adapter.getCompanyInfo();
-      setCompany({ currency: "EUR", ...loaded });
+      setCompany({ ...loaded, currency: loaded.currency?.trim() ? loaded.currency : "EUR" });
       setError(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.companyLoad);
