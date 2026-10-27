@@ -8,10 +8,11 @@ import {
 } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
-import { PRINTER_PRESETS, presetLabel } from "../data/printerPresets";
+import { PRINTER_PRESETS } from "../data/printerPresets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { DataTable, type DataColumn } from "./DataTable";
 import { PrinterIcon } from "./icons";
+import { PresetTreeSelect } from "./PresetTreeSelect";
 import {
   ConfirmDialog,
   DangerGhostButton,
@@ -293,17 +294,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
           <div className="space-y-6">
             <div>
               <Field label={t.printers.presetLabel}>
-                <Select
-                  value=""
-                  onChange={applyPreset}
-                  options={[
-                    { value: "", label: t.printers.presetPick },
-                    ...PRINTER_PRESETS.map((preset) => ({
-                      value: preset.key,
-                      label: presetLabel(preset),
-                    })),
-                  ]}
-                />
+                <PresetTreeSelect placeholder={t.printers.presetPick} onPick={applyPreset} />
               </Field>
               <p className="mt-1 text-xs text-ink-faint">{t.printers.presetHint}</p>
             </div>

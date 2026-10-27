@@ -70,3 +70,30 @@ export const PRINTER_PRESETS: PrinterPreset[] = [
 export function presetLabel(preset: PrinterPreset): string {
   return `${preset.manufacturer ?? ""} ${preset.model}`.trim();
 }
+
+export interface PresetGroup {
+  manufacturer: string;
+  presets: PrinterPreset[];
+}
+
+/**
+ * Presets gruppiert nach Hersteller, jeweils sortiert A–Z.
+ * Hersteller ohne Namen landen unter "–".
+ */
+export function groupPresetsByManufacturer(
+  presets: ReadonlyArray<PrinterPreset> = PRINTER_PRESETS,
+): PresetGroup[] {
+  const byManufacturer = new Map<string, PrinterPreset[]>();
+  for (const preset of presets) {
+    const key = preset.manufacturer?.trim() || "–";
+    const list = byManufacturer.get(key);
+    if (list) list.push(preset);
+    else byManufacturer.set(key, [preset]);
+  }
+  return [...byManufacturer.entries()]
+    .map(([manufacturer, list]) => ({
+      manufacturer,
+      presets: [...list].sort((a, b) => a.model.localeCompare(b.model)),
+    }))
+    .sort((a, b) => a.manufacturer.localeCompare(b.manufacturer));
+}
