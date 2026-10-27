@@ -8,7 +8,7 @@ import {
 } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
-import { PRINTER_PRESETS } from "../data/printerPresets";
+import { PRINTER_PRESETS, referencePriceLabel } from "../data/printerPresets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { DataTable, type DataColumn } from "./DataTable";
 import { PrinterIcon } from "./icons";
@@ -86,6 +86,8 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const [deleting, setDeleting] = useState<Printer | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+  /** Dollar-Referenzpreis der zuletzt gewählten Vorlage (nur Hinweis). */
+  const [presetReference, setPresetReference] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -106,6 +108,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const openNew = () => {
     setEditing(emptyPrinter());
     setFormErrors({});
+    setPresetReference(null);
   };
 
   const save = async () => {
@@ -156,8 +159,11 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const applyPreset = (key: string) => {
     const preset = PRINTER_PRESETS.find((entry) => entry.key === key);
     if (!preset || !editing) return;
-    const { key: _ignored, ...values } = preset;
+    // Kaufpreis bewusst auslassen: Die Vorlage liefert nur einen
+    // Dollar-Referenzwert, den der Nutzer in seiner Währung einträgt.
+    const { key: _ignored, purchase_price: _referencePrice, ...values } = preset;
     setEditing((current) => (current ? { ...current, ...values } : current));
+    setPresetReference(referencePriceLabel(preset));
     setFormErrors({});
   };
 
@@ -221,6 +227,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
             onClick={() => {
               setEditing({ ...printer });
               setFormErrors({});
+              setPresetReference(null);
             }}
           >
             {t.common.edit}
@@ -297,6 +304,11 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
                 <PresetTreeSelect placeholder={t.printers.presetPick} onPick={applyPreset} />
               </Field>
               <p className="mt-1 text-xs text-ink-faint">{t.printers.presetHint}</p>
+              {presetReference ? (
+                <p role="note" className="mt-1 text-xs text-ink-muted">
+                  {t.printers.presetReference(presetReference)}
+                </p>
+              ) : null}
             </div>
             <FormSection title={t.printers.sectionDevice}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">

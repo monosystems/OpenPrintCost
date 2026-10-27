@@ -148,6 +148,8 @@ export const en: Strings = {
     presetLabel: "Template",
     presetPick: "Manual (blank)",
     presetHint: "Reference values in $. Please enter your actual purchase price in your currency.",
+    presetReference: (price: string) =>
+      `Template reference price: ${price}. Enter the actual purchase price in your currency.`,
   },
   materials: {
     title: "Materials",

@@ -41,11 +41,6 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "company_currency",
         sql: include_str!("migrations/0004_company_currency.sql"),
     },
-    Migration {
-        version: 5,
-        name: "company_currency_usd",
-        sql: include_str!("migrations/0005_company_currency_usd.sql"),
-    },
 ];
 
 /// Die höchste von dieser Version unterstützte Schema-Version.

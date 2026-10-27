@@ -147,6 +147,8 @@ export const de = {
     presetLabel: "Vorlage",
     presetPick: "Manuell (leer)",
     presetHint: "Referenzwerte in $. Bitte tatsächlichen Kaufpreis in deiner Währung eingeben.",
+    presetReference: (price: string) =>
+      `Vorlagen-Referenzpreis: ${price}. Trage den tatsächlichen Kaufpreis in deiner Währung ein.`,
   },
   materials: {
     title: "Materialien",

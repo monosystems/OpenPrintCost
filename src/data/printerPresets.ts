@@ -71,6 +71,17 @@ export function presetLabel(preset: PrinterPreset): string {
   return `${preset.manufacturer ?? ""} ${preset.model}`.trim();
 }
 
+/**
+ * Dollar-Referenzpreis einer Vorlage (`$799`).
+ *
+ * Der Wert dient nur als Orientierung. Beim Anwenden einer Vorlage wird er
+ * bewusst **nicht** in das Kaufpreisfeld übernommen — der Nutzer trägt dort
+ * den tatsächlichen Kaufpreis in seiner eigenen Währung ein.
+ */
+export function referencePriceLabel(preset: PrinterPreset): string {
+  return `$${preset.purchase_price}`;
+}
+
 export interface PresetGroup {
   manufacturer: string;
   presets: PrinterPreset[];
