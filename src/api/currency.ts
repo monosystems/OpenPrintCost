@@ -6,14 +6,14 @@ export const CURRENCY_OPTIONS = ["EUR", "USD", "CHF", "GBP", "PLN", "CZK"] as co
 
 export type CurrencyCode = (typeof CURRENCY_OPTIONS)[number];
 
-/** Anzeigesymbol eines Währungscodes (EUR → €, sonst Code/Symbol). */
+/** Anzeigesymbol eines Währungscodes (USD → $, EUR → €, sonst Code/Symbol). */
 export function currencySymbol(code: string | null | undefined): string {
   switch ((code ?? "").trim().toUpperCase()) {
-    case "EUR":
-    case "":
-      return "€";
     case "USD":
+    case "":
       return "$";
+    case "EUR":
+      return "€";
     case "GBP":
       return "£";
     case "JPY":
@@ -21,7 +21,7 @@ export function currencySymbol(code: string | null | undefined): string {
     case "RMB":
       return "¥";
     default:
-      return (code ?? "").trim() || "€";
+      return (code ?? "").trim() || "$";
   }
 }
 
@@ -41,7 +41,7 @@ export function localizeDetail(detail: string | null | undefined, symbol: string
   return symbol === "€" ? detail : detail.split("€").join(symbol);
 }
 
-/** Normalisiert auf einen bekannten Code, Fallback EUR. */
+/** Normalisiert auf einen bekannten Code, Fallback wie DEFAULT_CURRENCY. */
 export function normalizeCurrency(code: string | null | undefined): string {
   const upper = (code ?? "").trim().toUpperCase();
   return (CURRENCY_OPTIONS as readonly string[]).includes(upper)

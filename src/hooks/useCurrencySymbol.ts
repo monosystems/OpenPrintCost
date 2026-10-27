@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { currencySymbol } from "../api/currency";
 import type { PlatformAdapter } from "../api/platform";
 
-/** Lädt die Firmenwährung einmal und liefert das Anzeige-Symbol (Fallback €). */
+/** Lädt die Firmenwährung einmal und liefert das Anzeige-Symbol (Fallback $). */
 export function useCurrencySymbol(adapter: PlatformAdapter): string {
-  const [symbol, setSymbol] = useState("€");
+  const [symbol, setSymbol] = useState("$");
   useEffect(() => {
     let cancelled = false;
     adapter

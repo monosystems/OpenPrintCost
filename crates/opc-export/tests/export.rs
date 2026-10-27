@@ -150,7 +150,7 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
         .expect("Blatt muss lesbar sein");
     let total_row = overview
         .rows()
-        .position(|row| row.first() == Some(&Data::String("Verkaufspreis (€)".to_string())))
+        .position(|row| row.first() == Some(&Data::String("Verkaufspreis ($)".to_string())))
         .expect("Verkaufspreis-Zeile fehlt");
     let total = overview
         .get((total_row, 1))
@@ -169,7 +169,7 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
 
     let per_piece_row = overview
         .rows()
-        .position(|row| row.first() == Some(&Data::String("Preis je Stück (€)".to_string())))
+        .position(|row| row.first() == Some(&Data::String("Preis je Stück ($)".to_string())))
         .expect("Stückpreis-Zeile fehlt");
     assert!(
         matches!(overview.get((per_piece_row, 1)), Some(Data::Float(_))),

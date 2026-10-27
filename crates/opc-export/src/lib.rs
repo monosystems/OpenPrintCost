@@ -45,7 +45,7 @@ pub struct CompanyInfo {
     pub zip_city: String,
     /// E-Mail-Adresse.
     pub email: String,
-    /// Währungscode (ISO 4217, z. B. "EUR") — reines Anzeige-Symbol.
+    /// Währungscode (ISO 4217, z. B. "USD") — reines Anzeige-Symbol.
     pub currency: String,
 }
 
@@ -56,17 +56,17 @@ impl Default for CompanyInfo {
             street: String::new(),
             zip_city: String::new(),
             email: String::new(),
-            currency: "EUR".to_string(),
+            currency: "USD".to_string(),
         }
     }
 }
 
-/// Anzeigesymbol eines Währungscodes (EUR → €, USD → $, GBP → £,
+/// Anzeigesymbol eines Währungscodes (USD → $, EUR → €, GBP → £,
 /// sonst der Code selbst, z. B. "CHF").
 pub fn currency_symbol(code: &str) -> &str {
     match code.trim().to_uppercase().as_str() {
-        "EUR" | "" => "€",
-        "USD" => "$",
+        "" | "USD" => "$",
+        "EUR" => "€",
         "GBP" => "£",
         "JPY" | "CNY" | "RMB" => "¥",
         _ => code.trim(),

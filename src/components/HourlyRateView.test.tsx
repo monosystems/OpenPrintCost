@@ -27,9 +27,9 @@ describe("HourlyRateView", () => {
     expect(within(dialog).getByText(en.rates.sectionGeneral)).toBeInTheDocument();
     expect(within(dialog).getByText(en.rates.sectionMachine)).toBeInTheDocument();
     expect(
-      within(dialog).getByText(`${en.rates.fixedGroup} ${en.rates.perYear} (€)`),
+      within(dialog).getByText(`${en.rates.fixedGroup} ${en.rates.perYear} ($)`),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText(`${en.rates.variableGroup} (€/h)`)).toBeInTheDocument();
+    expect(within(dialog).getByText(`${en.rates.variableGroup} ($/h)`)).toBeInTheDocument();
     expect(within(dialog).getByText(en.common.requiredHint)).toBeInTheDocument();
   });
 

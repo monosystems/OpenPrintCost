@@ -32,7 +32,7 @@ const BAR_COLORS: Record<BreakdownGroup, string> = {
 /** Sticky summary column for the wide calculation workspace. */
 export function ResultPanel({
   result,
-  currency = "€",
+  currency = "$",
   onShowDetails,
   ...actions
 }: {
@@ -121,7 +121,7 @@ export function ResultPanel({
 /** Compact sticky bar for widths below the two-column breakpoint. */
 export function CompactSummary({
   result,
-  currency = "€",
+  currency = "$",
   ...actions
 }: {
   result: CalculationResult | null;
@@ -174,7 +174,7 @@ export function CompactSummary({
  * come from the engine positions; only the grouping and percentage display
  * happen here.
  */
-function CostBreakdown({ result, currency = "€" }: { result: CalculationResult; currency?: string }) {
+function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; currency?: string }) {
   const { t, locale } = useLocale();
   const labels = groupLabels(t);
   const total = Number(result.total);

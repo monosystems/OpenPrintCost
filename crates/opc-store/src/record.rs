@@ -37,7 +37,7 @@ pub struct CompanyInfo {
     pub zip_city: String,
     /// E-Mail-Adresse.
     pub email: String,
-    /// Währungscode (ISO 4217, z. B. "EUR") — reines Anzeige-Symbol,
+    /// Währungscode (ISO 4217, z. B. "USD") — reines Anzeige-Symbol,
     /// keine Umrechnung. Alle Beträge bleiben in dieser einen Währung.
     #[serde(default = "default_currency")]
     pub currency: String,
@@ -45,7 +45,7 @@ pub struct CompanyInfo {
 
 /// Standardwährung für neue Datenbanken und alte Datensätze.
 pub fn default_currency() -> String {
-    "EUR".to_string()
+    "USD".to_string()
 }
 
 impl Default for CompanyInfo {

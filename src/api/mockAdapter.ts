@@ -29,6 +29,7 @@ import type {
   Workstep,
   WorkstepCategory,
 } from "./types";
+import { DEFAULT_CURRENCY } from "./types";
 
 function notFound(entity: string, id: Uuid): AdapterError {
   return new AdapterError(`${entity} with this ID was not found (${id}).`);
@@ -327,7 +328,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
     street: "",
     zip_city: "",
     email: "",
-    currency: "EUR",
+    currency: DEFAULT_CURRENCY,
   };
 
   async getCompanyInfo(): Promise<CompanyInfo> {

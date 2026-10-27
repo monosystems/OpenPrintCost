@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { CURRENCY_OPTIONS, currencySymbol } from "../api/currency";
 import { useLocale } from "../i18n";
-import type { CompanyInfo, UpdateInfo } from "../api/types";
+import { DEFAULT_CURRENCY, type CompanyInfo, type UpdateInfo } from "../api/types";
+
 import { ErrorBanner, Field, PrimaryButton, Select, TextInput } from "./ui";
 
 export function SettingsView({
@@ -19,7 +20,7 @@ export function SettingsView({
     street: "",
     zip_city: "",
     email: "",
-    currency: "EUR",
+    currency: DEFAULT_CURRENCY,
   });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export function SettingsView({
   const reload = useCallback(async () => {
     try {
       const loaded = await adapter.getCompanyInfo();
-      setCompany({ ...loaded, currency: loaded.currency?.trim() ? loaded.currency : "EUR" });
+      setCompany({ ...loaded, currency: loaded.currency?.trim() ? loaded.currency : DEFAULT_CURRENCY });
       setError(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.companyLoad);
@@ -45,7 +46,7 @@ export function SettingsView({
         street: company.street.trim(),
         zip_city: company.zip_city.trim(),
         email: company.email.trim(),
-        currency: company.currency.trim().toUpperCase() || "EUR",
+        currency: company.currency.trim().toUpperCase() || DEFAULT_CURRENCY,
       });
       setSaved(true);
       setError(null);

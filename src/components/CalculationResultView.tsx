@@ -17,7 +17,7 @@ function fileNameOf(position: CostPosition, files: CalculationFileInput[]): stri
 export function CalculationResultView({
   result,
   files,
-  currency = "€",
+  currency = "$",
   onExportPdf,
   onExportExcel,
   exporting = null,
