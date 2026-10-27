@@ -147,7 +147,7 @@ export const en: Strings = {
     materialChange: "Material change (FDM)",
     presetLabel: "Template",
     presetPick: "Manual (blank)",
-    presetHint: "Reference values in €. Please enter your actual purchase price in your currency.",
+    presetHint: "Reference values in $. Please enter your actual purchase price in your currency.",
   },
   materials: {
     title: "Materials",

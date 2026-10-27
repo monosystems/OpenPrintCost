@@ -1,9 +1,9 @@
 import type { Printer } from "../api/types";
 
 /**
- * Vorlagen für gängige Drucker — Referenzwerte in Euro.
+ * Vorlagen für gängige Drucker — Referenzwerte in US-Dollar.
  *
- * Die Preise sind Euro-Referenzwerte (UVP/Straßenpreis DE). Der Nutzer
+ * Die Preise sind Dollar-Referenzwerte (US-Listenpreis). Der Nutzer
  * trägt den tatsächlichen Kaufpreis in seiner Wunschwährung ein — es
  * findet keine Umrechnung statt.
  *
