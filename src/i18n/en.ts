@@ -147,9 +147,9 @@ export const en: Strings = {
     materialChange: "Material change (FDM)",
     presetLabel: "Template",
     presetPick: "Manual (blank)",
-    presetHint: "Reference values in $. Please enter your actual purchase price in your currency.",
+    presetHint: "Reference values in $ (US list price). Please enter the actual purchase price in your currency.",
     presetReference: (price: string) =>
-      `Template reference price: ${price}. Enter the actual purchase price in your currency.`,
+      `Template reference price: ${price} (US list price) — replace it with the actual purchase price in your currency.`,
   },
   materials: {
     title: "Materials",

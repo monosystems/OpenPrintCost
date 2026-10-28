@@ -159,9 +159,10 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const applyPreset = (key: string) => {
     const preset = PRINTER_PRESETS.find((entry) => entry.key === key);
     if (!preset || !editing) return;
-    // Kaufpreis bewusst auslassen: Die Vorlage liefert nur einen
-    // Dollar-Referenzwert, den der Nutzer in seiner Währung einträgt.
-    const { key: _ignored, purchase_price: _referencePrice, ...values } = preset;
+    const { key: _ignored, ...values } = preset;
+    // Der Preis ist ein Dollar-Referenzwert (US-Liste). Er wird als
+    // Ausgangswert übernommen und muss durch den tatsächlichen Kaufpreis
+    // in der eigenen Währung ersetzt werden (Hinweis unter dem Feld).
     setEditing((current) => (current ? { ...current, ...values } : current));
     setPresetReference(referencePriceLabel(preset));
     setFormErrors({});
@@ -304,11 +305,6 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
                 <PresetTreeSelect placeholder={t.printers.presetPick} onPick={applyPreset} />
               </Field>
               <p className="mt-1 text-xs text-ink-faint">{t.printers.presetHint}</p>
-              {presetReference ? (
-                <p role="note" className="mt-1 text-xs text-ink-muted">
-                  {t.printers.presetReference(presetReference)}
-                </p>
-              ) : null}
             </div>
             <FormSection title={t.printers.sectionDevice}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
@@ -405,14 +401,24 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
             <FormSection title={t.printers.sectionCosts}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label={`${t.printers.price} (${currency}) *`} error={formErrors.purchase_price}>
-                  <DecimalInput
-                    aria-required="true"
-                    aria-invalid={Boolean(formErrors.purchase_price)}
-                    value={editing.purchase_price}
-                    onChange={(v) => set("purchase_price", v)}
-                  />
-                </Field>
+                <div>
+                  <Field
+                    label={`${t.printers.price} (${currency}) *`}
+                    error={formErrors.purchase_price}
+                  >
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.purchase_price)}
+                      value={editing.purchase_price}
+                      onChange={(v) => set("purchase_price", v)}
+                    />
+                  </Field>
+                  {presetReference ? (
+                    <p role="note" className="mt-1.5 text-xs text-ink-faint">
+                      {t.printers.presetReference(presetReference)}
+                    </p>
+                  ) : null}
+                </div>
                 <Field
                   label={`${t.printers.hourlyRate} (${currency}/h)`}
                   error={formErrors.hourly_rate}

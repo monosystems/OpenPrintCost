@@ -119,7 +119,7 @@ export function PresetTreeSelect({ presets, placeholder, onPick }: PresetTreeSel
                           className="flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left text-sm text-ink hover:bg-field-hover"
                         >
                           <span className="truncate">{preset.model}</span>
-                          <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-faint">
+                          <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-muted">
                             {referencePriceLabel(preset)}
                           </span>
                         </button>

@@ -146,9 +146,9 @@ export const de = {
     materialChange: "Materialwechsel (FDM)",
     presetLabel: "Vorlage",
     presetPick: "Manuell (leer)",
-    presetHint: "Referenzwerte in $. Bitte tatsächlichen Kaufpreis in deiner Währung eingeben.",
+    presetHint: "Referenzwerte in $ (US-Liste). Bitte tatsächlichen Kaufpreis in deiner Währung eingeben.",
     presetReference: (price: string) =>
-      `Vorlagen-Referenzpreis: ${price}. Trage den tatsächlichen Kaufpreis in deiner Währung ein.`,
+      `Vorlagen-Referenzpreis: ${price} (US-Liste) — bitte durch den tatsächlichen Kaufpreis in deiner Währung ersetzen.`,
   },
   materials: {
     title: "Materialien",
