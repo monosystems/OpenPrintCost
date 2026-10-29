@@ -28,6 +28,12 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.3.0] — 2026-10-29
+
+### Added
+
+- *(io)* add 3MF project import
+
 ## [0.2.3] — 2026-10-29
 
 ### Added
