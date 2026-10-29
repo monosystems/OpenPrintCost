@@ -91,15 +91,27 @@ impl AdditionalItem {
 
 /// Materialzuordnung einer Datei.
 ///
-/// `weight_g` überschreibt die aus Volumen und Dichte berechnete Masse. Ohne
-/// explizites Gewicht gilt `gewicht_g = volumen_cm3 × dichte_g_cm3`
-/// (Spec 0001, Abschnitt 3).
+/// `weight_g` überschreibt das Materialvolumen und die aus Volumen und Dichte
+/// berechnete Masse. Ohne explizites Gewicht gilt für dieses Material
+/// `gewicht_g = volume_cm3 × dichte_g_cm3`; fehlt auch das Materialvolumen,
+/// greifen die Dateiwerte (Spec 0001, Abschnitt 3).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FileMaterial {
     /// Material-Schnappschuss.
     pub material: Material,
     /// Optionales explizites Stückgewicht in Gramm.
     pub weight_g: Option<Decimal>,
+    /// Optionales Stückvolumen dieses Materials in cm³.
+    ///
+    /// Bei Multi-Material der Anteil des Bauteils, der mit diesem Material
+    /// gedruckt wird. Wird nur ausgewertet, wenn `weight_g` fehlt.
+    #[serde(default)]
+    pub volume_cm3: Option<Decimal>,
+    /// Extruderindex aus einem G-code-Import (nur Zuordnungsmetadaten).
+    ///
+    /// Die Berechnung verwendet ausschließlich `weight_g` und `volume_cm3`.
+    #[serde(default)]
+    pub filament_index: Option<u32>,
 }
 
 impl FileMaterial {
@@ -108,7 +120,15 @@ impl FileMaterial {
         Self {
             material,
             weight_g: None,
+            volume_cm3: None,
+            filament_index: None,
         }
+    }
+
+    /// Setzt das Stückvolumen dieses Materials in cm³.
+    pub fn with_volume_cm3(mut self, volume_cm3: Decimal) -> Self {
+        self.volume_cm3 = Some(volume_cm3);
+        self
     }
 }
 
@@ -134,6 +154,13 @@ pub struct CalculationFileInput {
     pub weight_g: Option<Decimal>,
     /// Materialien, die für diese Datei benötigt werden (Multi-Material).
     pub materials: Vec<FileMaterial>,
+    /// Filamentvolumen je Extruder aus einem G-code-Import in cm³.
+    ///
+    /// Leer bei manuellen Dateien und STL-Importen. Die Oberfläche nutzt die
+    /// Werte, um einzelne Filamente Materialien zuzuordnen; die Berechnung
+    /// verwendet die daraus abgeleiteten [`FileMaterial`]-Werte.
+    #[serde(default)]
+    pub filament_volumes_cm3: Vec<Decimal>,
     /// Anzahl der Materialwechsel für diese Datei (FDM, Multi-Material).
     pub material_changes: u32,
     /// Überschreibt den Profil-Schalter „Druckzeit mit Stückzahl multiplizieren“.
@@ -154,6 +181,7 @@ impl CalculationFileInput {
             dimensions_mm: None,
             weight_g: None,
             materials: Vec::new(),
+            filament_volumes_cm3: Vec::new(),
             material_changes: 0,
             multiply_print_time_with_quantity: None,
         }

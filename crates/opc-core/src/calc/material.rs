@@ -18,12 +18,17 @@ use crate::model::calculation::FileMaterial;
 use crate::model::material::Material;
 use rust_decimal::Decimal;
 
-/// Ermittelt das Stückgewicht eines Bauteils in Gramm.
+/// Ermittelt das Stückgewicht eines Materials in Gramm.
 ///
 /// Vorrang:
 /// 1. explizit gesetztes Gewicht des Materials (`FileMaterial::weight_g`),
-/// 2. explizit gesetztes Gewicht der Datei (`CalculationFileInput::weight_g`),
-/// 3. aus Volumen und Dichte berechnetes Gewicht.
+/// 2. explizit gesetztes Volumen des Materials (`FileMaterial::volume_cm3`)
+///    × Dichte,
+/// 3. explizit gesetztes Gewicht der Datei (`CalculationFileInput::weight_g`),
+/// 4. aus dem Dateivolumen und der Dichte berechnetes Gewicht.
+///
+/// Für Multi-Material müssen die Materialien 1 und 2 gesetzt sein; die
+/// Engine prüft das vor der Berechnung.
 pub fn piece_weight_g(
     file_material: &FileMaterial,
     file_weight_g: Option<Decimal>,
@@ -31,6 +36,9 @@ pub fn piece_weight_g(
 ) -> Decimal {
     if let Some(weight) = file_material.weight_g {
         return weight;
+    }
+    if let Some(volume) = file_material.volume_cm3 {
+        return file_material.material.weight_from_volume(volume);
     }
     if let Some(weight) = file_weight_g {
         return weight;

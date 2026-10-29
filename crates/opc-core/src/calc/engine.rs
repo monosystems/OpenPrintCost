@@ -65,6 +65,7 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
 
     // 2) Je Datei: Kostenblöcke, dann Marge und Steuer der Datei.
     for file in &input.files {
+        validate_material_allocation(file)?;
         let (file_positions, summary) = calculate_file(input, file, hourly_rate)?;
         let scope = apply_margin_and_tax(input, file_positions, Some(file.id))?;
         positions.extend(scope.positions);
@@ -132,6 +133,25 @@ fn resolve_hourly_rate(input: &CalculationInput) -> Result<Decimal, crate::calc:
         }
     }
     Ok(input.printer.hourly_rate_value().unwrap_or(Decimal::ZERO))
+}
+
+/// Stellt sicher, dass Multi-Material eindeutig zugeordnet ist.
+///
+/// Bei mehr als einem Material muss jedes Material ein eigenes Gewicht oder
+/// Volumen tragen. Die Dateiwerte sind bei Multi-Material nicht eindeutig und
+/// dürfen deshalb nicht als Fallback für mehrere Materialien dienen.
+fn validate_material_allocation(file: &CalculationFileInput) -> Result<(), crate::calc::CalcError> {
+    if file.materials.len() > 1
+        && file
+            .materials
+            .iter()
+            .any(|material| material.weight_g.is_none() && material.volume_cm3.is_none())
+    {
+        return Err(crate::calc::CalcError::AmbiguousMaterialAllocation {
+            file_name: file.file_name.clone(),
+        });
+    }
+    Ok(())
 }
 
 /// Rechnet alle Positionen einer Datei durch (ohne Marge und Steuer).
