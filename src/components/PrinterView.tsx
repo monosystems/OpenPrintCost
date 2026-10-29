@@ -163,7 +163,18 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
     // Der Preis ist ein Dollar-Referenzwert (US-Liste). Er wird als
     // Ausgangswert übernommen und muss durch den tatsächlichen Kaufpreis
     // in der eigenen Währung ersetzt werden (Hinweis unter dem Feld).
-    setEditing((current) => (current ? { ...current, ...values } : current));
+    // Unbekannte Werte (`null`) bleiben leer, damit die Pflichtfelder
+    // den Nutzer zur Eingabe auffordern statt still mit 0 zu rechnen.
+    setEditing((current) =>
+      current
+        ? {
+            ...current,
+            ...values,
+            power_watts: preset.power_watts ?? "",
+            purchase_price: preset.purchase_price ?? "",
+          }
+        : current,
+    );
     setPresetReference(referencePriceLabel(preset));
     setFormErrors({});
   };

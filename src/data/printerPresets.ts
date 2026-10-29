@@ -11,8 +11,13 @@ import type { Printer } from "../api/types";
  * `DecimalString` mit Punkt). Keine Migration nötig, Anlegen läuft
  * über den normalen `savePrinter`-Pfad mit neuer ID.
  */
-export interface PrinterPreset extends Omit<Printer, "id" | "properties"> {
+export interface PrinterPreset
+  extends Omit<Printer, "id" | "properties" | "power_watts" | "purchase_price"> {
   key: string;
+  /** `null` = kein belastbarer Durchschnittsverbrauch bekannt. */
+  power_watts: Printer["power_watts"] | null;
+  /** `null` = kein US-Listenpreis als Referenz bekannt. */
+  purchase_price: Printer["purchase_price"] | null;
 }
 
 // power_watts:
@@ -924,8 +929,8 @@ export function presetLabel(preset: PrinterPreset): string {
  * bewusst **nicht** in das Kaufpreisfeld übernommen — der Nutzer trägt dort
  * den tatsächlichen Kaufpreis in seiner eigenen Währung ein.
  */
-export function referencePriceLabel(preset: PrinterPreset): string {
-  return `$${preset.purchase_price}`;
+export function referencePriceLabel(preset: PrinterPreset): string | null {
+  return preset.purchase_price === null ? null : `$${preset.purchase_price}`;
 }
 
 export interface PresetGroup {
