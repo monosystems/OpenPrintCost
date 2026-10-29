@@ -23,6 +23,7 @@ import {
   type CompanyInfo,
   type CustomSurcharge,
   type DimensionsMm,
+  type FileMaterial,
   type GcodeInfo,
   type HourlyRate,
   type Material,
@@ -66,6 +67,7 @@ const STANDARD_PROFILE = "__standard";
 interface ImportedVolume {
   volumeCm3: string | null;
   filamentCount: number;
+  filamentVolumesCm3: string[];
 }
 
 type CalculationHint =
@@ -78,18 +80,23 @@ type CalculationHint =
   | { kind: "jsonSaved"; path: string }
   | { kind: "jsonImported"; name: string };
 
-/** Filament volume of a G-code import, ignoring extruders without usage. */
+/** Filament volumes of a G-code import in cm³, ignoring unused extruders. */
 function importedVolume(filaments: GcodeInfo["filaments"]): ImportedVolume {
-  const active = filaments.filter((filament) => /[1-9]/.test(filament.volume_mm3));
-  const totalMm3 = sumDecimalStrings(active.map((filament) => filament.volume_mm3));
-  if (totalMm3 === null) {
-    return { volumeCm3: null, filamentCount: active.length };
+  const filamentVolumesCm3: string[] = [];
+  for (const filament of filaments) {
+    if (!/[1-9]/.test(filament.volume_mm3)) continue;
+    const volumeCm3 = multiplyDecimalStrings([filament.volume_mm3, "0.001"]);
+    if (volumeCm3 !== null && volumeCm3 !== "0") {
+      filamentVolumesCm3.push(volumeCm3);
+    }
   }
-  const volumeCm3 = multiplyDecimalStrings([totalMm3, "0.001"]);
-  if (volumeCm3 === null || volumeCm3 === "0") {
-    return { volumeCm3: null, filamentCount: active.length };
-  }
-  return { volumeCm3, filamentCount: active.length };
+
+  const totalCm3 = sumDecimalStrings(filamentVolumesCm3);
+  return {
+    volumeCm3: totalCm3 === null || totalCm3 === "0" ? null : totalCm3,
+    filamentCount: filamentVolumesCm3.length,
+    filamentVolumesCm3,
+  };
 }
 
 function volumeHintSuffix(hint: ImportedVolume, t: Strings, locale: Locale): string {
@@ -145,6 +152,29 @@ function defaultProfile(t: Strings): CalculationProfile {
   };
 }
 
+/** Multi-material needs an explicit weight or volume for every material. */
+function hasMissingMaterialAllocation(file: CalculationFileInput): boolean {
+  return (
+    file.materials.length > 1 &&
+    file.materials.some((material) => material.weight_g === null && material.volume_cm3 === null)
+  );
+}
+
+/** Number of distinct imported filaments that already have a material. */
+function assignedFilamentCount(file: CalculationFileInput): number {
+  return new Set(
+    file.materials
+      .map((material) => material.filament_index)
+      .filter((index): index is number => index !== null),
+  ).size;
+}
+
+/** A partially assigned import would silently omit some filament volume. */
+function hasUnassignedFilaments(file: CalculationFileInput): boolean {
+  const assigned = assignedFilamentCount(file);
+  return assigned > 0 && assigned < file.filament_volumes_cm3.length;
+}
+
 function emptyFile(): CalculationFileInput {
   return {
     id: newId(),
@@ -155,6 +185,7 @@ function emptyFile(): CalculationFileInput {
     dimensions_mm: null,
     weight_g: null,
     materials: [],
+    filament_volumes_cm3: [],
     material_changes: 0,
     multiply_print_time_with_quantity: null,
   };
@@ -329,6 +360,26 @@ export function CalculationView({
       fail(t.errors.fileRequired);
       return;
     }
+    const invalidFile = current.files.find(hasMissingMaterialAllocation);
+    if (invalidFile) {
+      fail(
+        t.errors.materialAllocation(
+          invalidFile.file_name.trim() || t.calculation.unnamedFile,
+        ),
+      );
+      return;
+    }
+    const incompleteFilaments = current.files.find(hasUnassignedFilaments);
+    if (incompleteFilaments) {
+      fail(
+        t.errors.filamentAssignment(
+          incompleteFilaments.file_name.trim() || t.calculation.unnamedFile,
+          assignedFilamentCount(incompleteFilaments),
+          incompleteFilaments.filament_volumes_cm3.length,
+        ),
+      );
+      return;
+    }
     setCalculating(true);
     try {
       setResult(await adapter.calculate(current));
@@ -452,7 +503,18 @@ export function CalculationView({
             ...current,
             files: current.files.map((f) =>
               f.id === fileId
-                ? { ...f, materials: [...f.materials, { material: { ...material }, weight_g: null }] }
+                ? {
+                    ...f,
+                    materials: [
+                      ...f.materials,
+                      {
+                        material: { ...material },
+                        weight_g: null,
+                        volume_cm3: null,
+                        filament_index: null,
+                      },
+                    ],
+                  }
                 : f,
             ),
           }
@@ -470,12 +532,20 @@ export function CalculationView({
       if (kind === "gcode" && "used_comments" in info) {
         const time = info.time_from_comments_hours ?? info.simulated_time_hours;
         const imported = importedVolume(info.filaments);
-        updateFile(
-          fileId,
-          imported.volumeCm3 === null
-            ? { print_time_hours: time }
-            : { print_time_hours: time, volume_cm3: imported.volumeCm3 },
-        );
+        const existingMaterials =
+          current?.files.find((file) => file.id === fileId)?.materials ?? [];
+        // With filament data the assignment happens per filament; without it
+        // the manual materials remain the only source.
+        const materials =
+          imported.filamentVolumesCm3.length > 0
+            ? []
+            : existingMaterials.filter((material) => material.filament_index === null);
+        updateFile(fileId, {
+          print_time_hours: time,
+          filament_volumes_cm3: imported.filamentVolumesCm3,
+          materials,
+          ...(imported.volumeCm3 === null ? {} : { volume_cm3: imported.volumeCm3 }),
+        });
         setHint(
           info.detected_slicer
             ? {
@@ -723,6 +793,13 @@ export function CalculationView({
                         onChange={(patch) => updateFile(file.id, patch)}
                         onRemove={() => removeFile(file.id)}
                         onAddMaterial={(materialId) => addMaterialToFile(file.id, materialId)}
+                        onUpdateMaterial={(index, patch) =>
+                          updateFile(file.id, {
+                            materials: file.materials.map((entry, i) =>
+                              i === index ? { ...entry, ...patch } : entry,
+                            ),
+                          })
+                        }
                         onRemoveMaterial={(index) =>
                           updateFile(file.id, {
                             materials: file.materials.filter((_, i) => i !== index),
@@ -1114,6 +1191,7 @@ function FileCard({
   onChange,
   onRemove,
   onAddMaterial,
+  onUpdateMaterial,
   onRemoveMaterial,
   onImport,
 }: {
@@ -1124,6 +1202,7 @@ function FileCard({
   onChange: (patch: Partial<CalculationFileInput>) => void;
   onRemove: () => void;
   onAddMaterial: (materialId: string) => void;
+  onUpdateMaterial: (index: number, patch: Partial<FileMaterial>) => void;
   onRemoveMaterial: (index: number) => void;
   onImport: (kind: "gcode" | "stl") => void;
 }) {
@@ -1132,6 +1211,11 @@ function FileCard({
   const [materialPick, setMaterialPick] = useState("");
   const num = (value: string | null) => emptyDecimal(value);
   const printability = checkPrintability(file.dimensions_mm, printer);
+  const manualMaterials = file.materials
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.filament_index === null);
+  const missingAllocation = hasMissingMaterialAllocation(file);
+  const incompleteFilaments = hasUnassignedFilaments(file);
   const setDimension = (index: 0 | 1 | 2, value: string) => {
     const next: DimensionsMm = file.dimensions_mm
       ? [...file.dimensions_mm]
@@ -1256,28 +1340,143 @@ function FileCard({
           </h4>
           <span aria-hidden="true" className="h-px flex-1 bg-line" />
         </div>
-        {file.materials.length === 0 ? (
+        {manualMaterials.length === 0 && file.filament_volumes_cm3.length === 0 ? (
           <p className="mb-2 text-xs text-ink-faint">{t.calculation.noFileMaterials}</p>
-        ) : (
+        ) : null}
+        {manualMaterials.length > 0 ? (
           <ul className="mb-2 divide-y divide-line overflow-hidden rounded-control border border-line">
-            {file.materials.map((entry, index) => (
-              <li key={`${entry.material.id}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-                <span className="text-ink">
-                  {entry.material.name}
-                  <span className="ml-2 text-xs text-ink-faint">{formatMoney(entry.material.price, locale)} {currency}</span>
-                </span>
-                <IconButton
-                  label={t.calculation.removeMaterialLabel(entry.material.name)}
-                  onClick={() => onRemoveMaterial(index)}
-                  danger
-                >
-                  <XIcon />
-                </IconButton>
+            {manualMaterials.map(({ entry, index }) => (
+              <li key={`${entry.material.id}-${index}`} className="px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-sm text-ink">
+                    {entry.material.name}
+                    <span className="ml-2 text-xs text-ink-faint">
+                      {formatMoney(entry.material.price, locale)} {currency}
+                    </span>
+                  </span>
+                  <IconButton
+                    label={t.calculation.removeMaterialLabel(entry.material.name)}
+                    onClick={() => onRemoveMaterial(index)}
+                    danger
+                  >
+                    <XIcon />
+                  </IconButton>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Field label={t.calculation.materialWeight}>
+                    <DecimalInput
+                      value={num(entry.weight_g)}
+                      onChange={(value) =>
+                        onUpdateMaterial(index, { weight_g: value ? value : null })
+                      }
+                    />
+                  </Field>
+                  <Field label={t.calculation.materialVolume}>
+                    <DecimalInput
+                      value={num(entry.volume_cm3)}
+                      onChange={(value) =>
+                        onUpdateMaterial(index, { volume_cm3: value ? value : null })
+                      }
+                    />
+                  </Field>
+                </div>
               </li>
             ))}
           </ul>
-        )}
-        {materials.length > 0 ? (
+        ) : null}
+        {file.filament_volumes_cm3.length > 0 ? (
+          <div className="mb-2">
+            <div className="mb-2 flex items-center gap-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+                {t.calculation.importedFilaments}
+              </h4>
+              <span aria-hidden="true" className="h-px flex-1 bg-line" />
+            </div>
+            <ul className="divide-y divide-line overflow-hidden rounded-control border border-line">
+              {file.filament_volumes_cm3.map((volume, filamentIndex) => {
+                const assigned = file.materials.find(
+                  (entry) => entry.filament_index === filamentIndex,
+                );
+                return (
+                  <li
+                    key={filamentIndex}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+                  >
+                    <span className="text-ink">
+                      {t.calculation.filamentLabel(filamentIndex + 1)}
+                      <span className="ml-2 text-xs text-ink-faint">
+                        {formatQuantity(volume, locale)} cm³
+                      </span>
+                    </span>
+                    {assigned ? (
+                      <span className="flex items-center gap-1">
+                        <span className="text-ink-muted">{assigned.material.name}</span>
+                        <IconButton
+                          label={t.calculation.unassignFilamentLabel(filamentIndex + 1)}
+                          onClick={() =>
+                            onChange({
+                              materials: file.materials.filter(
+                                (entry) => entry.filament_index !== filamentIndex,
+                              ),
+                            })
+                          }
+                          danger
+                        >
+                          <XIcon />
+                        </IconButton>
+                      </span>
+                    ) : (
+                      <div className="w-52">
+                        <Select
+                          value=""
+                          onChange={(materialId) => {
+                            const material = materials.find((entry) => entry.id === materialId);
+                            if (!material) return;
+                            onChange({
+                              materials: [
+                                ...file.materials.filter(
+                                  (entry) => entry.filament_index !== filamentIndex,
+                                ),
+                                {
+                                  material: { ...material },
+                                  weight_g: null,
+                                  volume_cm3: volume,
+                                  filament_index: filamentIndex,
+                                },
+                              ],
+                            });
+                          }}
+                          options={[
+                            { value: "", label: t.calculation.assignMaterial },
+                            ...materials.map((entry) => ({
+                              value: entry.id,
+                              label: entry.name,
+                            })),
+                          ]}
+                          aria-label={t.calculation.filamentMaterialAria(filamentIndex + 1)}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+        {missingAllocation ? (
+          <p className="mb-2 text-xs text-warning">{t.calculation.materialAllocationHint}</p>
+        ) : null}
+        {incompleteFilaments ? (
+          <p className="mb-2 text-xs text-warning">
+            {t.calculation.filamentAssignmentIncomplete(
+              assignedFilamentCount(file),
+              file.filament_volumes_cm3.length,
+            )}
+          </p>
+        ) : null}
+        {materials.length === 0 ? (
+          <p className="text-xs text-ink-faint">{t.calculation.noMaterialsHint}</p>
+        ) : file.filament_volumes_cm3.length === 0 ? (
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <Select
               value={materialPick}
@@ -1299,9 +1498,27 @@ function FileCard({
               {t.common.add}
             </SecondaryButton>
           </div>
-        ) : (
-          <p className="text-xs text-ink-faint">{t.calculation.noMaterialsHint}</p>
-        )}
+        ) : null}
+        {printer.process === "fdm" && printer.material_change_cost !== null ? (
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
+            <div className="md:col-span-3">
+              <Field label={t.calculation.materialChanges}>
+                <TextInput
+                  value={String(file.material_changes)}
+                  inputMode="numeric"
+                  className="text-right tabular-nums"
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    onChange({
+                      material_changes:
+                        Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
+                    });
+                  }}
+                />
+              </Field>
+            </div>
+          </div>
+        ) : null}
       </div>
     </li>
   );

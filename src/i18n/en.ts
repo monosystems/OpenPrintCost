@@ -115,6 +115,10 @@ export const en: Strings = {
     projectRequired: "Please enter a project name.",
     fileRequired: "Please add at least one file.",
     printerRequired: "Please create a printer first (Printers tab).",
+    materialAllocation: (file: string) =>
+      `Assign a weight or volume to every material in "${file}".`,
+    filamentAssignment: (file: string, assigned: number, total: number) =>
+      `Assign all imported filaments in "${file}" (${assigned}/${total}).`,
   },
   printers: {
     title: "Printers",
@@ -356,6 +360,17 @@ export const en: Strings = {
     noMaterialsHint: "No materials defined (Materials tab).",
     materialPick: "Choose material …",
     materialAria: "Choose material",
+    materialWeight: "Weight per material (g)",
+    materialVolume: "Volume per material (cm³)",
+    materialAllocationHint:
+      "With multiple materials, enter a weight or volume for each material.",
+    importedFilaments: "Imported filaments",
+    filamentAssignmentIncomplete: (assigned: number, total: number) =>
+      `${assigned} of ${total} filaments assigned — assign every imported filament or use a single manual material.`,
+    filamentLabel: (index: number) => `Filament ${index}`,
+    filamentMaterialAria: (index: number) => `Material for filament ${index}`,
+    assignMaterial: "Assign material …",
+    unassignFilamentLabel: (index: number) => `Remove material from filament ${index}`,
     removeMaterialLabel: (name: string) => `Remove material ${name}`,
     workstepsTitle: "Work steps",
     itemsTitle: "Additional items",
@@ -393,7 +408,7 @@ export const en: Strings = {
     importTaken: (slicer: string, how: string) => `${slicer} detected — print time taken ${how}.`,
     importVolumeTaken: (volume: string) => `${volume} cm³ filament volume taken.`,
     importMultiFilament: (count: number, volume: string) =>
-      `${count} filaments detected — ${volume} cm³ total taken; per-filament material assignment is not supported yet.`,
+      `${count} filaments detected — ${volume} cm³ total taken; assign a material to each filament below.`,
     trianglesTaken: (count: number) => `${count} triangles — volume taken.`,
     noFiles: "No files yet. Add a file manually or import G-code/STL.",
     resultTitle: "Result",
