@@ -26,6 +26,9 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Added
+
+- *(printers)* printer presets and display currency (#23)
 <!-- changelog:unreleased:end -->
 
 ## [0.2.1] — 2026-10-29
