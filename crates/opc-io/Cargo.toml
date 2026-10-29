@@ -1,6 +1,6 @@
 [package]
 name = "opc-io"
-description = "Datei-Import für OpenPrintCost — GCode-Parser und STL-Volumenberechnung"
+description = "Datei-Import für OpenPrintCost — GCode-Parser, STL-Volumenberechnung und 3MF-Projekte"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,11 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+quick-xml = "0.42"
 rust_decimal = { version = "1.43.0", features = ["serde-with-str"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
 rust_decimal_macros = "1.40.0"

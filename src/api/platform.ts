@@ -17,6 +17,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  ThreeMfInfo,
   UpdateInfo,
   Uuid,
   Workstep,
@@ -90,9 +91,10 @@ export interface PlatformAdapter {
    * Opens a file dialog and returns the chosen path (or `null` on
    * cancellation). Tauri runtime only; the mock always returns `null`.
    */
-  pickImportFile(kind: "gcode" | "stl"): Promise<string | null>;
+  pickImportFile(kind: "gcode" | "stl" | "3mf"): Promise<string | null>;
   importGcodeFile(path: string): Promise<GcodeInfo>;
   importStlFile(path: string): Promise<StlInfo>;
+  import3mfFile(path: string): Promise<ThreeMfInfo>;
 
   // -- Calculation documents -----------------------------------------------------
   /** Writes a versioned JSON document via the save dialog. */

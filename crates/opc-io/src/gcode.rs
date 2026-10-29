@@ -248,7 +248,7 @@ fn extract_time(comments: &[&str]) -> Option<Decimal> {
 ///
 /// Gerechnet wird in `Decimal`, damit `1h 12m 44s` exakt dasselbe ergibt wie
 /// von Hand gerechnet (`1 + 12/60 + 44/3600`).
-fn parse_duration_hours(text: &str) -> Option<Decimal> {
+pub(crate) fn parse_duration_hours(text: &str) -> Option<Decimal> {
     let text = text.trim();
     if text.is_empty() {
         return None;
@@ -412,7 +412,7 @@ struct CommentFilament {
 }
 
 /// Zerlegt eine durch `,` oder `|` getrennte Zahlenliste.
-fn split_numbers(text: &str) -> Vec<f64> {
+pub(crate) fn split_numbers(text: &str) -> Vec<f64> {
     text.split([',', '|'])
         .filter_map(|part| part.trim().parse::<f64>().ok())
         .collect()

@@ -447,6 +447,91 @@ describe("CalculationView", () => {
     ).toBeInTheDocument();
   });
 
+  it("imports a 3MF project with time, dimensions and material", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
+
+    await waitFor(() => {
+      expect(within(fileCard).getByLabelText("File name")).toHaveValue("demo");
+      expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2.5");
+      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("12.4");
+      expect(within(fileCard).getByLabelText("Width X")).toHaveValue("40");
+      expect(within(fileCard).getByLabelText("Depth Y")).toHaveValue("30");
+      expect(within(fileCard).getByLabelText("Height Z")).toHaveValue("25");
+    });
+
+    expect(within(fileCard).getByText("PLA")).toBeInTheDocument();
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(/BambuStudio detected/);
+    expect(toast).toHaveTextContent(/1 object read from 3MF/);
+    expect(toast).toHaveTextContent(/12\.4 cm³ filament volume taken/);
+
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "3MF-Test");
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
+  });
+
+  it("requires every imported 3MF filament to be assigned before calculating", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "import3mfFile").mockResolvedValue({
+      volume_cm3: "3",
+      dimensions_mm: ["10", "10", "10"],
+      object_count: 2,
+      material_names: ["PLA", "PETG"],
+      estimated_time_hours: "1",
+      filament_volumes_cm3: ["1.5", "1.5"],
+      detected_slicer: "OrcaSlicer",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
+    await waitFor(() =>
+      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("3"),
+    );
+
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "3MF-Multi");
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Assign all imported filaments/,
+    );
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+  });
+
+  it("treats a cancelled import dialog as a no-op", async () => {
+    const adapter = new MockPlatformAdapter();
+    vi.spyOn(adapter, "pickImportFile").mockResolvedValue(null);
+    const importGcode = vi.spyOn(adapter, "importGcodeFile");
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
+
+    expect(importGcode).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("exports and imports a calculation as JSON", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);

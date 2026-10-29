@@ -354,6 +354,7 @@ export const de = {
     materialChanges: "Materialwechsel",
     importGcode: "GCode importieren",
     importStl: "STL importieren",
+    import3mf: "3MF importieren",
     fileMaterials: "Materialien",
     noFileMaterials: "Noch kein Material zugeordnet.",
     noMaterialsHint: "Keine Materialien angelegt (Tab „Materialien“).",
@@ -410,7 +411,11 @@ export const de = {
     importMultiFilament: (count: number, volume: string) =>
       `${count} Filamente erkannt — ${volume} cm³ insgesamt übernommen; ordne jedem Filament ein Material zu.`,
     trianglesTaken: (count: number) => `${count} Dreiecke — Volumen übernommen.`,
-    noFiles: "Noch keine Dateien. Füge eine Datei manuell hinzu oder importiere GCode/STL.",
+    threeMfTaken: (objects: number, slicer: string | null) =>
+      `${slicer ? `${slicer} erkannt — ` : ""}${objects} ${
+        objects === 1 ? "Objekt" : "Objekte"
+      } aus 3MF gelesen.`,
+    noFiles: "Noch keine Dateien. Füge eine Datei manuell hinzu oder importiere GCode/STL/3MF.",
     resultTitle: "Ergebnis",
     resultFilePrefix: "Datei",
     failRateBadge: "Fehlerrate",

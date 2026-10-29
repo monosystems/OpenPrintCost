@@ -24,6 +24,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  ThreeMfInfo,
   UpdateInfo,
   Uuid,
   Workstep,
@@ -267,9 +268,9 @@ export class MockPlatformAdapter implements PlatformAdapter {
   }
 
   // -- File import --------------------------------------------------------------
-  async pickImportFile(_kind: "gcode" | "stl"): Promise<string | null> {
-    // No native dialog in the browser — demo data is returned directly.
-    return null;
+  async pickImportFile(kind: "gcode" | "stl" | "3mf"): Promise<string | null> {
+    // No native dialog in the browser — a demo path is returned directly.
+    return kind === "gcode" ? "demo.gcode" : kind === "stl" ? "demo.stl" : "demo.3mf";
   }
   async importGcodeFile(_path: string): Promise<GcodeInfo> {
     return {
@@ -290,6 +291,17 @@ export class MockPlatformAdapter implements PlatformAdapter {
         [40, 30, 25],
       ],
       dimensions_mm: ["40", "30", "25"],
+    };
+  }
+  async import3mfFile(_path: string): Promise<ThreeMfInfo> {
+    return {
+      volume_cm3: "12.4",
+      dimensions_mm: ["40", "30", "25"],
+      object_count: 1,
+      material_names: ["PLA"],
+      estimated_time_hours: "2.5",
+      filament_volumes_cm3: ["12.4"],
+      detected_slicer: "BambuStudio",
     };
   }
 

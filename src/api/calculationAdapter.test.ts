@@ -128,14 +128,20 @@ describe("MockPlatformAdapter (calculations)", () => {
     expect(imported).toEqual(input);
   });
 
-  it("returns demo import data and demo export paths", async () => {    const adapter = new MockPlatformAdapter();
+  it("returns demo import data and demo export paths", async () => {
+    const adapter = new MockPlatformAdapter();
     const gcode = await adapter.importGcodeFile("demo");
     expect(gcode.used_comments).toBe(true);
     expect(gcode.time_from_comments_hours).toBe("2.5");
 
     const stl = await adapter.importStlFile("demo");
     expect(stl.volume_cm3).toBe("12.4");
-    expect(await adapter.pickImportFile("gcode")).toBeNull();
+    const threeMf = await adapter.import3mfFile("demo");
+    expect(threeMf.object_count).toBe(1);
+    expect(threeMf.filament_volumes_cm3).toEqual(["12.4"]);
+    expect(await adapter.pickImportFile("gcode")).toBe("demo.gcode");
+    expect(await adapter.pickImportFile("stl")).toBe("demo.stl");
+    expect(await adapter.pickImportFile("3mf")).toBe("demo.3mf");
 
     const input = calculation(printer());
     const result = await adapter.calculate(input);

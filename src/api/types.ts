@@ -273,6 +273,18 @@ export interface StlInfo {
   dimensions_mm: DimensionsMm | null;
 }
 
+export interface ThreeMfInfo {
+  volume_cm3: DecimalString;
+  dimensions_mm: DimensionsMm | null;
+  object_count: number;
+  material_names: string[];
+  /** Print time estimated by the slicer, in hours. */
+  estimated_time_hours: DecimalString | null;
+  /** Filament volume per extruder, in cm³. */
+  filament_volumes_cm3: DecimalString[];
+  detected_slicer: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
