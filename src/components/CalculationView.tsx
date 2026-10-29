@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlatformAdapter } from "../api/platform";
 import { currencySymbol } from "../api/currency";
-import { formatMoney, isDecimalString } from "../api/format";
+import {
+  formatMoney,
+  formatQuantity,
+  isDecimalString,
+  multiplyDecimalStrings,
+  sumDecimalStrings,
+} from "../api/format";
 import { checkPrintability } from "../api/printability";
-import { useLocale, useStrings, type Strings } from "../i18n";
+import { useLocale, useStrings, type Locale, type Strings } from "../i18n";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
   emptyCompany,
@@ -17,6 +23,7 @@ import {
   type CompanyInfo,
   type CustomSurcharge,
   type DimensionsMm,
+  type GcodeInfo,
   type HourlyRate,
   type Material,
   type Printer,
@@ -55,9 +62,15 @@ type CalculationTarget = "printers" | "materials";
 /** Sentinel for the built-in default profile in the profile select. */
 const STANDARD_PROFILE = "__standard";
 
+/** Filament volume of a G-code import, if the slicer provided one. */
+interface ImportedVolume {
+  volumeCm3: string | null;
+  filamentCount: number;
+}
+
 type CalculationHint =
-  | { kind: "import"; slicer: string; source: "comments" | "simulated" }
-  | { kind: "fileTime" }
+  | ({ kind: "import"; slicer: string; source: "comments" | "simulated" } & ImportedVolume)
+  | ({ kind: "fileTime" } & ImportedVolume)
   | { kind: "triangles"; count: number }
   | { kind: "exportSaved"; path: string }
   | { kind: "exportCancelled" }
@@ -65,15 +78,37 @@ type CalculationHint =
   | { kind: "jsonSaved"; path: string }
   | { kind: "jsonImported"; name: string };
 
-function hintText(hint: CalculationHint, t: Strings): string {
+/** Filament volume of a G-code import, ignoring extruders without usage. */
+function importedVolume(filaments: GcodeInfo["filaments"]): ImportedVolume {
+  const active = filaments.filter((filament) => /[1-9]/.test(filament.volume_mm3));
+  const totalMm3 = sumDecimalStrings(active.map((filament) => filament.volume_mm3));
+  if (totalMm3 === null) {
+    return { volumeCm3: null, filamentCount: active.length };
+  }
+  const volumeCm3 = multiplyDecimalStrings([totalMm3, "0.001"]);
+  if (volumeCm3 === null || volumeCm3 === "0") {
+    return { volumeCm3: null, filamentCount: active.length };
+  }
+  return { volumeCm3, filamentCount: active.length };
+}
+
+function volumeHintSuffix(hint: ImportedVolume, t: Strings, locale: Locale): string {
+  if (hint.volumeCm3 === null) return "";
+  const volume = formatQuantity(hint.volumeCm3, locale);
+  return hint.filamentCount > 1
+    ? ` ${t.calculation.importMultiFilament(hint.filamentCount, volume)}`
+    : ` ${t.calculation.importVolumeTaken(volume)}`;
+}
+
+function hintText(hint: CalculationHint, t: Strings, locale: Locale): string {
   switch (hint.kind) {
     case "import":
-      return t.calculation.importTaken(
+      return `${t.calculation.importTaken(
         hint.slicer,
         hint.source === "comments" ? t.calculation.commentTime : t.calculation.simulatedTime,
-      );
+      )}${volumeHintSuffix(hint, t, locale)}`;
     case "fileTime":
-      return t.calculation.fileTimeTaken;
+      return `${t.calculation.fileTimeTaken}${volumeHintSuffix(hint, t, locale)}`;
     case "triangles":
       return t.calculation.trianglesTaken(hint.count);
     case "exportSaved":
@@ -434,15 +469,22 @@ export function CalculationView({
           : await adapter.importStlFile(path ?? "demo");
       if (kind === "gcode" && "used_comments" in info) {
         const time = info.time_from_comments_hours ?? info.simulated_time_hours;
-        updateFile(fileId, { print_time_hours: time });
+        const imported = importedVolume(info.filaments);
+        updateFile(
+          fileId,
+          imported.volumeCm3 === null
+            ? { print_time_hours: time }
+            : { print_time_hours: time, volume_cm3: imported.volumeCm3 },
+        );
         setHint(
           info.detected_slicer
             ? {
                 kind: "import",
                 slicer: info.detected_slicer,
                 source: info.used_comments ? "comments" : "simulated",
+                ...imported,
               }
-            : { kind: "fileTime" },
+            : { kind: "fileTime", ...imported },
         );
       } else if (kind === "stl" && "volume_cm3" in info) {
         updateFile(fileId, {
@@ -797,15 +839,17 @@ export function CalculationView({
 
       {hint ? (
         <Toast
-          message={hintText(hint, t)}
+          message={hintText(hint, t, locale)}
           tone={
-            hint.kind === "exportCancelled" || hint.kind === "importCancelled"
+            (hint.kind === "import" || hint.kind === "fileTime") && hint.filamentCount > 1
               ? "warning"
-              : hint.kind === "exportSaved" ||
-                  hint.kind === "jsonSaved" ||
-                  hint.kind === "jsonImported"
-                ? "success"
-                : "info"
+              : hint.kind === "exportCancelled" || hint.kind === "importCancelled"
+                ? "warning"
+                : hint.kind === "exportSaved" ||
+                    hint.kind === "jsonSaved" ||
+                    hint.kind === "jsonImported"
+                  ? "success"
+                  : "info"
           }
           onDismiss={dismissHint}
         />

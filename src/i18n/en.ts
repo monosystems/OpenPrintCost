@@ -391,6 +391,9 @@ export const en: Strings = {
     simulatedTime: "simulated",
     fileTimeTaken: "Print time taken from file.",
     importTaken: (slicer: string, how: string) => `${slicer} detected — print time taken ${how}.`,
+    importVolumeTaken: (volume: string) => `${volume} cm³ filament volume taken.`,
+    importMultiFilament: (count: number, volume: string) =>
+      `${count} filaments detected — ${volume} cm³ total taken; per-filament material assignment is not supported yet.`,
     trianglesTaken: (count: number) => `${count} triangles — volume taken.`,
     noFiles: "No files yet. Add a file manually or import G-code/STL.",
     resultTitle: "Result",

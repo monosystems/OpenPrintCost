@@ -93,7 +93,7 @@ describe("CalculationView", () => {
     }
   });
 
-  it("takes the G-code print time from the import", async () => {
+  it("takes the G-code print time and filament volume from the import", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     const user = userEvent.setup();
@@ -106,10 +106,45 @@ describe("CalculationView", () => {
     if (!fileCard) throw new Error("File card missing");
     await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
 
+    await waitFor(() => {
+      expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2.5");
+      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("2.88634");
+    });
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(/PrusaSlicer detected/);
+    expect(toast).toHaveTextContent(/2\.886 cm³ filament volume taken/);
+  });
+
+  it("sums multiple filament volumes and warns about per-filament assignment", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "importGcodeFile").mockResolvedValue({
+      time_from_comments_hours: "2.5",
+      simulated_time_hours: "2.6",
+      used_comments: true,
+      filaments: [
+        { length_mm: "1000", diameter_mm: "1.75", volume_mm3: "2405" },
+        { length_mm: "500", diameter_mm: "1.75", volume_mm3: "1202.5" },
+      ],
+      layer_count: 120,
+      detected_slicer: "PrusaSlicer",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
+
     await waitFor(() =>
-      expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2.5"),
+      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("3.6075"),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent(/PrusaSlicer detected/);
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(/2 filaments detected/);
+    expect(toast).toHaveTextContent(/3\.608 cm³ total taken/);
   });
 
   it("exports the result and shows the path", async () => {
