@@ -28,6 +28,7 @@ describe("SettingsView", () => {
       street: "Main St 1",
       zip_city: "12345 Town",
       email: "",
+      currency: "EUR",
     });
     render(<SettingsView adapter={adapter} />);
 

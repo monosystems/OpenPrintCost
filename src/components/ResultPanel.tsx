@@ -32,10 +32,13 @@ const BAR_COLORS: Record<BreakdownGroup, string> = {
 /** Sticky summary column for the wide calculation workspace. */
 export function ResultPanel({
   result,
+  currency = "$",
   onShowDetails,
   ...actions
 }: {
   result: CalculationResult | null;
+  /** Anzeige-Symbol (reine Darstellung, keine Umrechnung). */
+  currency?: string;
   onShowDetails?: () => void;
 } & SummaryActions) {
   const { t, locale } = useLocale();
@@ -52,7 +55,7 @@ export function ResultPanel({
           }`}
           aria-live="polite"
         >
-          {result ? `${formatMoney(result.total, locale)} €` : "—"}
+          {result ? `${formatMoney(result.total, locale)} ${currency}` : "—"}
         </p>
         <p className="mt-2 min-h-5 truncate text-xs text-ink-faint">
           {result ? result.project_name : t.calculation.notCalculatedHint}
@@ -65,7 +68,7 @@ export function ResultPanel({
                 {t.calculation.baseLabel}
               </dt>
               <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
-                {formatMoney(result.base_total, locale)} €
+                {formatMoney(result.base_total, locale)} {currency}
               </dd>
             </div>
             <div>
@@ -74,7 +77,7 @@ export function ResultPanel({
               </dt>
               <dd className="mt-0.5 text-sm font-medium tabular-nums text-ink">
                 {result.price_per_piece
-                  ? `${formatMoney(result.price_per_piece, locale)} €`
+                  ? `${formatMoney(result.price_per_piece, locale)} ${currency}`
                   : "—"}
               </dd>
             </div>
@@ -110,7 +113,7 @@ export function ResultPanel({
         </div>
       </div>
 
-      {result ? <CostBreakdown result={result} /> : null}
+      {result ? <CostBreakdown result={result} currency={currency} /> : null}
     </aside>
   );
 }
@@ -118,9 +121,12 @@ export function ResultPanel({
 /** Compact sticky bar for widths below the two-column breakpoint. */
 export function CompactSummary({
   result,
+  currency = "$",
   ...actions
 }: {
   result: CalculationResult | null;
+  /** Anzeige-Symbol (reine Darstellung, keine Umrechnung). */
+  currency?: string;
 } & SummaryActions) {
   const { t, locale } = useLocale();
 
@@ -132,11 +138,11 @@ export function CompactSummary({
             {result ? t.calculation.totalLabel : t.calculation.notCalculated}
           </p>
           <p className="truncate text-lg font-semibold tabular-nums text-accent" aria-live="polite">
-            {result ? `${formatMoney(result.total, locale)} €` : "—"}
+            {result ? `${formatMoney(result.total, locale)} ${currency}` : "—"}
           </p>
           {result?.price_per_piece ? (
             <p className="truncate text-[11px] tabular-nums text-ink-faint">
-              {t.calculation.pricePerPiece}: {formatMoney(result.price_per_piece, locale)} €
+              {t.calculation.pricePerPiece}: {formatMoney(result.price_per_piece, locale)} {currency}
             </p>
           ) : null}
         </div>
@@ -168,7 +174,7 @@ export function CompactSummary({
  * come from the engine positions; only the grouping and percentage display
  * happen here.
  */
-function CostBreakdown({ result }: { result: CalculationResult }) {
+function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; currency?: string }) {
   const { t, locale } = useLocale();
   const labels = groupLabels(t);
   const total = Number(result.total);
@@ -216,7 +222,7 @@ function CostBreakdown({ result }: { result: CalculationResult }) {
                   <span className="truncate">{label}</span>
                 </span>
                 <span className="shrink-0 tabular-nums text-ink">
-                  {formatMoney(row.amount.toFixed(2), locale)} €
+                  {formatMoney(row.amount.toFixed(2), locale)} {currency}
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-raised">

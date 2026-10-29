@@ -27,7 +27,7 @@ pub struct StoredCalculation {
 ///
 /// Genau ein Datensatz (Singleton) — der Adapter liefert leere Firmendaten,
 /// wenn noch nichts gespeichert wurde (Spec 0012).
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompanyInfo {
     /// Firmenname.
     pub name: String,
@@ -37,6 +37,27 @@ pub struct CompanyInfo {
     pub zip_city: String,
     /// E-Mail-Adresse.
     pub email: String,
+    /// Währungscode (ISO 4217, z. B. "USD") — reines Anzeige-Symbol,
+    /// keine Umrechnung. Alle Beträge bleiben in dieser einen Währung.
+    #[serde(default = "default_currency")]
+    pub currency: String,
+}
+
+/// Standardwährung für neue Datenbanken und alte Datensätze.
+pub fn default_currency() -> String {
+    "USD".to_string()
+}
+
+impl Default for CompanyInfo {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            street: String::new(),
+            zip_city: String::new(),
+            email: String::new(),
+            currency: default_currency(),
+        }
+    }
 }
 
 /// Kurzfassung einer Kalkulation für Listenansichten.

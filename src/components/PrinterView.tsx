@@ -8,8 +8,11 @@ import {
 } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type MaterialFamily, type PrintProcess, type Printer } from "../api/types";
+import { PRINTER_PRESETS, referencePriceLabel } from "../data/printerPresets";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { DataTable, type DataColumn } from "./DataTable";
 import { PrinterIcon } from "./icons";
+import { PresetTreeSelect } from "./PresetTreeSelect";
 import {
   ConfirmDialog,
   DangerGhostButton,
@@ -75,6 +78,7 @@ function validate(printer: Printer, t: Strings): Errors {
 
 export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const { t, locale } = useLocale();
+  const currency = useCurrencySymbol(adapter);
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +86,8 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const [deleting, setDeleting] = useState<Printer | null>(null);
   const [formErrors, setFormErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+  /** Dollar-Referenzpreis der zuletzt gewählten Vorlage (nur Hinweis). */
+  const [presetReference, setPresetReference] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -102,6 +108,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const openNew = () => {
     setEditing(emptyPrinter());
     setFormErrors({});
+    setPresetReference(null);
   };
 
   const save = async () => {
@@ -149,6 +156,29 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
   const set = <K extends keyof Printer>(key: K, value: Printer[K]) =>
     setEditing((current) => (current ? { ...current, [key]: value } : current));
 
+  const applyPreset = (key: string) => {
+    const preset = PRINTER_PRESETS.find((entry) => entry.key === key);
+    if (!preset || !editing) return;
+    const { key: _ignored, ...values } = preset;
+    // Der Preis ist ein Dollar-Referenzwert (US-Liste). Er wird als
+    // Ausgangswert übernommen und muss durch den tatsächlichen Kaufpreis
+    // in der eigenen Währung ersetzt werden (Hinweis unter dem Feld).
+    // Unbekannte Werte (`null`) bleiben leer, damit die Pflichtfelder
+    // den Nutzer zur Eingabe auffordern statt still mit 0 zu rechnen.
+    setEditing((current) =>
+      current
+        ? {
+            ...current,
+            ...values,
+            power_watts: preset.power_watts ?? "",
+            purchase_price: preset.purchase_price ?? "",
+          }
+        : current,
+    );
+    setPresetReference(referencePriceLabel(preset));
+    setFormErrors({});
+  };
+
   const buildVolume = editing
     ? multiplyDecimalStrings([
         editing.build_width_mm,
@@ -185,18 +215,18 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
     },
     {
       key: "price",
-      header: t.printers.price,
+      header: `${t.printers.price} (${currency})`,
       align: "right",
       sortValue: (printer) => Number(printer.purchase_price),
-      render: (printer) => `${formatMoney(printer.purchase_price, locale)} €`,
+      render: (printer) => `${formatMoney(printer.purchase_price, locale)} ${currency}`,
     },
     {
       key: "rate",
-      header: t.printers.hourlyRateShort,
+      header: `${t.printers.hourlyRateShort} (${currency}/h)`,
       align: "right",
       sortValue: (printer) => Number(printer.hourly_rate ?? 0),
       render: (printer) =>
-        printer.hourly_rate ? `${formatMoney(printer.hourly_rate, locale)} €/h` : "—",
+        printer.hourly_rate ? `${formatMoney(printer.hourly_rate, locale)} ${currency}/h` : "—",
     },
     {
       key: "actions",
@@ -209,6 +239,7 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
             onClick={() => {
               setEditing({ ...printer });
               setFormErrors({});
+              setPresetReference(null);
             }}
           >
             {t.common.edit}
@@ -280,6 +311,12 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
           }
         >
           <div className="space-y-6">
+            <div>
+              <Field label={t.printers.presetLabel}>
+                <PresetTreeSelect placeholder={t.printers.presetPick} onPick={applyPreset} />
+              </Field>
+              <p className="mt-1 text-xs text-ink-faint">{t.printers.presetHint}</p>
+            </div>
             <FormSection title={t.printers.sectionDevice}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-7">
@@ -375,36 +412,58 @@ export function PrinterView({ adapter }: { adapter: PlatformAdapter }) {
 
             <FormSection title={t.printers.sectionCosts}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label={`${t.printers.price} *`} error={formErrors.purchase_price}>
-                  <DecimalInput
-                    aria-required="true"
-                    aria-invalid={Boolean(formErrors.purchase_price)}
-                    value={editing.purchase_price}
-                    onChange={(v) => set("purchase_price", v)}
-                  />
-                </Field>
-                <Field label={t.printers.hourlyRate} error={formErrors.hourly_rate}>
+                <div>
+                  <Field
+                    label={`${t.printers.price} (${currency}) *`}
+                    error={formErrors.purchase_price}
+                  >
+                    <DecimalInput
+                      aria-required="true"
+                      aria-invalid={Boolean(formErrors.purchase_price)}
+                      value={editing.purchase_price}
+                      onChange={(v) => set("purchase_price", v)}
+                    />
+                  </Field>
+                  {presetReference ? (
+                    <p role="note" className="mt-1.5 text-xs text-ink-faint">
+                      {t.printers.presetReference(presetReference)}
+                    </p>
+                  ) : null}
+                </div>
+                <Field
+                  label={`${t.printers.hourlyRate} (${currency}/h)`}
+                  error={formErrors.hourly_rate}
+                >
                   <DecimalInput
                     aria-invalid={Boolean(formErrors.hourly_rate)}
                     value={editing.hourly_rate ?? ""}
                     onChange={(v) => set("hourly_rate", v)}
                   />
                 </Field>
-                <Field label={t.printers.nozzle} error={formErrors.nozzle_wear_cost}>
+                <Field
+                  label={`${t.printers.nozzle} (${currency})`}
+                  error={formErrors.nozzle_wear_cost}
+                >
                   <DecimalInput
                     aria-invalid={Boolean(formErrors.nozzle_wear_cost)}
                     value={editing.nozzle_wear_cost ?? ""}
                     onChange={(v) => set("nozzle_wear_cost", v)}
                   />
                 </Field>
-                <Field label={t.printers.plate} error={formErrors.build_plate_wear_cost}>
+                <Field
+                  label={`${t.printers.plate} (${currency})`}
+                  error={formErrors.build_plate_wear_cost}
+                >
                   <DecimalInput
                     aria-invalid={Boolean(formErrors.build_plate_wear_cost)}
                     value={editing.build_plate_wear_cost ?? ""}
                     onChange={(v) => set("build_plate_wear_cost", v)}
                   />
                 </Field>
-                <Field label={t.printers.materialChange} error={formErrors.material_change_cost}>
+                <Field
+                  label={`${t.printers.materialChange} (${currency})`}
+                  error={formErrors.material_change_cost}
+                >
                   <DecimalInput
                     aria-invalid={Boolean(formErrors.material_change_cost)}
                     value={editing.material_change_cost ?? ""}

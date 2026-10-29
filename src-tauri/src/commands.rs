@@ -578,6 +578,7 @@ fn to_company(company: &opc_store::CompanyInfo) -> opc_export::CompanyInfo {
         street: company.street.clone(),
         zip_city: company.zip_city.clone(),
         email: company.email.clone(),
+        currency: company.currency.clone(),
     }
 }
 

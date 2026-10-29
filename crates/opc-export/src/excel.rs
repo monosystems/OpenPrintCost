@@ -80,7 +80,11 @@ pub fn render_excel(
         w!(overview, write_string(row, 1, company.name.trim()));
         row += 1;
     }
-    w!(overview, write_string(row, 0, "Maschinenstundensatz (€/h)"));
+    let symbol = crate::currency_symbol(&company.currency);
+    w!(
+        overview,
+        write_string(row, 0, &format!("Maschinenstundensatz ({symbol}/h)"))
+    );
     w!(
         overview,
         write_number(row, 1, number(result.machine_hour_rate))
@@ -94,13 +98,16 @@ pub fn render_excel(
     row += 2;
 
     for (key, amount) in [
-        ("Herstellkosten (€)", result.base_total),
-        ("Marge (€)", result.margin_total),
-        ("Steuer (€)", result.tax_total),
-        ("Verkaufspreis (€)", result.total),
+        (format!("Herstellkosten ({symbol})"), result.base_total),
+        (format!("Marge ({symbol})"), result.margin_total),
+        (format!("Steuer ({symbol})"), result.tax_total),
+        (format!("Verkaufspreis ({symbol})"), result.total),
     ] {
         let is_total = key.starts_with("Verkaufspreis");
-        w!(overview, write_string_with_format(row, 0, key, &bold));
+        w!(
+            overview,
+            write_string_with_format(row, 0, key.as_str(), &bold)
+        );
         if is_total {
             w!(
                 overview,
@@ -112,14 +119,17 @@ pub fn render_excel(
         row += 1;
     }
     if let Some(cost_per_piece) = result.cost_per_piece {
-        w!(overview, write_string(row, 0, "Kosten je Stück (€)"));
+        w!(
+            overview,
+            write_string(row, 0, &format!("Kosten je Stück ({symbol})"))
+        );
         w!(overview, write_number(row, 1, number(cost_per_piece)));
         row += 1;
     }
     if let Some(price_per_piece) = result.price_per_piece {
         w!(
             overview,
-            write_string_with_format(row, 0, "Preis je Stück (€)", &bold)
+            write_string_with_format(row, 0, &format!("Preis je Stück ({symbol})"), &bold)
         );
         w!(
             overview,
@@ -135,19 +145,19 @@ pub fn render_excel(
             message: error.to_string(),
         })?;
     for (col, header) in [
-        "Gruppe",
-        "Bezeichnung",
-        "Detail",
-        "Menge",
-        "Einheit",
-        "Betrag (€)",
+        "Gruppe".to_string(),
+        "Bezeichnung".to_string(),
+        "Detail".to_string(),
+        "Menge".to_string(),
+        "Einheit".to_string(),
+        format!("Betrag ({symbol})"),
     ]
     .iter()
     .enumerate()
     {
         w!(
             positions,
-            write_string_with_format(0, col as u16, *header, &bold)
+            write_string_with_format(0, col as u16, header.as_str(), &bold)
         );
     }
     for (index, position) in result.positions.iter().enumerate() {
@@ -156,7 +166,15 @@ pub fn render_excel(
         w!(positions, write_string(row, 1, &position.label));
         w!(
             positions,
-            write_string(row, 2, position.detail.as_deref().unwrap_or(""))
+            write_string(
+                row,
+                2,
+                &position
+                    .detail
+                    .as_deref()
+                    .map(|detail| crate::localize_detail(detail, &company.currency))
+                    .unwrap_or_default()
+            )
         );
         w!(
             positions,

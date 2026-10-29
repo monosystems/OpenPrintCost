@@ -573,6 +573,7 @@ fn firmendaten_runden_sich_ueber_beide_adapter() {
                 street: "Druckweg 1".to_string(),
                 zip_city: "12345 Beispielstadt".to_string(),
                 email: "info@example.invalid".to_string(),
+                currency: "EUR".to_string(),
             })
             .unwrap();
 
@@ -587,9 +588,12 @@ fn firmendaten_runden_sich_ueber_beide_adapter() {
                 street: "".to_string(),
                 zip_city: "".to_string(),
                 email: "".to_string(),
+                currency: "USD".to_string(),
             })
             .unwrap();
-        assert_eq!(store.get_company_info().unwrap().name, "Neu");
+        let reloaded = store.get_company_info().unwrap();
+        assert_eq!(reloaded.name, "Neu");
+        assert_eq!(reloaded.currency, "USD");
     });
 }
 

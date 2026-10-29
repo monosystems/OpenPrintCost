@@ -280,9 +280,19 @@ export interface CompanyInfo {
   street: string;
   zip_city: string;
   email: string;
+  /** ISO-4217-Code, z. B. "USD" — reines Anzeige-Symbol, keine Umrechnung. */
+  currency: string;
 }
 
-export const emptyCompany: CompanyInfo = { name: "", street: "", zip_city: "", email: "" };
+export const DEFAULT_CURRENCY = "USD";
+
+export const emptyCompany: CompanyInfo = {
+  name: "",
+  street: "",
+  zip_city: "",
+  email: "",
+  currency: DEFAULT_CURRENCY,
+};
 
 // ---------------------------------------------------------------------------
 // Updates

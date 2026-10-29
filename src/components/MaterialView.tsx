@@ -3,6 +3,7 @@ import type { PlatformAdapter } from "../api/platform";
 import { formatMoney, formatQuantity, isDecimalString } from "../api/format";
 import { useLocale, type Strings } from "../i18n";
 import { newId, type Material, type MaterialFamily, type MaterialUnit } from "../api/types";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { DataTable, type DataColumn } from "./DataTable";
 import { LayersIcon } from "./icons";
 import {
@@ -56,6 +57,7 @@ function validate(material: Material, t: Strings): Errors {
 
 export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
   const { t, locale } = useLocale();
+  const currency = useCurrencySymbol(adapter);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,10 +152,10 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
     },
     {
       key: "price",
-      header: t.materials.price,
+      header: `${t.materials.price} (${currency})`,
       align: "right",
       sortValue: (material) => Number(material.price),
-      render: (material) => `${formatMoney(material.price, locale)} €`,
+      render: (material) => `${formatMoney(material.price, locale)} ${currency}`,
     },
     {
       key: "package",
@@ -332,7 +334,7 @@ export function MaterialView({ adapter }: { adapter: PlatformAdapter }) {
             <FormSection title={t.materials.sectionPrice}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div className="md:col-span-4">
-                  <Field label={`${t.materials.price} *`} error={formErrors.price}>
+                  <Field label={`${t.materials.price} (${currency}) *`} error={formErrors.price}>
                     <DecimalInput
                       aria-required="true"
                       aria-invalid={Boolean(formErrors.price)}

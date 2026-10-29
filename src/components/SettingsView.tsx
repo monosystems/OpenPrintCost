@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
+import { CURRENCY_OPTIONS, currencySymbol } from "../api/currency";
 import { useLocale } from "../i18n";
-import type { CompanyInfo, UpdateInfo } from "../api/types";
-import { ErrorBanner, Field, PrimaryButton, TextInput } from "./ui";
+import { DEFAULT_CURRENCY, type CompanyInfo, type UpdateInfo } from "../api/types";
+
+import { ErrorBanner, Field, PrimaryButton, Select, TextInput } from "./ui";
 
 export function SettingsView({
   adapter,
@@ -13,13 +15,20 @@ export function SettingsView({
   onUpdateChange?: (update: UpdateInfo | null) => void;
 }) {
   const { t } = useLocale();
-  const [company, setCompany] = useState<CompanyInfo>({ name: "", street: "", zip_city: "", email: "" });
+  const [company, setCompany] = useState<CompanyInfo>({
+    name: "",
+    street: "",
+    zip_city: "",
+    email: "",
+    currency: DEFAULT_CURRENCY,
+  });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      setCompany(await adapter.getCompanyInfo());
+      const loaded = await adapter.getCompanyInfo();
+      setCompany({ ...loaded, currency: loaded.currency?.trim() ? loaded.currency : DEFAULT_CURRENCY });
       setError(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.companyLoad);
@@ -37,6 +46,7 @@ export function SettingsView({
         street: company.street.trim(),
         zip_city: company.zip_city.trim(),
         email: company.email.trim(),
+        currency: company.currency.trim().toUpperCase() || DEFAULT_CURRENCY,
       });
       setSaved(true);
       setError(null);
@@ -76,6 +86,16 @@ export function SettingsView({
           </Field>
           <Field label={t.settings.zipCity}>
             <TextInput value={company.zip_city} onChange={(e) => set("zip_city", e.target.value)} />
+          </Field>
+          <Field label={t.settings.currency}>
+            <Select
+              value={company.currency}
+              onChange={(v) => set("currency", v)}
+              options={CURRENCY_OPTIONS.map((code) => ({
+                value: code,
+                label: `${code} (${currencySymbol(code)})`,
+              }))}
+            />
           </Field>
         </div>
         <div className="mt-4 flex items-center gap-3">

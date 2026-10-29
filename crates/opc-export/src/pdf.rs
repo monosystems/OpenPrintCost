@@ -70,8 +70,9 @@ pub fn render_pdf(
     }
     lines.push((
         format!(
-            "Maschinenstundensatz: {} €/h",
-            money::format_de(result.machine_hour_rate, 2)
+            "Maschinenstundensatz: {} {}/h",
+            money::format_de(result.machine_hour_rate, 2),
+            crate::currency_symbol(&company.currency),
         ),
         false,
     ));
@@ -112,25 +113,36 @@ pub fn render_pdf(
         for position in positions {
             let mut line = position.label.clone();
             if let Some(detail) = &position.detail {
-                line.push_str(&format!(" — {detail}"));
+                line.push_str(&format!(
+                    " — {}",
+                    crate::localize_detail(detail, &company.currency)
+                ));
             }
-            line.push_str(&format!(": {} €", money::format_de(position.amount, 2)));
+            line.push_str(&format!(
+                ": {} {}",
+                money::format_de(position.amount, 2),
+                crate::currency_symbol(&company.currency)
+            ));
             lines.push((truncate(&line, 105), false));
         }
         lines.push((String::new(), false));
     }
 
     lines.push(("Summen".to_string(), true));
+    let symbol = crate::currency_symbol(&company.currency);
     for (key, amount) in [
         ("Herstellkosten", result.base_total),
         ("Marge", result.margin_total),
         ("Steuer", result.tax_total),
         ("Verkaufspreis", result.total),
     ] {
-        lines.push((kv(key, amount), key == "Verkaufspreis"));
+        lines.push((kv_currency(key, amount, symbol), key == "Verkaufspreis"));
     }
     if let Some(price_per_piece) = result.price_per_piece {
-        lines.push((kv("Preis je Stück", price_per_piece), false));
+        lines.push((
+            kv_currency("Preis je Stück", price_per_piece, symbol),
+            false,
+        ));
     }
 
     // Zeilen auf Seiten verteilen.
@@ -193,7 +205,7 @@ fn truncate(text: &str, max: usize) -> String {
     format!("{kept}…")
 }
 
-/// Baut eine „Schlüssel: Betrag €“-Zeile.
-fn kv(key: &str, amount: Decimal) -> String {
-    format!("{key}: {} €", money::format_de(amount, 2))
+/// Baut eine „Schlüssel: Betrag Währung“-Zeile mit explizitem Symbol.
+fn kv_currency(key: &str, amount: Decimal, symbol: &str) -> String {
+    format!("{key}: {} {symbol}", money::format_de(amount, 2))
 }
