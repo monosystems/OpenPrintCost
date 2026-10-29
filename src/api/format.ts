@@ -50,6 +50,36 @@ export function multiplyDecimalStrings(values: ReadonlyArray<string>): string | 
     scale += fraction.length;
   }
 
+  return formatScaled(digits, scale);
+}
+
+/**
+ * Sums non-negative decimal strings exactly and returns a plain decimal
+ * string without trailing zeros. Returns `null` if any value is not a plain
+ * decimal number.
+ *
+ * Used for physical quantities that must not pass through `Number`, for
+ * example the total filament volume of a G-code import.
+ */
+export function sumDecimalStrings(values: ReadonlyArray<string>): string | null {
+  let digits = 0n;
+  let scale = 0;
+  for (const value of values) {
+    const match = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
+    if (!match) return null;
+    const fraction = match[2] ?? "";
+    if (fraction.length > scale) {
+      digits *= 10n ** BigInt(fraction.length - scale);
+      scale = fraction.length;
+    }
+    digits += BigInt(match[1] + fraction) * 10n ** BigInt(scale - fraction.length);
+  }
+
+  return formatScaled(digits, scale);
+}
+
+/** Renders an integer plus scale as a plain decimal string. */
+function formatScaled(digits: bigint, scale: number): string {
   let result = digits.toString();
   if (scale > 0) {
     result = result.padStart(scale + 1, "0");

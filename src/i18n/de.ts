@@ -390,6 +390,9 @@ export const de = {
     simulatedTime: "simuliert",
     fileTimeTaken: "Druckzeit aus der Datei übernommen.",
     importTaken: (slicer: string, how: string) => `${slicer} erkannt — Druckzeit ${how} übernommen.`,
+    importVolumeTaken: (volume: string) => `${volume} cm³ Filamentvolumen übernommen.`,
+    importMultiFilament: (count: number, volume: string) =>
+      `${count} Filamente erkannt — ${volume} cm³ insgesamt übernommen; die Materialzuordnung je Filament wird noch nicht unterstützt.`,
     trianglesTaken: (count: number) => `${count} Dreiecke — Volumen übernommen.`,
     noFiles: "Noch keine Dateien. Füge eine Datei manuell hinzu oder importiere GCode/STL.",
     resultTitle: "Ergebnis",
