@@ -196,6 +196,22 @@ fn prusaslicer_kommentare_gewinnen_gegen_die_simulation() {
     assert!(info.simulated_time_hours > dec!(0));
 }
 
+#[test]
+fn cm3_kommentar_behaelt_das_volumen_bei_abweichendem_durchmesser() {
+    // Nur ein Volumen-Kommentar, kein [mm]-Kommentar. Der Durchmesser ist
+    // bewusst nicht der Standardwert — das Volumen muss trotzdem exakt
+    // 10 cm³ bleiben (früher wurde es mit 1,75 mm umgerechnet und danach mit
+    // 2,85 mm zurückgerechnet).
+    let text = "; filament_diameter = 2.85\n; filament used [cm3] = 10\n";
+    let info = parse_gcode(text).expect("muss parsen");
+
+    assert_eq!(info.filaments.len(), 1);
+    assert_eq!(info.filaments[0].volume_mm3, dec!(10000));
+    assert_eq!(info.filaments[0].diameter_mm, dec!(2.85));
+    assert!(info.filaments[0].length_mm > dec!(1500));
+    assert!(info.filaments[0].length_mm < dec!(1600));
+}
+
 /// Ein Cura-GCode mit TIME- und Filament-Kommentaren.
 fn cura_gcode() -> &'static str {
     ";FLAVOR:Marlin\n\

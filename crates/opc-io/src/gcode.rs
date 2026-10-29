@@ -105,12 +105,18 @@ pub fn parse_gcode(text: &str) -> IoResult<GcodeInfo> {
 
     // Kommentarwerte gewinnen; sonst die simulierten Längen.
     let filaments = if let Some(comment) = extract_filament(&comments) {
-        comment
-            .lengths_mm
-            .into_iter()
-            .enumerate()
-            .map(|(tool, length)| filament_usage(length, diameter_of(tool)))
-            .collect()
+        match comment {
+            CommentFilament::Lengths(lengths) => lengths
+                .into_iter()
+                .enumerate()
+                .map(|(tool, length)| filament_usage(length, diameter_of(tool)))
+                .collect(),
+            CommentFilament::VolumesMm3(volumes) => volumes
+                .into_iter()
+                .enumerate()
+                .map(|(tool, volume)| filament_usage_from_volume(volume, diameter_of(tool)))
+                .collect(),
+        }
     } else {
         simulated
             .filament_length_mm_per_tool
@@ -311,9 +317,9 @@ pub(crate) fn parse_duration_hours(text: &str) -> Option<Decimal> {
 /// Cura-`Filament used`, Simplify3D-`Filament length`, IdeaMaker-`Material#
 /// Used`, CraftWare-`E<len>`. Die erste treffende Familie gewinnt.
 ///
-/// Liegen nur Volumen (`[cm3]`) vor, werden die Längen daraus abgeleitet —
-/// mit dem Standarddurchmesser, da der Kommentar-Durchmesser erst später
-/// zugeordnet wird.
+/// Liegen nur Volumen (`[cm3]`) vor, wird das Volumen **unverändert**
+/// zurückgegeben. Die Umrechnung in eine Länge hängt vom Filamentdurchmesser
+/// ab und darf deshalb nicht schon hier mit dem Standarddurchmesser erfolgen.
 fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
     // 1) PrusaSlicer & Co.: "; filament used [mm] = 2810.28" (mehrere durch "," oder "|").
     let mut lengths: Vec<f64> = Vec::new();
@@ -326,15 +332,10 @@ fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
         }
     }
     if !lengths.is_empty() {
-        return Some(CommentFilament {
-            lengths_mm: lengths,
-        });
+        return Some(CommentFilament::Lengths(lengths));
     }
     if !volumes_mm3.is_empty() {
-        let area = std::f64::consts::PI * (DEFAULT_FILAMENT_DIAMETER_MM / 2.0).powi(2);
-        return Some(CommentFilament {
-            lengths_mm: volumes_mm3.iter().map(|v| v / area).collect(),
-        });
+        return Some(CommentFilament::VolumesMm3(volumes_mm3));
     }
 
     // 2) Cura: ";Filament used: 25.3127m" (mehrere durch ",").
@@ -347,7 +348,7 @@ fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
             (!parsed.is_empty()).then_some(parsed)
         })
     }) {
-        return Some(CommentFilament { lengths_mm: parsed });
+        return Some(CommentFilament::Lengths(parsed));
     }
 
     // 3) Simplify3D: "; Filament length: 32256.6 mm (32.26 m)".
@@ -357,9 +358,7 @@ fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
             .and_then(|value| value.split_whitespace().next())
             .and_then(|number| number.parse::<f64>().ok())
     }) {
-        return Some(CommentFilament {
-            lengths_mm: vec![length],
-        });
+        return Some(CommentFilament::Lengths(vec![length]));
     }
 
     // 4) IdeaMaker: ";Material#1 Used: 8940.1" (mm).
@@ -372,9 +371,7 @@ fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
         })
         .collect();
     if !idea_maker.is_empty() {
-        return Some(CommentFilament {
-            lengths_mm: idea_maker,
-        });
+        return Some(CommentFilament::Lengths(idea_maker));
     }
 
     // 5) CraftWare: "; E0len: 1.234" (Meter → mm).
@@ -398,17 +395,18 @@ fn extract_filament(comments: &[&str]) -> Option<CommentFilament> {
         })
         .collect();
     if !craftware.is_empty() {
-        return Some(CommentFilament {
-            lengths_mm: craftware,
-        });
+        return Some(CommentFilament::Lengths(craftware));
     }
 
     None
 }
 
-/// Kommentar-Filament: Längen je Extruder in mm.
-struct CommentFilament {
-    lengths_mm: Vec<f64>,
+/// Kommentar-Filament: entweder Längen je Extruder (mm) oder Volumen (mm³).
+enum CommentFilament {
+    /// Verbrauchte Länge je Extruder in mm.
+    Lengths(Vec<f64>),
+    /// Verbrauchtes Volumen je Extruder in mm³.
+    VolumesMm3(Vec<f64>),
 }
 
 /// Zerlegt eine durch `,` oder `|` getrennte Zahlenliste.
@@ -494,10 +492,19 @@ fn extract_layer_count(comments: &[&str]) -> Option<u64> {
 /// Baut einen `FilamentUsage` aus Länge (mm) und Durchmesser (mm).
 fn filament_usage(length_mm: f64, diameter_mm: f64) -> FilamentUsage {
     let area = std::f64::consts::PI * (diameter_mm / 2.0) * (diameter_mm / 2.0);
+    filament_usage_from_volume(length_mm * area, diameter_mm)
+}
+
+/// Baut einen `FilamentUsage` aus einem bereits bekannten Volumen (mm³).
+///
+/// Die Länge wird aus dem tatsächlichen Durchmesser abgeleitet; das Volumen
+/// bleibt exakt der Kommentarwert.
+fn filament_usage_from_volume(volume_mm3: f64, diameter_mm: f64) -> FilamentUsage {
+    let area = std::f64::consts::PI * (diameter_mm / 2.0) * (diameter_mm / 2.0);
     FilamentUsage {
-        length_mm: decimal_from_f64(length_mm),
+        length_mm: decimal_from_f64(volume_mm3 / area),
         diameter_mm: decimal_from_f64(diameter_mm),
-        volume_mm3: decimal_from_f64(length_mm * area),
+        volume_mm3: decimal_from_f64(volume_mm3),
     }
 }
 

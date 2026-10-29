@@ -204,6 +204,113 @@ function hasUnassignedFilaments(file: CalculationFileInput): boolean {
   );
 }
 
+/** Trims a decimal string and accepts a German comma as separator. */
+function normalizeDecimal(value: string): string | null {
+  const text = value.trim().replace(",", ".");
+  return isDecimalString(text) ? text : null;
+}
+
+type ProfileDecimalKey =
+  | "fail_rate_percent"
+  | "tax_rate_percent"
+  | "margin_percent"
+  | "handling_fee"
+  | "energy_price_per_kwh"
+  | "power_level_percent"
+  | "print_time_factor";
+
+interface NormalizedCalculation {
+  calculation: CalculationInput | null;
+  error: string | null;
+}
+
+/**
+ * Normalizes editable decimal fields before they cross the Tauri/JSON border.
+ *
+ * Empty required values and malformed numbers become a localized error instead
+ * of a raw serde parse error from the backend. Optional fields accept an empty
+ * input and are stored as `null`.
+ */
+function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCalculation {
+  const next = structuredClone(input);
+  const fail = (label: string): NormalizedCalculation => ({
+    calculation: null,
+    error: t.validation.decimal(label),
+  });
+
+  const profileFields: ReadonlyArray<readonly [ProfileDecimalKey, string]> = [
+    ["fail_rate_percent", t.profiles.failRate],
+    ["tax_rate_percent", t.profiles.tax],
+    ["margin_percent", t.profiles.margin],
+    ["handling_fee", t.profiles.handlingFee],
+    ["energy_price_per_kwh", t.profiles.energyPrice],
+    ["power_level_percent", t.profiles.powerLevel],
+    ["print_time_factor", t.profiles.printTimeFactor],
+  ];
+  for (const [key, label] of profileFields) {
+    const normalized = normalizeDecimal(next.profile[key]);
+    if (normalized === null) return fail(label);
+    next.profile[key] = normalized;
+  }
+
+  const normalizeOptional = (
+    value: string | null,
+    label: string,
+  ): { value: string | null; error: string | null } => {
+    if (value === null || value.trim() === "") return { value: null, error: null };
+    const normalized = normalizeDecimal(value);
+    return normalized === null
+      ? { value: null, error: t.validation.decimal(label) }
+      : { value: normalized, error: null };
+  };
+
+  for (const file of next.files) {
+    const name = file.file_name.trim() || t.calculation.unnamedFile;
+    const printTime = normalizeDecimal(file.print_time_hours);
+    if (printTime === null) return fail(`${t.calculation.printTime} — ${name}`);
+    file.print_time_hours = printTime;
+
+    const volume = normalizeOptional(file.volume_cm3, `${t.calculation.volume} — ${name}`);
+    if (volume.error) return { calculation: null, error: volume.error };
+    file.volume_cm3 = volume.value;
+
+    const weight = normalizeOptional(file.weight_g, `${t.calculation.weight} — ${name}`);
+    if (weight.error) return { calculation: null, error: weight.error };
+    file.weight_g = weight.value;
+
+    if (file.dimensions_mm) {
+      for (const [index, label] of [
+        [0, t.calculation.axisX],
+        [1, t.calculation.axisY],
+        [2, t.calculation.axisZ],
+      ] as const) {
+        const raw = file.dimensions_mm[index];
+        const normalized = raw.trim() === "" ? "0" : normalizeDecimal(raw);
+        if (normalized === null) return fail(`${label} — ${name}`);
+        file.dimensions_mm[index] = normalized;
+      }
+    }
+
+    for (const entry of file.materials) {
+      const materialWeight = normalizeOptional(
+        entry.weight_g,
+        `${t.calculation.materialWeight} — ${entry.material.name}`,
+      );
+      if (materialWeight.error) return { calculation: null, error: materialWeight.error };
+      entry.weight_g = materialWeight.value;
+
+      const materialVolume = normalizeOptional(
+        entry.volume_cm3,
+        `${t.calculation.materialVolume} — ${entry.material.name}`,
+      );
+      if (materialVolume.error) return { calculation: null, error: materialVolume.error };
+      entry.volume_cm3 = materialVolume.value;
+    }
+  }
+
+  return { calculation: next, error: null };
+}
+
 function emptyFile(): CalculationFileInput {
   return {
     id: newId(),
@@ -229,7 +336,7 @@ function emptyCalculation(
     id: newId(),
     project_name: "",
     notes: null,
-    created_at: null,
+    created_at: new Date().toISOString(),
     printer: { ...printer },
     profile: profile ? structuredClone(profile) : defaultProfile(t),
     hourly_rate: null,
@@ -409,9 +516,16 @@ export function CalculationView({
       );
       return;
     }
+    const normalized = normalizeCalculation(current, t);
+    if (normalized.error || !normalized.calculation) {
+      fail(normalized.error ?? t.errors.calculate);
+      return;
+    }
+    const calculation = normalized.calculation;
+    setCurrent(calculation);
     setCalculating(true);
     try {
-      setResult(await adapter.calculate(current));
+      setResult(await adapter.calculate(calculation));
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.calculate);
@@ -426,9 +540,18 @@ export function CalculationView({
       fail(t.errors.projectRequired);
       return;
     }
+    const normalized = normalizeCalculation(current, t);
+    if (normalized.error || !normalized.calculation) {
+      fail(normalized.error ?? t.errors.calculationSave);
+      return;
+    }
+    const document = normalized.calculation.created_at
+      ? normalized.calculation
+      : { ...normalized.calculation, created_at: new Date().toISOString() };
     setSaving(true);
     try {
-      await adapter.saveCalculation(current);
+      await adapter.saveCalculation(document);
+      setCurrent(document);
       setSaved(await adapter.listCalculations());
       setDirty(false);
       setError(null);
@@ -480,7 +603,9 @@ export function CalculationView({
         setHint({ kind: "importCancelled" });
         return;
       }
-      setCurrent(structuredClone(document));
+      const imported = structuredClone(document);
+      if (!imported.created_at) imported.created_at = new Date().toISOString();
+      setCurrent(imported);
       setResult(null);
       setProfileOpen(false);
       setConfirmImport(false);
@@ -565,8 +690,8 @@ export function CalculationView({
       if ("used_comments" in info) {
         const time = info.time_from_comments_hours ?? info.simulated_time_hours;
         const imported = importedVolume(info.filaments);
-        const existingMaterials =
-          current?.files.find((file) => file.id === fileId)?.materials ?? [];
+        const existing = current?.files.find((file) => file.id === fileId);
+        const existingMaterials = existing?.materials ?? [];
         // With filament data the assignment happens per filament; without it
         // the manual materials remain the only source.
         const materials =
@@ -574,6 +699,7 @@ export function CalculationView({
             ? []
             : existingMaterials.filter((material) => material.filament_index === null);
         updateFile(fileId, {
+          ...(existing?.file_name.trim() ? {} : { file_name: fileStem(path) }),
           print_time_hours: time,
           filament_volumes_cm3: imported.filamentVolumesCm3,
           materials,
@@ -590,7 +716,9 @@ export function CalculationView({
             : { kind: "fileTime", ...imported },
         );
       } else if ("triangle_count" in info) {
+        const existing = current?.files.find((file) => file.id === fileId);
         updateFile(fileId, {
+          ...(existing?.file_name.trim() ? {} : { file_name: fileStem(path) }),
           volume_cm3: info.volume_cm3,
           dimensions_mm: info.dimensions_mm,
         });

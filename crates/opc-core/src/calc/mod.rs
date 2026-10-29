@@ -10,6 +10,7 @@ pub mod fit;
 pub mod machine_hour_rate;
 pub mod margin;
 pub mod material;
+pub mod validation;
 pub mod worksteps;
 
 pub use engine::calculate;

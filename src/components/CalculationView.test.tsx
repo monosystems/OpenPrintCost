@@ -97,6 +97,42 @@ describe("CalculationView", () => {
     expect(screen.getByText("Selling price", { selector: "h4" })).toBeInTheDocument();
   });
 
+  it("accepts comma decimals and normalizes them before calculating", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Comma-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const printTime = await screen.findByLabelText("Print time (h)");
+    await user.clear(printTime);
+    await user.type(printTime, "0,5");
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
+    expect(screen.getByLabelText("Print time (h)")).toHaveValue("0.5");
+  });
+
+  it("reports an empty required decimal instead of a backend parse error", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Empty-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(screen.getByRole("button", { name: "Customize" }));
+    await user.clear(screen.getByLabelText("Margin (%)"));
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Margin \(%\)/i);
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+  });
+
   it("groups the calculation form into labelled sections", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
@@ -131,6 +167,7 @@ describe("CalculationView", () => {
     await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
 
     await waitFor(() => {
+      expect(within(fileCard).getByLabelText("File name")).toHaveValue("demo");
       expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2.5");
       expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("2.88634");
     });
@@ -200,6 +237,7 @@ describe("CalculationView", () => {
     const file = stored.document.files[0];
     if (!file) throw new Error("Saved file missing");
 
+    expect(stored.document.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(file.filament_volumes_cm3).toEqual(["2.405", "1.2025"]);
     expect(file.materials.map((material) => material.material.name)).toEqual(["PETG", "PLA"]);
     expect(file.materials.map((material) => material.volume_cm3)).toEqual(["2.405", "1.2025"]);
@@ -434,7 +472,10 @@ describe("CalculationView", () => {
     if (!fileCard) throw new Error("File card missing");
     await user.click(within(fileCard).getByRole("button", { name: "Import STL" }));
 
-    await waitFor(() => expect(within(fileCard).getByLabelText("Width X")).toHaveValue("40"));
+    await waitFor(() => {
+      expect(within(fileCard).getByLabelText("File name")).toHaveValue("demo");
+      expect(within(fileCard).getByLabelText("Width X")).toHaveValue("40");
+    });
     expect(within(fileCard).getByLabelText("Depth Y")).toHaveValue("30");
     expect(within(fileCard).getByLabelText("Height Z")).toHaveValue("25");
     expect(within(fileCard).getByText("Fits — largest axis at 40 %")).toBeInTheDocument();

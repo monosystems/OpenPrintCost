@@ -1,4 +1,4 @@
-import { formatMoney } from "../api/format";
+import { formatMoney, sumSignedDecimalStrings } from "../api/format";
 import { localizeDetail } from "../api/currency";
 import { useLocale } from "../i18n";
 import type {
@@ -70,9 +70,8 @@ export function CalculationResultView({
 
       {groups.map((group) => {
         const positions = result.positions.filter((position) => position.group === group);
-        const subtotal = positions
-          .map((position) => position.amount)
-          .reduce((sum, amount) => sum + Number(amount), 0);
+        const subtotal =
+          sumSignedDecimalStrings(positions.map((position) => position.amount)) ?? "0";
         const isTotal = group === "total";
         return (
           <div key={group} className="mb-4 overflow-hidden rounded-card border border-line">
@@ -93,7 +92,7 @@ export function CalculationResultView({
                   isTotal ? "text-accent" : "text-ink"
                 }`}
               >
-                {formatMoney(subtotal.toFixed(2), locale)} {currency}
+                {formatMoney(subtotal, locale)} {currency}
               </span>
             </div>
             {!isTotal ? (

@@ -125,9 +125,9 @@ const PRINTER_COLUMNS: &str = "id, model, manufacturer, process, material_family
 const MATERIAL_COLUMNS: &str = "id, name, material_type, family, manufacturer, shop_link, \
      density_g_cm3, package_size, unit, price, properties";
 
-/// Spaltenauswahl für Arbeitsschrittzeilen (inkl. Kategoriename).
-const WORKSTEP_COLUMNS: &str = "w.id, w.name, w.category_id, c.name, w.calculation_type, \
-     w.price, w.quantity, w.duration_hours, w.timing";
+/// Spaltenauswahl für Arbeitsschrittzeilen (inkl. Kategorie und Kategoriefarbe).
+const WORKSTEP_COLUMNS: &str = "w.id, w.name, w.category_id, c.name, c.color, \
+     w.calculation_type, w.price, w.quantity, w.duration_hours, w.timing";
 
 /// Spaltenauswahl für Stundensatzzeilen.
 const HOURLY_RATE_COLUMNS: &str = "id, name, time_basis, machine_hours, replacement_cost, \
