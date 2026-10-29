@@ -28,6 +28,19 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.3.1] — 2026-10-29
+
+### Fixed
+
+- *(io)* keep the volume from `filament used [cm3]` comments when the filament diameter is not 1.75 mm
+- *(io)* bound G-code and STL imports by file size and tolerate non-UTF-8 G-code
+- *(calculation)* fill the file name from the imported G-code/STL path when it is empty
+- *(calculation)* record a creation timestamp on new, imported, and saved calculations
+- *(calculation)* show exact group subtotals instead of summing money as floating point in the UI
+- *(calculation)* normalize comma-separated decimals and reject empty or malformed numbers before the backend
+- *(store)* preserve workstep category colors when loading a workstep
+- *(core)* reject negative physical values and percentages outside 0–100 before calculating
+
 ## [0.3.0] — 2026-10-29
 
 ### Added

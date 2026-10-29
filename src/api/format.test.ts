@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { multiplyDecimalStrings, sumDecimalStrings } from "./format";
+import { multiplyDecimalStrings, sumDecimalStrings, sumSignedDecimalStrings } from "./format";
 
 describe("multiplyDecimalStrings", () => {
   it("multiplies whole numbers exactly", () => {
@@ -33,5 +33,23 @@ describe("sumDecimalStrings", () => {
     expect(sumDecimalStrings(["2", "-3"])).toBeNull();
     expect(sumDecimalStrings(["2", "3e4"])).toBeNull();
     expect(sumDecimalStrings(["2", ""])).toBeNull();
+  });
+});
+
+describe("sumSignedDecimalStrings", () => {
+  it("sums signed values exactly and keeps the final sign", () => {
+    expect(sumSignedDecimalStrings(["0.31", "-0.05", "1.005"])).toBe("1.265");
+    expect(sumSignedDecimalStrings(["-1", "0.25"])).toBe("-0.75");
+    expect(sumSignedDecimalStrings(["-0.1", "0.1"])).toBe("0");
+  });
+
+  it("returns zero for an empty list", () => {
+    expect(sumSignedDecimalStrings([])).toBe("0");
+  });
+
+  it("rejects values that are not plain decimals", () => {
+    expect(sumSignedDecimalStrings(["2", "3e4"])).toBeNull();
+    expect(sumSignedDecimalStrings(["2", ""])).toBeNull();
+    expect(sumSignedDecimalStrings(["2", "1,5"])).toBeNull();
   });
 });

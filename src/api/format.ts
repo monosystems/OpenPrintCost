@@ -78,14 +78,46 @@ export function sumDecimalStrings(values: ReadonlyArray<string>): string | null 
   return formatScaled(digits, scale);
 }
 
+/**
+ * Sums signed decimal strings exactly and returns a plain decimal string
+ * without trailing zeros. Returns `null` if any value is not a plain decimal
+ * number.
+ *
+ * Money amounts must stay exact on the way to the display; `Number` would
+ * introduce binary rounding errors before the final rounding step.
+ */
+export function sumSignedDecimalStrings(values: ReadonlyArray<string>): string | null {
+  let digits = 0n;
+  let scale = 0;
+  const parsed: Array<{ sign: bigint; integer: string; fraction: string }> = [];
+  for (const value of values) {
+    const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
+    if (!match) return null;
+    parsed.push({
+      sign: match[1] === "-" ? -1n : 1n,
+      integer: match[2] ?? "0",
+      fraction: match[3] ?? "",
+    });
+    scale = Math.max(scale, (match[3] ?? "").length);
+  }
+
+  for (const entry of parsed) {
+    const fraction = entry.fraction.padEnd(scale, "0");
+    digits += entry.sign * BigInt(entry.integer + fraction);
+  }
+
+  return formatScaled(digits, scale);
+}
+
 /** Renders an integer plus scale as a plain decimal string. */
 function formatScaled(digits: bigint, scale: number): string {
-  let result = digits.toString();
+  const negative = digits < 0n;
+  let result = (negative ? -digits : digits).toString();
   if (scale > 0) {
     result = result.padStart(scale + 1, "0");
     const fraction = result.slice(-scale).replace(/0+$/, "");
     const integer = result.slice(0, -scale);
     result = fraction.length > 0 ? `${integer}.${fraction}` : integer;
   }
-  return result;
+  return negative ? `-${result}` : result;
 }

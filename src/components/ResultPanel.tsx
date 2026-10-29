@@ -1,4 +1,4 @@
-import { formatMoney } from "../api/format";
+import { formatMoney, sumSignedDecimalStrings } from "../api/format";
 import { useLocale } from "../i18n";
 import type { CalculationResult, CostGroup } from "../api/types";
 import { GROUP_ORDER, groupLabels } from "./costGroups";
@@ -184,19 +184,22 @@ function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; 
   )
     .map((group) => ({
       group: group as BreakdownGroup,
-      amount: result.positions
-        .filter((position) => position.group === group)
-        .reduce((sum, position) => sum + Number(position.amount), 0),
+      amount:
+        sumSignedDecimalStrings(
+          result.positions
+            .filter((position) => position.group === group)
+            .map((position) => position.amount),
+        ) ?? "0",
     }))
-    .filter((row) => row.amount > 0)
-    .sort((a, b) => b.amount - a.amount);
+    .filter((row) => Number(row.amount) > 0)
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
 
   const visible = rows.slice(0, 4);
   const rest = rows.slice(4);
   if (rest.length > 0) {
     visible.push({
       group: "other",
-      amount: rest.reduce((sum, row) => sum + row.amount, 0),
+      amount: sumSignedDecimalStrings(rest.map((row) => row.amount)) ?? "0",
     });
   }
 
@@ -210,7 +213,8 @@ function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; 
       <div className="mt-3 space-y-3">
         {visible.map((row) => {
           const label = row.group === "other" ? t.resultGroups.other : labels[row.group];
-          const share = total > 0 ? Math.min(100, Math.max(0, (row.amount / total) * 100)) : 0;
+          const amount = Number(row.amount);
+          const share = total > 0 ? Math.min(100, Math.max(0, (amount / total) * 100)) : 0;
           return (
             <div key={row.group}>
               <div className="flex items-center justify-between gap-2 text-xs">
@@ -222,7 +226,7 @@ function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; 
                   <span className="truncate">{label}</span>
                 </span>
                 <span className="shrink-0 tabular-nums text-ink">
-                  {formatMoney(row.amount.toFixed(2), locale)} {currency}
+                  {formatMoney(row.amount, locale)} {currency}
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-raised">

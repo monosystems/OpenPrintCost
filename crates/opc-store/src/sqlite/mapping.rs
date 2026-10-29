@@ -202,11 +202,12 @@ pub(crate) fn row_to_workstep(row: &Row) -> rusqlite::Result<Workstep> {
     let name = column(row, 1)?;
     let category_id = column(row, 2)?;
     let category_name = column(row, 3)?;
-    let calculation_type = enum_from_text::<WorkstepCalculationType>(&column(row, 4)?)?;
-    let price = decimal_from_text(&column(row, 5)?)?;
-    let quantity = decimal_from_text(&column(row, 6)?)?;
-    let duration_hours = decimal_from_text(&column(row, 7)?)?;
-    let timing = enum_from_text::<WorkstepTiming>(&column(row, 8)?)?;
+    let category_color = optional_column(row, 4)?;
+    let calculation_type = enum_from_text::<WorkstepCalculationType>(&column(row, 5)?)?;
+    let price = decimal_from_text(&column(row, 6)?)?;
+    let quantity = decimal_from_text(&column(row, 7)?)?;
+    let duration_hours = decimal_from_text(&column(row, 8)?)?;
+    let timing = enum_from_text::<WorkstepTiming>(&column(row, 9)?)?;
 
     Ok(Workstep {
         id: parse_uuid(&id)?,
@@ -214,7 +215,7 @@ pub(crate) fn row_to_workstep(row: &Row) -> rusqlite::Result<Workstep> {
         category: WorkstepCategory {
             id: parse_uuid(&category_id)?,
             name: category_name,
-            color: None,
+            color: category_color,
         },
         calculation_type,
         price,

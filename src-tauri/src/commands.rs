@@ -20,6 +20,12 @@ use uuid::Uuid;
 
 /// Obergrenze für eingelesene Kalkulationsdateien.
 const MAX_CALCULATION_JSON_BYTES: u64 = 10 * 1024 * 1024;
+/// Obergrenze für G-code-Dateien. G-code wird als Text vollständig in den
+/// Speicher gelesen; das Limit verhindert, dass eine versehentlich gewählte
+/// Riesendatei die Anwendung per OOM beendet.
+const MAX_GCODE_BYTES: u64 = 256 * 1024 * 1024;
+/// Obergrenze für STL-Dateien (binär oder ASCII).
+const MAX_STL_BYTES: u64 = 512 * 1024 * 1024;
 /// Obergrenze für 3MF-Projektdateien (komprimiert).
 const MAX_3MF_BYTES: u64 = 512 * 1024 * 1024;
 
@@ -486,35 +492,9 @@ pub async fn install_update(app: tauri::AppHandle) -> CommandResult<()> {
 // Datei-Import
 // ---------------------------------------------------------------------------
 
-/// Liest eine GCode-Datei vom Pfad und liefert Druckzeit + Filamentverbrauch.
-///
-/// Das Backend liest die Datei selbst, damit Binär- und Großdateien nicht
-/// durch die JSON-Grenze müssen (Spec 0009).
-#[tauri::command]
-pub fn import_gcode_file(path: String) -> CommandResult<opc_io::GcodeInfo> {
-    let text = std::fs::read_to_string(&path).map_err(|error| {
-        CommandError::new(format!(
-            "Datei '{path}' konnte nicht gelesen werden: {error}"
-        ))
-    })?;
-    opc_io::parse_gcode(&text).map_err(CommandError::from)
-}
-
-/// Liest eine STL-Datei vom Pfad und liefert Volumen + Dreieckszahl.
-#[tauri::command]
-pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
-    let bytes = std::fs::read(&path).map_err(|error| {
-        CommandError::new(format!(
-            "Datei '{path}' konnte nicht gelesen werden: {error}"
-        ))
-    })?;
-    opc_io::parse_stl(&bytes).map_err(CommandError::from)
-}
-
-/// Liest eine 3MF-Projektdatei und liefert Volumen, Maße und Slicer-Metadaten.
-#[tauri::command]
-pub fn import_3mf_file(path: String) -> CommandResult<opc_io::ThreeMfInfo> {
-    let metadata = std::fs::metadata(&path).map_err(|error| {
+/// Liest eine Datei mit Größenlimit und Dateitypprüfung.
+fn read_file_limited(path: &str, limit: u64, label: &str) -> CommandResult<Vec<u8>> {
+    let metadata = std::fs::metadata(path).map_err(|error| {
         CommandError::new(format!(
             "Datei '{path}' konnte nicht geprüft werden: {error}"
         ))
@@ -524,17 +504,58 @@ pub fn import_3mf_file(path: String) -> CommandResult<opc_io::ThreeMfInfo> {
             "'{path}' ist keine reguläre Datei."
         )));
     }
-    if metadata.len() > MAX_3MF_BYTES {
+    if metadata.len() > limit {
         return Err(CommandError::new(format!(
-            "Datei '{path}' ist zu groß (maximal {} MB).",
-            MAX_3MF_BYTES / (1024 * 1024)
+            "Datei '{path}' ist zu groß (maximal {} MB für {label}).",
+            limit / (1024 * 1024)
         )));
     }
-    let bytes = std::fs::read(&path).map_err(|error| {
+
+    let file = std::fs::File::open(path).map_err(|error| {
         CommandError::new(format!(
-            "Datei '{path}' konnte nicht gelesen werden: {error}"
+            "Datei '{path}' konnte nicht geöffnet werden: {error}"
         ))
     })?;
+    let mut bytes = Vec::new();
+    file.take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| {
+            CommandError::new(format!(
+                "Datei '{path}' konnte nicht gelesen werden: {error}"
+            ))
+        })?;
+    if bytes.len() as u64 > limit {
+        return Err(CommandError::new(format!(
+            "Datei '{path}' ist zu groß (maximal {} MB für {label}).",
+            limit / (1024 * 1024)
+        )));
+    }
+    Ok(bytes)
+}
+
+/// Liest eine GCode-Datei vom Pfad und liefert Druckzeit + Filamentverbrauch.
+///
+/// Das Backend liest die Datei selbst, damit Binär- und Großdateien nicht
+/// durch die JSON-Grenze müssen (Spec 0009). Nicht-UTF-8-Bytes in
+/// Slicer-Kommentaren werden ersetzt, statt den gesamten Import abzulehnen.
+#[tauri::command]
+pub fn import_gcode_file(path: String) -> CommandResult<opc_io::GcodeInfo> {
+    let bytes = read_file_limited(&path, MAX_GCODE_BYTES, "G-code")?;
+    let text = String::from_utf8_lossy(&bytes);
+    opc_io::parse_gcode(&text).map_err(CommandError::from)
+}
+
+/// Liest eine STL-Datei vom Pfad und liefert Volumen + Dreieckszahl.
+#[tauri::command]
+pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
+    let bytes = read_file_limited(&path, MAX_STL_BYTES, "STL")?;
+    opc_io::parse_stl(&bytes).map_err(CommandError::from)
+}
+
+/// Liest eine 3MF-Projektdatei und liefert Volumen, Maße und Slicer-Metadaten.
+#[tauri::command]
+pub fn import_3mf_file(path: String) -> CommandResult<opc_io::ThreeMfInfo> {
+    let bytes = read_file_limited(&path, MAX_3MF_BYTES, "3MF")?;
     opc_io::parse_3mf(&bytes).map_err(CommandError::from)
 }
 

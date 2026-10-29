@@ -53,6 +53,8 @@ use uuid::Uuid;
 /// werden als `Err` gemeldet und **nicht** als Panic oder stillschweigend
 /// als `0` behandelt (Spec 0003, Akzeptanzkriterium 10).
 pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::calc::CalcError> {
+    crate::calc::validation::validate(input)?;
+
     let mut positions: Vec<CostPosition> = Vec::new();
     let mut file_summaries: Vec<FileSummary> = Vec::new();
     let mut base_total = Decimal::ZERO;

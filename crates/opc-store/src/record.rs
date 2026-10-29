@@ -43,7 +43,11 @@ pub struct CompanyInfo {
     pub currency: String,
 }
 
-/// Standardwährung für neue Datenbanken und alte Datensätze.
+/// Standardwährung für **neue** Datenbanken und neue Firmendatensätze.
+///
+/// Bestehende Datenbanken aus der Zeit vor Migration 0004 erhalten bewusst
+/// `EUR` (damals wurden alle Beträge in Euro geführt); dieser Wert wird beim
+/// Laden aus der Datenbank übernommen und nicht überschrieben.
 pub fn default_currency() -> String {
     "USD".to_string()
 }

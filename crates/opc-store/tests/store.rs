@@ -285,7 +285,8 @@ fn material_kann_geloescht_werden() {
 #[test]
 fn arbeitsschritte_legen_sich_an_und_lassen_sich_lesen() {
     for_each_backend(|store| {
-        let category = WorkstepCategory::new("Nachbearbeitung");
+        let mut category = WorkstepCategory::new("Nachbearbeitung");
+        category.color = Some("#ff8800".to_string());
         store.save_workstep_category(&category).unwrap();
 
         let mut workstep = Workstep::new(
@@ -307,6 +308,7 @@ fn arbeitsschritte_legen_sich_an_und_lassen_sich_lesen() {
         assert_eq!(loaded.calculation_type, WorkstepCalculationType::PerPiece);
         assert_eq!(loaded.category.id, category.id);
         assert_eq!(loaded.category.name, "Nachbearbeitung");
+        assert_eq!(loaded.category.color.as_deref(), Some("#ff8800"));
     });
 }
 
@@ -566,6 +568,9 @@ fn firmendaten_runden_sich_ueber_beide_adapter() {
         let initial = store.get_company_info().unwrap();
         assert_eq!(initial.name, "");
         assert_eq!(initial.email, "");
+        // Neue Installationen starten in US-Dollar; bestehende Vor-Währungs-
+        // Datenbanken behalten durch Migration 0004 den damaligen Euro-Standard.
+        assert_eq!(initial.currency, "USD");
 
         store
             .save_company_info(&opc_store::CompanyInfo {
