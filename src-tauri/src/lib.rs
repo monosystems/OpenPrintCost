@@ -82,6 +82,7 @@ pub fn run() {
             commands::install_update,
             commands::import_gcode_file,
             commands::import_stl_file,
+            commands::import_3mf_file,
             commands::export_result_pdf,
             commands::export_result_excel,
             commands::get_company_info,

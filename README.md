@@ -32,7 +32,7 @@
 OpenPrintCost answers one question: **what does a 3D print job really cost?**
 
 You define printers, materials, work steps, and hourly rates once. Then, per
-job, you import G-code or STL files, assign materials, add labor and
+job, you import G-code, STL or 3MF files, assign materials, add labor and
 surcharges — and get an auditable breakdown per file and for the whole project,
 including failure-rate costing, margin, and tax.
 
@@ -66,17 +66,19 @@ including failure-rate costing, margin, and tax.
 
 **Job costing (per file + project level)**
 
-- Import **G-code or STL**. Supported slicers: PrusaSlicer, OrcaSlicer,
-  Bambu Studio, Cura, Simplify3D, IdeaMaker, CraftWare.
+- Import **G-code, STL or 3MF**. Supported slicers: PrusaSlicer, OrcaSlicer,
+  Bambu Studio, Cura, Simplify3D, IdeaMaker, CraftWare. 3MF projects are read
+  with mesh volume, material names, and the slicer's time/filament metadata
+  when present.
 - **Printability check:** STL outer dimensions are compared with the selected
   printer's build volume, with a warning when an axis does not fit.
 - Time source priority: **slicer comment wins**, otherwise geometric
   simulation from moves and filament use.
 - Material assignment, work steps, extra items, surcharges, margin, and tax —
   per file and for the whole project.
-- **Multi-material:** assign a weight or volume per material; G-code imports
-  expose one row per filament for assignment. Material changes can be costed
-  per file when the printer defines a change cost.
+- **Multi-material:** assign a weight or volume per material; G-code and 3MF
+  imports expose one row per filament for assignment. Material changes can be
+  costed per file when the printer defines a change cost.
 - **Production cost vs. selling price**, with price and cost per piece
   delivered by the calculation core.
 - Failure-rate costing and grouped line items with file attribution.
@@ -186,7 +188,7 @@ libraries of your platform.
    [Releases](https://github.com/monosystems/OpenPrintCost/releases) and open it.
 2. Add a **printer** (power in W, wear costs) and a **material** (density,
    spool weight, price).
-3. On the **Calculation** tab, import a G-code or STL file, assign the
+3. On the **Calculation** tab, import a G-code, STL or 3MF file, assign the
    material, and add work steps as needed.
 4. Set margin and tax, check the grouped result, and export **PDF** or
    **Excel**.
@@ -196,7 +198,7 @@ No configuration files, no server, no sign-up.
 ## How it works
 
 ```text
-G-code / STL → opc-io (parse + simulate) → opc-core (pure costing) → PDF / Excel
+G-code / STL / 3MF → opc-io (parse + simulate) → opc-core (pure costing) → PDF / Excel
                         SQLite (opc-store) ← Tauri shell (src-tauri) ← React UI (src/)
 ```
 

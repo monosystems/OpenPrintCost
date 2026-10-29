@@ -8,6 +8,9 @@
 //! * [`gcode`] — Druckzeit und Filamentverbrauch aus GCode-Dateien: zuerst aus
 //!   den Slicer-Kommentaren, ersatzweise aus einer geometrischen Simulation
 //!   der Fahrbewegungen.
+//! * [`threemf`] — 3MF-Projektdateien: Mesh-Volumen, Materialien, Bauvolumen
+//!   sowie Zeit- und Filamentmetadaten von Bambu Studio, OrcaSlicer und
+//!   PrusaSlicer.
 //!
 //! Die Crate ist **pure**: Bytes oder Text hinein, Struktur heraus. Kein
 //! Dateisystem, kein Netzwerk, kein globaler Zustand — damit laufen alle
@@ -18,7 +21,9 @@
 pub mod error;
 pub mod gcode;
 pub mod stl;
+pub mod threemf;
 
 pub use error::{IoError, IoResult};
 pub use gcode::{FilamentUsage, GcodeInfo, parse_gcode};
 pub use stl::{StlInfo, Triangle, parse_stl};
+pub use threemf::{ThreeMfInfo, parse_3mf};

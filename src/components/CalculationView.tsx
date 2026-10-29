@@ -73,6 +73,7 @@ interface ImportedVolume {
 type CalculationHint =
   | ({ kind: "import"; slicer: string; source: "comments" | "simulated" } & ImportedVolume)
   | ({ kind: "fileTime" } & ImportedVolume)
+  | ({ kind: "threeMf"; slicer: string | null; objectCount: number } & ImportedVolume)
   | { kind: "triangles"; count: number }
   | { kind: "exportSaved"; path: string }
   | { kind: "exportCancelled" }
@@ -99,6 +100,30 @@ function importedVolume(filaments: GcodeInfo["filaments"]): ImportedVolume {
   };
 }
 
+/** Filament volumes of a 3MF import in cm³, ignoring unused extruders. */
+function volumeFromCm3List(values: string[]): ImportedVolume {
+  const filamentVolumesCm3 = values.filter((value) => /[1-9]/.test(value));
+  const totalCm3 = sumDecimalStrings(filamentVolumesCm3);
+  return {
+    volumeCm3: totalCm3 === null || totalCm3 === "0" ? null : totalCm3,
+    filamentCount: filamentVolumesCm3.length,
+    filamentVolumesCm3,
+  };
+}
+
+/** Finds a master-data material by its (case-insensitive) name. */
+function matchMaterialByName(materials: Material[], name: string): Material | undefined {
+  const target = name.trim().toLowerCase();
+  if (target === "") return undefined;
+  return materials.find((material) => material.name.trim().toLowerCase() === target);
+}
+
+/** File name without directories and extension. */
+function fileStem(path: string): string {
+  const name = path.split(/[\\/]/).pop() ?? "";
+  return name.replace(/\.[^.]+$/, "");
+}
+
 function volumeHintSuffix(hint: ImportedVolume, t: Strings, locale: Locale): string {
   if (hint.volumeCm3 === null) return "";
   const volume = formatQuantity(hint.volumeCm3, locale);
@@ -116,6 +141,8 @@ function hintText(hint: CalculationHint, t: Strings, locale: Locale): string {
       )}${volumeHintSuffix(hint, t, locale)}`;
     case "fileTime":
       return `${t.calculation.fileTimeTaken}${volumeHintSuffix(hint, t, locale)}`;
+    case "threeMf":
+      return `${t.calculation.threeMfTaken(hint.objectCount, hint.slicer)}${volumeHintSuffix(hint, t, locale)}`;
     case "triangles":
       return t.calculation.trianglesTaken(hint.count);
     case "exportSaved":
@@ -169,10 +196,12 @@ function assignedFilamentCount(file: CalculationFileInput): number {
   ).size;
 }
 
-/** A partially assigned import would silently omit some filament volume. */
+/** An imported filament list is only complete when every filament has a material. */
 function hasUnassignedFilaments(file: CalculationFileInput): boolean {
-  const assigned = assignedFilamentCount(file);
-  return assigned > 0 && assigned < file.filament_volumes_cm3.length;
+  return (
+    file.filament_volumes_cm3.length > 0 &&
+    assignedFilamentCount(file) < file.filament_volumes_cm3.length
+  );
 }
 
 function emptyFile(): CalculationFileInput {
@@ -522,14 +551,18 @@ export function CalculationView({
     );
   };
 
-  const importIntoFile = async (fileId: string, kind: "gcode" | "stl") => {
+  const importIntoFile = async (fileId: string, kind: "gcode" | "stl" | "3mf") => {
     try {
       const path = await adapter.pickImportFile(kind);
+      if (!path) return;
+
       const info =
         kind === "gcode"
-          ? await adapter.importGcodeFile(path ?? "demo")
-          : await adapter.importStlFile(path ?? "demo");
-      if (kind === "gcode" && "used_comments" in info) {
+          ? await adapter.importGcodeFile(path)
+          : kind === "stl"
+            ? await adapter.importStlFile(path)
+            : await adapter.import3mfFile(path);
+      if ("used_comments" in info) {
         const time = info.time_from_comments_hours ?? info.simulated_time_hours;
         const imported = importedVolume(info.filaments);
         const existingMaterials =
@@ -556,12 +589,58 @@ export function CalculationView({
               }
             : { kind: "fileTime", ...imported },
         );
-      } else if (kind === "stl" && "volume_cm3" in info) {
+      } else if ("triangle_count" in info) {
         updateFile(fileId, {
           volume_cm3: info.volume_cm3,
           dimensions_mm: info.dimensions_mm,
         });
         setHint({ kind: "triangles", count: info.triangle_count });
+      } else if ("object_count" in info) {
+        const imported = volumeFromCm3List(info.filament_volumes_cm3);
+        const existing = current?.files.find((file) => file.id === fileId);
+        const existingMaterials = existing?.materials ?? [];
+        const singleMaterial =
+          info.material_names.length === 1
+            ? matchMaterialByName(materials, info.material_names[0] ?? "")
+            : undefined;
+
+        let nextMaterials = existingMaterials.filter(
+          (entry) => entry.filament_index === null,
+        );
+        if (imported.filamentVolumesCm3.length > 0 && singleMaterial) {
+          nextMaterials = imported.filamentVolumesCm3.map((volume, index) => ({
+            material: { ...singleMaterial },
+            weight_g: null,
+            volume_cm3: volume,
+            filament_index: index,
+          }));
+        } else if (imported.filamentVolumesCm3.length === 0 && singleMaterial) {
+          nextMaterials = [
+            {
+              material: { ...singleMaterial },
+              weight_g: null,
+              volume_cm3: info.volume_cm3,
+              filament_index: null,
+            },
+          ];
+        }
+
+        updateFile(fileId, {
+          file_name: existing?.file_name.trim() ? existing.file_name : fileStem(path),
+          volume_cm3: info.volume_cm3,
+          ...(info.dimensions_mm ? { dimensions_mm: info.dimensions_mm } : {}),
+          ...(info.estimated_time_hours
+            ? { print_time_hours: info.estimated_time_hours }
+            : {}),
+          filament_volumes_cm3: imported.filamentVolumesCm3,
+          materials: nextMaterials,
+        });
+        setHint({
+          kind: "threeMf",
+          slicer: info.detected_slicer,
+          objectCount: info.object_count,
+          ...imported,
+        });
       }
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.importFailed);
@@ -918,7 +997,10 @@ export function CalculationView({
         <Toast
           message={hintText(hint, t, locale)}
           tone={
-            (hint.kind === "import" || hint.kind === "fileTime") && hint.filamentCount > 1
+            (hint.kind === "import" ||
+              hint.kind === "fileTime" ||
+              hint.kind === "threeMf") &&
+              hint.filamentCount > 1
               ? "warning"
               : hint.kind === "exportCancelled" || hint.kind === "importCancelled"
                 ? "warning"
@@ -1204,7 +1286,7 @@ function FileCard({
   onAddMaterial: (materialId: string) => void;
   onUpdateMaterial: (index: number, patch: Partial<FileMaterial>) => void;
   onRemoveMaterial: (index: number) => void;
-  onImport: (kind: "gcode" | "stl") => void;
+  onImport: (kind: "gcode" | "stl" | "3mf") => void;
 }) {
   const t = useStrings();
   const { locale } = useLocale();
@@ -1331,6 +1413,9 @@ function FileCard({
         </SecondaryButton>
         <SecondaryButton type="button" onClick={() => onImport("stl")}>
           {t.calculation.importStl}
+        </SecondaryButton>
+        <SecondaryButton type="button" onClick={() => onImport("3mf")}>
+          {t.calculation.import3mf}
         </SecondaryButton>
       </div>
       <div className="mt-4">

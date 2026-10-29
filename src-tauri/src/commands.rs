@@ -20,6 +20,8 @@ use uuid::Uuid;
 
 /// Obergrenze für eingelesene Kalkulationsdateien.
 const MAX_CALCULATION_JSON_BYTES: u64 = 10 * 1024 * 1024;
+/// Obergrenze für 3MF-Projektdateien (komprimiert).
+const MAX_3MF_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Parst eine UUID aus der übergebenen Zeichenkette.
 fn parse_id(value: &str) -> CommandResult<Uuid> {
@@ -507,6 +509,33 @@ pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
         ))
     })?;
     opc_io::parse_stl(&bytes).map_err(CommandError::from)
+}
+
+/// Liest eine 3MF-Projektdatei und liefert Volumen, Maße und Slicer-Metadaten.
+#[tauri::command]
+pub fn import_3mf_file(path: String) -> CommandResult<opc_io::ThreeMfInfo> {
+    let metadata = std::fs::metadata(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{path}' konnte nicht geprüft werden: {error}"
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(CommandError::new(format!(
+            "'{path}' ist keine reguläre Datei."
+        )));
+    }
+    if metadata.len() > MAX_3MF_BYTES {
+        return Err(CommandError::new(format!(
+            "Datei '{path}' ist zu groß (maximal {} MB).",
+            MAX_3MF_BYTES / (1024 * 1024)
+        )));
+    }
+    let bytes = std::fs::read(&path).map_err(|error| {
+        CommandError::new(format!(
+            "Datei '{path}' konnte nicht gelesen werden: {error}"
+        ))
+    })?;
+    opc_io::parse_3mf(&bytes).map_err(CommandError::from)
 }
 
 // ---------------------------------------------------------------------------

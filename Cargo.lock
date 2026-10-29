@@ -2795,11 +2795,13 @@ dependencies = [
 name = "opc-io"
 version = "0.2.3"
 dependencies = [
+ "quick-xml",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "zip 9.0.5",
 ]
 
 [[package]]

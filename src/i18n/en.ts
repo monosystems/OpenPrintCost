@@ -355,6 +355,7 @@ export const en: Strings = {
     materialChanges: "Material changes",
     importGcode: "Import G-code",
     importStl: "Import STL",
+    import3mf: "Import 3MF",
     fileMaterials: "Materials",
     noFileMaterials: "No material assigned yet.",
     noMaterialsHint: "No materials defined (Materials tab).",
@@ -410,7 +411,11 @@ export const en: Strings = {
     importMultiFilament: (count: number, volume: string) =>
       `${count} filaments detected — ${volume} cm³ total taken; assign a material to each filament below.`,
     trianglesTaken: (count: number) => `${count} triangles — volume taken.`,
-    noFiles: "No files yet. Add a file manually or import G-code/STL.",
+    threeMfTaken: (objects: number, slicer: string | null) =>
+      `${slicer ? `${slicer} detected — ` : ""}${objects} ${
+        objects === 1 ? "object" : "objects"
+      } read from 3MF.`,
+    noFiles: "No files yet. Add a file manually or import G-code, STL or 3MF.",
     resultTitle: "Result",
     resultFilePrefix: "File",
     failRateBadge: "Failure rate",

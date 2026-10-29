@@ -20,6 +20,7 @@ import type {
   Printer,
   StoredCalculation,
   StlInfo,
+  ThreeMfInfo,
   UpdateInfo,
   Uuid,
   Workstep,
@@ -155,7 +156,7 @@ export class TauriPlatformAdapter implements PlatformAdapter {
     return call("calculate", { calculation });
   }
 
-  async pickImportFile(kind: "gcode" | "stl"): Promise<string | null> {
+  async pickImportFile(kind: "gcode" | "stl" | "3mf"): Promise<string | null> {
     try {
       const selected = await open({
         multiple: false,
@@ -163,7 +164,9 @@ export class TauriPlatformAdapter implements PlatformAdapter {
         filters: [
           kind === "gcode"
             ? { name: "GCode", extensions: ["gcode", "gco", "g"] }
-            : { name: "STL", extensions: ["stl"] },
+            : kind === "stl"
+              ? { name: "STL", extensions: ["stl"] }
+              : { name: "3MF", extensions: ["3mf"] },
         ],
       });
       return typeof selected === "string" ? selected : null;
@@ -176,6 +179,9 @@ export class TauriPlatformAdapter implements PlatformAdapter {
   }
   importStlFile(path: string): Promise<StlInfo> {
     return call("import_stl_file", { path });
+  }
+  import3mfFile(path: string): Promise<ThreeMfInfo> {
+    return call("import_3mf_file", { path });
   }
 
   exportCalculationJson(calculation: CalculationInput): Promise<string | null> {
