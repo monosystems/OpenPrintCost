@@ -114,6 +114,10 @@ export const de = {
     projectRequired: "Bitte einen Projektnamen eingeben.",
     fileRequired: "Bitte mindestens eine Datei hinzufügen.",
     printerRequired: "Bitte zuerst einen Drucker anlegen (Tab „Drucker“).",
+    materialAllocation: (file: string) =>
+      `Bitte für jedes Material in „${file}“ ein Gewicht oder Volumen angeben.`,
+    filamentAssignment: (file: string, assigned: number, total: number) =>
+      `Bitte alle importierten Filamente in „${file}“ zuordnen (${assigned}/${total}).`,
   },
   printers: {
     title: "Drucker",
@@ -355,6 +359,18 @@ export const de = {
     noMaterialsHint: "Keine Materialien angelegt (Tab „Materialien“).",
     materialPick: "Material wählen …",
     materialAria: "Material wählen",
+    materialWeight: "Gewicht je Material (g)",
+    materialVolume: "Volumen je Material (cm³)",
+    materialAllocationHint:
+      "Bei mehreren Materialien muss für jedes Material ein Gewicht oder Volumen angegeben sein.",
+    importedFilaments: "Importierte Filamente",
+    filamentAssignmentIncomplete: (assigned: number, total: number) =>
+      `${assigned} von ${total} Filamenten zugeordnet — ordne alle importierten Filamente zu oder verwende ein einzelnes manuelles Material.`,
+    filamentLabel: (index: number) => `Filament ${index}`,
+    filamentMaterialAria: (index: number) => `Material für Filament ${index}`,
+    assignMaterial: "Material zuordnen …",
+    unassignFilamentLabel: (index: number) =>
+      `Material von Filament ${index} entfernen`,
     removeMaterialLabel: (name: string) => `Material ${name} entfernen`,
     workstepsTitle: "Arbeitsschritte",
     itemsTitle: "Zusatzartikel",
@@ -392,7 +408,7 @@ export const de = {
     importTaken: (slicer: string, how: string) => `${slicer} erkannt — Druckzeit ${how} übernommen.`,
     importVolumeTaken: (volume: string) => `${volume} cm³ Filamentvolumen übernommen.`,
     importMultiFilament: (count: number, volume: string) =>
-      `${count} Filamente erkannt — ${volume} cm³ insgesamt übernommen; die Materialzuordnung je Filament wird noch nicht unterstützt.`,
+      `${count} Filamente erkannt — ${volume} cm³ insgesamt übernommen; ordne jedem Filament ein Material zu.`,
     trianglesTaken: (count: number) => `${count} Dreiecke — Volumen übernommen.`,
     noFiles: "Noch keine Dateien. Füge eine Datei manuell hinzu oder importiere GCode/STL.",
     resultTitle: "Ergebnis",

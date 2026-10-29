@@ -24,6 +24,16 @@ fn pla_material() -> Material {
     material
 }
 
+/// Ein zweites Material „PETG“: 1 kg für 30,00 €, Dichte 1,27 g/cm³.
+fn petg_material() -> Material {
+    let mut material = Material::new("PETG", "PETG");
+    material.price = dec!(30);
+    material.package_size = dec!(1);
+    material.unit = MaterialUnit::Kg;
+    material.density_g_cm3 = dec!(1.27);
+    material
+}
+
 /// Ein Drucker mit 100 W und 25 €/h Maschinenstundensatz.
 fn test_printer() -> Printer {
     let mut printer = Printer::new("Test-Drucker", PrintProcess::Fdm);
@@ -87,6 +97,108 @@ fn materialkosten_je_gramm_sind_unveraendert() {
 
     // 500 g für 12,50 € → 0,025 €/g
     assert_eq!(material.price_per_gram().unwrap(), dec!(0.025));
+}
+
+#[test]
+fn mehrere_materialien_mit_eigenem_volumen_werden_korrekt_berechnet() {
+    let mut input = base_input();
+    let file = &mut input.files[0];
+    file.materials = vec![
+        FileMaterial::new(pla_material()).with_volume_cm3(dec!(6)),
+        FileMaterial::new(petg_material()).with_volume_cm3(dec!(4)),
+    ];
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    // PLA:  6 cm³ × 1,24 g/cm³ = 7,44 g × 0,025 €/g = 0,1860 €
+    // PETG: 4 cm³ × 1,27 g/cm³ = 5,08 g × 0,030 €/g = 0,1524 €
+    assert_eq!(result.group_total(CostGroup::Material), dec!(0.3384));
+    assert_eq!(result.files[0].material_g, dec!(12.52));
+}
+
+#[test]
+fn mehrere_materialien_koennen_zu_einer_position_zusammengefasst_werden() {
+    let mut input = base_input();
+    input.profile.combine_materials = true;
+    input.files[0].materials = vec![
+        FileMaterial::new(pla_material()).with_volume_cm3(dec!(6)),
+        FileMaterial::new(petg_material()).with_volume_cm3(dec!(4)),
+    ];
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    let material_positions: Vec<_> = result
+        .positions
+        .iter()
+        .filter(|position| position.group == CostGroup::Material)
+        .collect();
+    assert_eq!(material_positions.len(), 1);
+    assert_eq!(material_positions[0].amount, dec!(0.3384));
+    assert_eq!(material_positions[0].quantity, Some(dec!(12.52)));
+}
+
+#[test]
+fn materialvolumen_ueberschreibt_das_dateivolumen() {
+    let mut input = base_input();
+    let file = &mut input.files[0];
+    file.volume_cm3 = Some(dec!(10));
+    file.materials = vec![FileMaterial::new(pla_material()).with_volume_cm3(dec!(5))];
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    // 5 cm³ × 1,24 g/cm³ = 6,20 g × 0,025 €/g = 0,155 €
+    assert_eq!(result.group_total(CostGroup::Material), dec!(0.155));
+    assert_eq!(result.files[0].material_g, dec!(6.20));
+}
+
+#[test]
+fn materialgewicht_hat_vorrang_vor_materialvolumen() {
+    let mut input = base_input();
+    let file = &mut input.files[0];
+    let mut material = FileMaterial::new(pla_material()).with_volume_cm3(dec!(10));
+    material.weight_g = Some(dec!(5));
+    file.materials = vec![material];
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    // 5 g × 0,025 €/g = 0,125 €; das Volumen würde 12,40 g ergeben.
+    assert_eq!(result.group_total(CostGroup::Material), dec!(0.125));
+    assert_eq!(result.files[0].material_g, dec!(5));
+}
+
+#[test]
+fn mehrere_materialien_ohne_zuordnung_sind_ein_fehler() {
+    let mut input = base_input();
+    input.files[0].materials = vec![
+        FileMaterial::new(pla_material()),
+        FileMaterial::new(petg_material()),
+    ];
+
+    let error = calculate(&input).expect_err("Mehrere Materialien ohne Zuordnung müssen scheitern");
+
+    assert!(matches!(
+        error,
+        CalcError::AmbiguousMaterialAllocation { file_name } if file_name == "Bauteil.stl"
+    ));
+}
+
+#[test]
+fn materialwechsel_erzeugt_einen_zuschlag() {
+    let mut input = base_input();
+    input.printer.material_change_cost = Some(dec!(2.5));
+    input.files[0].material_changes = 3;
+
+    let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
+
+    let position = result
+        .positions
+        .iter()
+        .find(|position| position.label == "Materialwechsel")
+        .expect("Materialwechsel-Position fehlt");
+
+    // 3 Wechsel × 2,50 € = 7,50 €
+    assert_eq!(position.amount, dec!(7.5));
+    assert_eq!(position.quantity, Some(dec!(3)));
 }
 
 // ---------------------------------------------------------------------------

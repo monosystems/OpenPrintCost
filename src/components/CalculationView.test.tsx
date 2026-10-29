@@ -21,7 +21,7 @@ function seed(adapter: MockPlatformAdapter) {
       hourly_rate: null,
       nozzle_wear_cost: null,
       build_plate_wear_cost: null,
-      material_change_cost: null,
+      material_change_cost: "2.5",
       properties: {},
     }),
     adapter.saveMaterial({
@@ -37,7 +37,31 @@ function seed(adapter: MockPlatformAdapter) {
       price: "29.9",
       properties: {},
     }),
+    adapter.saveMaterial({
+      id: newId(),
+      name: "PLA",
+      material_type: "PLA",
+      family: "filament",
+      manufacturer: null,
+      shop_link: null,
+      density_g_cm3: "1.24",
+      package_size: "1",
+      unit: "kg",
+      price: "25",
+      properties: {},
+    }),
   ]);
+}
+
+async function addMaterial(
+  user: ReturnType<typeof userEvent.setup>,
+  fileCard: HTMLElement,
+  name: string,
+) {
+  const select = within(fileCard).getByLabelText("Choose material");
+  const option = within(select).getByRole("option", { name });
+  await user.selectOptions(select, (option as HTMLOptionElement).value);
+  await user.click(within(fileCard).getByRole("button", { name: "Add" }));
 }
 
 describe("CalculationView", () => {
@@ -115,7 +139,7 @@ describe("CalculationView", () => {
     expect(toast).toHaveTextContent(/2\.886 cm³ filament volume taken/);
   });
 
-  it("sums multiple filament volumes and warns about per-filament assignment", async () => {
+  it("sums multiple filament volumes and assigns materials per filament", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
     vi.spyOn(adapter, "importGcodeFile").mockResolvedValue({
@@ -145,6 +169,118 @@ describe("CalculationView", () => {
     const toast = await screen.findByRole("status");
     expect(toast).toHaveTextContent(/2 filaments detected/);
     expect(toast).toHaveTextContent(/3\.608 cm³ total taken/);
+    expect(within(fileCard).getByText("Imported filaments")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Multi");
+    const firstFilament = within(fileCard).getByLabelText("Material for filament 1");
+    const petg = within(firstFilament).getByRole("option", { name: "PETG" });
+    await user.selectOptions(firstFilament, (petg as HTMLOptionElement).value);
+
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Assign all imported filaments/,
+    );
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+
+    const secondFilament = within(fileCard).getByLabelText("Material for filament 2");
+    const pla = within(secondFilament).getByRole("option", { name: "PLA" });
+    await user.selectOptions(secondFilament, (pla as HTMLOptionElement).value);
+
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => {
+      expect(await adapter.listCalculations()).toHaveLength(1);
+    });
+    const list = await adapter.listCalculations();
+    const entry = list[0];
+    if (!entry) throw new Error("Saved calculation missing");
+    const stored = await adapter.getCalculation(entry.id);
+    const file = stored.document.files[0];
+    if (!file) throw new Error("Saved file missing");
+
+    expect(file.filament_volumes_cm3).toEqual(["2.405", "1.2025"]);
+    expect(file.materials.map((material) => material.material.name)).toEqual(["PETG", "PLA"]);
+    expect(file.materials.map((material) => material.volume_cm3)).toEqual(["2.405", "1.2025"]);
+    expect(file.materials.map((material) => material.filament_index)).toEqual([0, 1]);
+  });
+
+  it("requires a weight or volume for every material in a multi-material file", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Multi");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await addMaterial(user, fileCard, "PETG");
+    await addMaterial(user, fileCard, "PLA");
+
+    expect(
+      within(fileCard).getByText(/multiple materials, enter a weight or volume/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Assign a weight or volume to every material/,
+    );
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+
+    const weights = within(fileCard).getAllByLabelText("Weight per material (g)");
+    const petgWeight = weights[0];
+    const plaWeight = weights[1];
+    if (!petgWeight || !plaWeight) throw new Error("Material weight inputs missing");
+    await user.type(petgWeight, "6");
+    await user.type(plaWeight, "4");
+
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
+  });
+
+  it("saves per-material volumes and the material change count", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Multi");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await addMaterial(user, fileCard, "PETG");
+    await addMaterial(user, fileCard, "PLA");
+
+    const volumes = within(fileCard).getAllByLabelText("Volume per material (cm³)");
+    const petgVolume = volumes[0];
+    const plaVolume = volumes[1];
+    if (!petgVolume || !plaVolume) throw new Error("Material volume inputs missing");
+    await user.type(petgVolume, "6");
+    await user.type(plaVolume, "4");
+
+    const materialChanges = within(fileCard).getByLabelText("Material changes");
+    await user.clear(materialChanges);
+    await user.type(materialChanges, "3");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => {
+      expect(await adapter.listCalculations()).toHaveLength(1);
+    });
+    const list = await adapter.listCalculations();
+    const entry = list[0];
+    if (!entry) throw new Error("Saved calculation missing");
+    const stored = await adapter.getCalculation(entry.id);
+    const file = stored.document.files[0];
+    if (!file) throw new Error("Saved file missing");
+
+    expect(file.materials.map((material) => material.volume_cm3)).toEqual(["6", "4"]);
+    expect(file.material_changes).toBe(3);
   });
 
   it("exports the result and shows the path", async () => {

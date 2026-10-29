@@ -122,6 +122,10 @@ export interface CalculationProfile {
 export interface FileMaterial {
   material: Material;
   weight_g: DecimalString | null;
+  /** Piece volume for this material in cm³ (multi-material). */
+  volume_cm3: DecimalString | null;
+  /** G-code extruder index this assignment came from, if any. */
+  filament_index: number | null;
 }
 
 export interface CalculationFileInput {
@@ -133,6 +137,8 @@ export interface CalculationFileInput {
   dimensions_mm: DimensionsMm | null;
   weight_g: DecimalString | null;
   materials: FileMaterial[];
+  /** Filament volume per extruder from a G-code import, in cm³. */
+  filament_volumes_cm3: DecimalString[];
   material_changes: number;
   multiply_print_time_with_quantity: boolean | null;
 }

@@ -28,6 +28,16 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.2.3] — 2026-10-29
+
+### Added
+
+- *(calculation)* assign G-code filaments and material changes
+
+### Fixed
+
+- *(calculation)* allocate multi-material costs per material
+
 ## [0.2.2] — 2026-10-29
 
 ### Fixed
@@ -263,7 +273,8 @@ Checksums protect against a corrupted or tampered download. Code signing
 (Apple Developer ID / Authenticode) would additionally prove authorship and
 is planned for a later release.
 
-[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/monosystems/OpenPrintCost/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/monosystems/OpenPrintCost/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/monosystems/OpenPrintCost/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/monosystems/OpenPrintCost/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/monosystems/OpenPrintCost/compare/v0.1.8...v0.2.0

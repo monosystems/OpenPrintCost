@@ -74,6 +74,9 @@ including failure-rate costing, margin, and tax.
   simulation from moves and filament use.
 - Material assignment, work steps, extra items, surcharges, margin, and tax —
   per file and for the whole project.
+- **Multi-material:** assign a weight or volume per material; G-code imports
+  expose one row per filament for assignment. Material changes can be costed
+  per file when the printer defines a change cost.
 - **Production cost vs. selling price**, with price and cost per piece
   delivered by the calculation core.
 - Failure-rate costing and grouped line items with file attribution.

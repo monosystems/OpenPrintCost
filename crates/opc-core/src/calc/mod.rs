@@ -32,6 +32,15 @@ pub enum CalcError {
         /// Beschreibung des Problems.
         message: String,
     },
+    /// Bei mehreren Materialien fehlt für mindestens ein Material die
+    /// Zuordnung über Gewicht oder Volumen.
+    #[error(
+        "Datei '{file_name}': Bei mehreren Materialien muss für jedes Material ein Gewicht oder Volumen angegeben sein"
+    )]
+    AmbiguousMaterialAllocation {
+        /// Anzeigename der betroffenen Datei.
+        file_name: String,
+    },
     /// Arithmetische Grenze überschritten (z. B. Überlauf der `Decimal`-Mantisse).
     #[error("Arithmetischer Fehler: {message}")]
     Arithmetic {
