@@ -306,7 +306,7 @@ pub fn delete_calculation(state: State<'_, AppState>, id: String) -> CommandResu
 ///
 /// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
 #[tauri::command]
-pub fn export_calculation_json(
+pub async fn export_calculation_json(
     app: tauri::AppHandle,
     calculation: CalculationInput,
 ) -> CommandResult<Option<String>> {
@@ -318,18 +318,26 @@ pub fn export_calculation_json(
         "Kalkulationsdatei",
         &format!("{}-kalkulation.json", calculation.project_name),
     )
+    .await
 }
 
 /// Öffnet den Dateidialog und liest eine Kalkulationsdatei ein.
 #[tauri::command]
-pub fn import_calculation_json(app: tauri::AppHandle) -> CommandResult<Option<CalculationInput>> {
+pub async fn import_calculation_json(
+    app: tauri::AppHandle,
+) -> CommandResult<Option<CalculationInput>> {
     use tauri_plugin_dialog::DialogExt;
 
-    let selected = app
-        .dialog()
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .add_filter("Kalkulationsdatei", &["json"])
-        .blocking_pick_file();
+        .pick_file(move |selected| {
+            let _ = sender.send(selected);
+        });
+    let selected = receiver
+        .await
+        .map_err(|_| CommandError::new("Dateidialog wurde unerwartet beendet"))?;
     let Some(selected) = selected else {
         return Ok(None);
     };
@@ -391,7 +399,7 @@ pub fn import_calculation_json(app: tauri::AppHandle) -> CommandResult<Option<Ca
 ///
 /// Die Berechnung braucht **keinen** Datenbankzugriff — sie läuft im
 /// Rechenkern `opc-core`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn calculate(calculation: CalculationInput) -> CommandResult<CalculationResult> {
     opc_core::calculate(&calculation).map_err(CommandError::from)
 }
@@ -538,7 +546,7 @@ fn read_file_limited(path: &str, limit: u64, label: &str) -> CommandResult<Vec<u
 /// Das Backend liest die Datei selbst, damit Binär- und Großdateien nicht
 /// durch die JSON-Grenze müssen (Spec 0009). Nicht-UTF-8-Bytes in
 /// Slicer-Kommentaren werden ersetzt, statt den gesamten Import abzulehnen.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_gcode_file(path: String) -> CommandResult<opc_io::GcodeInfo> {
     let bytes = read_file_limited(&path, MAX_GCODE_BYTES, "G-code")?;
     let text = String::from_utf8_lossy(&bytes);
@@ -546,14 +554,14 @@ pub fn import_gcode_file(path: String) -> CommandResult<opc_io::GcodeInfo> {
 }
 
 /// Liest eine STL-Datei vom Pfad und liefert Volumen + Dreieckszahl.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_stl_file(path: String) -> CommandResult<opc_io::StlInfo> {
     let bytes = read_file_limited(&path, MAX_STL_BYTES, "STL")?;
     opc_io::parse_stl(&bytes).map_err(CommandError::from)
 }
 
 /// Liest eine 3MF-Projektdatei und liefert Volumen, Maße und Slicer-Metadaten.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_3mf_file(path: String) -> CommandResult<opc_io::ThreeMfInfo> {
     let bytes = read_file_limited(&path, MAX_3MF_BYTES, "3MF")?;
     opc_io::parse_3mf(&bytes).map_err(CommandError::from)
@@ -585,13 +593,15 @@ pub fn save_company_info(
 ///
 /// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
 #[tauri::command]
-pub fn export_result_pdf(
+pub async fn export_result_pdf(
     app: tauri::AppHandle,
     result: CalculationResult,
     company: opc_store::CompanyInfo,
+    locale: Option<String>,
 ) -> CommandResult<Option<String>> {
-    let bytes =
-        opc_export::render_pdf(&result, &to_company(&company)).map_err(CommandError::from)?;
+    let locale = opc_export::ExportLocale::from_code(locale.as_deref().unwrap_or("en"));
+    let bytes = opc_export::render_pdf_with_locale(&result, &to_company(&company), locale)
+        .map_err(CommandError::from)?;
     save_bytes_via_dialog(
         &app,
         &bytes,
@@ -599,19 +609,22 @@ pub fn export_result_pdf(
         "PDF-Dokument",
         &format!("{}-kalkulation.pdf", result.project_name),
     )
+    .await
 }
 
 /// Rendert das Ergebnis als Excel-Arbeitsmappe und speichert es.
 ///
 /// Abbruch des Dialogs ist kein Fehler — dann kommt `None` zurück.
 #[tauri::command]
-pub fn export_result_excel(
+pub async fn export_result_excel(
     app: tauri::AppHandle,
     result: CalculationResult,
     company: opc_store::CompanyInfo,
+    locale: Option<String>,
 ) -> CommandResult<Option<String>> {
-    let bytes =
-        opc_export::render_excel(&result, &to_company(&company)).map_err(CommandError::from)?;
+    let locale = opc_export::ExportLocale::from_code(locale.as_deref().unwrap_or("en"));
+    let bytes = opc_export::render_excel_with_locale(&result, &to_company(&company), locale)
+        .map_err(CommandError::from)?;
     save_bytes_via_dialog(
         &app,
         &bytes,
@@ -619,6 +632,7 @@ pub fn export_result_excel(
         "Excel-Arbeitsmappe",
         &format!("{}-kalkulation.xlsx", result.project_name),
     )
+    .await
 }
 
 /// Übersetzt die gespeicherte Firma in die Export-Firmendaten.
@@ -672,7 +686,7 @@ fn safe_file_stem(file_name: &str) -> String {
 }
 
 /// Fragt per Speichern-Dialog nach dem Pfad und schreibt die Bytes.
-fn save_bytes_via_dialog(
+async fn save_bytes_via_dialog(
     app: &tauri::AppHandle,
     bytes: &[u8],
     extension: &str,
@@ -682,12 +696,17 @@ fn save_bytes_via_dialog(
     use tauri_plugin_dialog::DialogExt;
 
     let file_name = format!("{}.{}", safe_file_stem(file_name), extension);
-    let path = app
-        .dialog()
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .add_filter(filter_name, &[extension])
         .set_file_name(&file_name)
-        .blocking_save_file();
+        .save_file(move |selected| {
+            let _ = sender.send(selected);
+        });
+    let path = receiver
+        .await
+        .map_err(|_| CommandError::new("Dateidialog wurde unerwartet beendet"))?;
     match path {
         None => Ok(None),
         Some(selected) => {
@@ -707,14 +726,27 @@ fn save_bytes_via_dialog(
 
 #[cfg(test)]
 mod tests {
-    use super::safe_file_stem;
+    use super::*;
+    use opc_core::model::{
+        CalculationFileInput, CalculationInput, FileMaterial, Material, PrintProcess, Printer,
+    };
+    use rust_decimal::Decimal;
 
     #[test]
     fn dateiname_entfernt_pfade_und_reservierte_zeichen() {
         assert_eq!(safe_file_stem("/home/user/.bashrc"), "bashrc");
         assert_eq!(safe_file_stem("../../foo.json"), "foo");
-        assert_eq!(safe_file_stem("C:\\Users\\foo.json"), "C__Users_foo");
-        assert_eq!(safe_file_stem("..\\..\\foo.json"), "_.._foo");
+
+        #[cfg(unix)]
+        {
+            assert_eq!(safe_file_stem("C:\\Users\\foo.json"), "C__Users_foo");
+            assert_eq!(safe_file_stem("..\\..\\foo.json"), "_.._foo");
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(safe_file_stem("C:\\Users\\foo.json"), "foo");
+            assert_eq!(safe_file_stem("..\\..\\foo.json"), "foo");
+        }
     }
 
     #[test]
@@ -727,5 +759,66 @@ mod tests {
     fn dateiname_wird_begrenzt() {
         let stem = safe_file_stem(&"a".repeat(200));
         assert_eq!(stem.len(), 80);
+    }
+
+    #[test]
+    fn calculate_command_nutzt_den_echten_rechenkern() {
+        let mut material = Material::new("PLA", "PLA");
+        material.price = Decimal::from(25);
+        let mut file = CalculationFileInput::new("Teil.stl", 1, Decimal::from(2));
+        file.materials.push(FileMaterial::new(material));
+        let mut printer = Printer::new("P", PrintProcess::Fdm);
+        printer.hourly_rate = Some(Decimal::from(10));
+        let mut input = CalculationInput::new("Test", printer);
+        input.files.push(file);
+
+        let result = calculate(input).expect("Berechnung muss gelingen");
+        assert!(result.total > Decimal::ZERO);
+        assert_eq!(result.files.len(), 1);
+    }
+
+    #[test]
+    fn calculate_command_meldet_ungueltige_eingaben() {
+        let mut input = CalculationInput::new("Test", Printer::new("P", PrintProcess::Fdm));
+        let mut file = CalculationFileInput::new("Teil.stl", 1, Decimal::from(-1));
+        file.materials
+            .push(FileMaterial::new(Material::new("PLA", "PLA")));
+        input.files.push(file);
+
+        assert!(calculate(input).is_err());
+    }
+
+    #[test]
+    fn import_gcode_command_liest_eine_datei() {
+        let path = std::env::temp_dir().join(format!(
+            "opc-test-{}-{}.gcode",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("Zeit")
+                .as_nanos()
+        ));
+        std::fs::write(&path, ";TIME:60\nG1 X10\n").expect("Testdatei");
+
+        let info = import_gcode_file(path.to_string_lossy().to_string()).expect("Import");
+        assert!(info.time_from_comments_hours.is_some());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn read_file_limited_lehnt_zu_grosse_dateien_ab() {
+        let path = std::env::temp_dir().join(format!(
+            "opc-test-{}-{}.bin",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("Zeit")
+                .as_nanos()
+        ));
+        std::fs::write(&path, b"0123456789").expect("Testdatei");
+
+        let result = read_file_limited(path.to_string_lossy().as_ref(), 5, "Test");
+        assert!(result.is_err());
+        let _ = std::fs::remove_file(path);
     }
 }

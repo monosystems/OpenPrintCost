@@ -126,6 +126,8 @@ pub struct CalculationResult {
     pub project_name: String,
     /// Erstellungszeitpunkt (ISO-8601-String, vom Aufrufer geliefert).
     pub created_at: Option<String>,
+    /// Freitextnotizen der Kalkulation.
+    pub notes: Option<String>,
     /// Geordnete Liste aller Kostenpositionen inkl. Verkaufspreis.
     pub positions: Vec<CostPosition>,
     /// Basiskosten vor Marge und Steuer (exakt).

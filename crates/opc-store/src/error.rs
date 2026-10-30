@@ -41,6 +41,12 @@ pub enum StoreError {
         /// Höchste von dieser Version unterstützte Schema-Version.
         supported: i64,
     },
+    /// Ein Wert liegt außerhalb des darstellbaren Bereichs.
+    #[error("Ungültiger Wert: {message}")]
+    InvalidValue {
+        /// Fehlerbeschreibung.
+        message: String,
+    },
     /// Eine ID wurde nicht als UUID übergeben.
     #[error("Ungültige ID '{value}'")]
     InvalidId {

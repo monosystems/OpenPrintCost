@@ -23,6 +23,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["sync"] }
 opc-core = { path = "../crates/opc-core" }
 opc-export = { path = "../crates/opc-export" }
 opc-io = { path = "../crates/opc-io" }
@@ -31,3 +32,9 @@ uuid = { version = "1", features = ["v4", "serde"] }
 
 [lints.rust]
 unsafe_code = "forbid"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+rust_decimal.workspace = true

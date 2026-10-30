@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import type { PlatformAdapter } from "../api/platform";
 import { currencySymbol } from "../api/currency";
 import {
+  divideDecimalString,
   formatMoney,
   formatQuantity,
   isDecimalString,
@@ -9,6 +10,11 @@ import {
   sumDecimalStrings,
 } from "../api/format";
 import { checkPrintability } from "../api/printability";
+import {
+  PROFILE_DECIMAL_KEYS,
+  profileDecimalError,
+  profileDecimalLabel,
+} from "../api/profileValidation";
 import { useLocale, useStrings, type Locale, type Strings } from "../i18n";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
@@ -197,6 +203,8 @@ function assignedFilamentCount(file: CalculationFileInput): number {
 }
 
 /** An imported filament list is only complete when every filament has a material. */
+const UINT32_MAX = 4_294_967_295;
+
 function hasUnassignedFilaments(file: CalculationFileInput): boolean {
   return (
     file.filament_volumes_cm3.length > 0 &&
@@ -209,15 +217,6 @@ function normalizeDecimal(value: string): string | null {
   const text = value.trim().replace(",", ".");
   return isDecimalString(text) ? text : null;
 }
-
-type ProfileDecimalKey =
-  | "fail_rate_percent"
-  | "tax_rate_percent"
-  | "margin_percent"
-  | "handling_fee"
-  | "energy_price_per_kwh"
-  | "power_level_percent"
-  | "print_time_factor";
 
 interface NormalizedCalculation {
   calculation: CalculationInput | null;
@@ -238,18 +237,12 @@ function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCa
     error: t.validation.decimal(label),
   });
 
-  const profileFields: ReadonlyArray<readonly [ProfileDecimalKey, string]> = [
-    ["fail_rate_percent", t.profiles.failRate],
-    ["tax_rate_percent", t.profiles.tax],
-    ["margin_percent", t.profiles.margin],
-    ["handling_fee", t.profiles.handlingFee],
-    ["energy_price_per_kwh", t.profiles.energyPrice],
-    ["power_level_percent", t.profiles.powerLevel],
-    ["print_time_factor", t.profiles.printTimeFactor],
-  ];
-  for (const [key, label] of profileFields) {
+  for (const key of PROFILE_DECIMAL_KEYS) {
+    const label = profileDecimalLabel(key, t);
     const normalized = normalizeDecimal(next.profile[key]);
     if (normalized === null) return fail(label);
+    const error = profileDecimalError(key, normalized, t);
+    if (error) return { calculation: null, error };
     next.profile[key] = normalized;
   }
 
@@ -268,14 +261,32 @@ function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCa
     const name = file.file_name.trim() || t.calculation.unnamedFile;
     const printTime = normalizeDecimal(file.print_time_hours);
     if (printTime === null) return fail(`${t.calculation.printTime} — ${name}`);
+    if (Number(printTime) < 0) {
+      return {
+        calculation: null,
+        error: t.validation.nonNegative(`${t.calculation.printTime} — ${name}`),
+      };
+    }
     file.print_time_hours = printTime;
 
     const volume = normalizeOptional(file.volume_cm3, `${t.calculation.volume} — ${name}`);
     if (volume.error) return { calculation: null, error: volume.error };
+    if (volume.value !== null && Number(volume.value) < 0) {
+      return {
+        calculation: null,
+        error: t.validation.nonNegative(`${t.calculation.volume} — ${name}`),
+      };
+    }
     file.volume_cm3 = volume.value;
 
     const weight = normalizeOptional(file.weight_g, `${t.calculation.weight} — ${name}`);
     if (weight.error) return { calculation: null, error: weight.error };
+    if (weight.value !== null && Number(weight.value) < 0) {
+      return {
+        calculation: null,
+        error: t.validation.nonNegative(`${t.calculation.weight} — ${name}`),
+      };
+    }
     file.weight_g = weight.value;
 
     if (file.dimensions_mm) {
@@ -287,6 +298,12 @@ function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCa
         const raw = file.dimensions_mm[index];
         const normalized = raw.trim() === "" ? "0" : normalizeDecimal(raw);
         if (normalized === null) return fail(`${label} — ${name}`);
+        if (Number(normalized) < 0) {
+          return {
+            calculation: null,
+            error: t.validation.nonNegative(`${label} — ${name}`),
+          };
+        }
         file.dimensions_mm[index] = normalized;
       }
     }
@@ -297,6 +314,14 @@ function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCa
         `${t.calculation.materialWeight} — ${entry.material.name}`,
       );
       if (materialWeight.error) return { calculation: null, error: materialWeight.error };
+      if (materialWeight.value !== null && Number(materialWeight.value) < 0) {
+        return {
+          calculation: null,
+          error: t.validation.nonNegative(
+            `${t.calculation.materialWeight} — ${entry.material.name}`,
+          ),
+        };
+      }
       entry.weight_g = materialWeight.value;
 
       const materialVolume = normalizeOptional(
@@ -304,6 +329,14 @@ function normalizeCalculation(input: CalculationInput, t: Strings): NormalizedCa
         `${t.calculation.materialVolume} — ${entry.material.name}`,
       );
       if (materialVolume.error) return { calculation: null, error: materialVolume.error };
+      if (materialVolume.value !== null && Number(materialVolume.value) < 0) {
+        return {
+          calculation: null,
+          error: t.validation.nonNegative(
+            `${t.calculation.materialVolume} — ${entry.material.name}`,
+          ),
+        };
+      }
       entry.volume_cm3 = materialVolume.value;
     }
   }
@@ -381,10 +414,25 @@ export function CalculationView({
   const [dirty, setDirty] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
   const [confirmImport, setConfirmImport] = useState(false);
+  const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
+  const [pendingGcodeImport, setPendingGcodeImport] = useState<{
+    fileId: string;
+    info: GcodeInfo;
+    path: string;
+  } | null>(null);
   const currency = currencySymbol(company.currency);
+  const workstepChoices = current
+    ? [
+        ...allWorksteps,
+        ...current.worksteps.filter(
+          (selected) => !allWorksteps.some((workstep) => workstep.id === selected.id),
+        ),
+      ].sort((a, b) => a.name.localeCompare(b.name))
+    : allWorksteps;
   const isWide = useMediaQuery("(min-width: 1280px)");
   const resultRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+  const calculationToken = useRef(0);
 
   const reloadBase = useCallback(async () => {
     try {
@@ -416,6 +464,39 @@ export function CalculationView({
   }, [active, reloadBase]);
 
   useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    const hasTauri = "__TAURI_INTERNALS__" in window;
+    if (hasTauri) {
+      void import("@tauri-apps/api/window")
+        .then(async ({ getCurrentWindow }) => {
+          if (cancelled) return;
+          const stop = await getCurrentWindow().onCloseRequested((event) => {
+            if (!window.confirm(t.calculation.discardMessage)) {
+              event.preventDefault();
+            }
+          });
+          if (cancelled) stop();
+          else unlisten = stop;
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      unlisten?.();
+    };
+  }, [dirty, t]);
+
+  useEffect(() => {
     if (!result || isWide) return;
     const reduceMotion =
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -431,8 +512,13 @@ export function CalculationView({
   }, [error]);
 
   const fail = (message: string) => setError(message);
+  /** Invalidiert laufende Calculate-/Save-Antworten nach einer Änderung. */
+  const invalidateCalculation = () => {
+    calculationToken.current += 1;
+  };
   const update = (patch: Partial<CalculationInput>) => {
     const affectsCost = Object.keys(patch).some((key) => key !== "notes");
+    invalidateCalculation();
     if (affectsCost) setResult(null);
     setDirty(true);
     setCurrent((current) => (current ? { ...current, ...patch } : current));
@@ -445,6 +531,7 @@ export function CalculationView({
     }
     const first = printers[0];
     if (!first) return;
+    invalidateCalculation();
     setCurrent(emptyCalculation(first, t, profiles[0]));
     setResult(null);
     setProfileOpen(false);
@@ -461,16 +548,37 @@ export function CalculationView({
   };
 
   const loadSaved = async (id: string) => {
+    invalidateCalculation();
+    const version = calculationToken.current;
     try {
       const stored = await adapter.getCalculation(id);
-      setCurrent(structuredClone(stored.document));
+      if (calculationToken.current !== version) return;
+      const document = structuredClone(stored.document);
+      if (!document.created_at) document.created_at = stored.created_at;
+      setCurrent(document);
       setResult(null);
       setProfileOpen(false);
       setDirty(false);
       setError(null);
     } catch (error) {
-      fail(error instanceof Error ? error.message : t.errors.calculationLoad);
+      if (calculationToken.current === version) {
+        fail(error instanceof Error ? error.message : t.errors.calculationLoad);
+      }
     }
+  };
+
+  const requestLoadSaved = (id: string) => {
+    if (current && dirty) {
+      setPendingLoadId(id);
+      return;
+    }
+    void loadSaved(id);
+  };
+
+  const confirmLoadSaved = () => {
+    const id = pendingLoadId;
+    setPendingLoadId(null);
+    if (id) void loadSaved(id);
   };
 
   const confirmDeleteSaved = async () => {
@@ -523,12 +631,18 @@ export function CalculationView({
     }
     const calculation = normalized.calculation;
     setCurrent(calculation);
+    const version = calculationToken.current;
     setCalculating(true);
     try {
-      setResult(await adapter.calculate(calculation));
-      setError(null);
+      const next = await adapter.calculate(calculation);
+      if (calculationToken.current === version) {
+        setResult(next);
+        setError(null);
+      }
     } catch (error) {
-      fail(error instanceof Error ? error.message : t.errors.calculate);
+      if (calculationToken.current === version) {
+        fail(error instanceof Error ? error.message : t.errors.calculate);
+      }
     } finally {
       setCalculating(false);
     }
@@ -548,12 +662,15 @@ export function CalculationView({
     const document = normalized.calculation.created_at
       ? normalized.calculation
       : { ...normalized.calculation, created_at: new Date().toISOString() };
+    const version = calculationToken.current;
     setSaving(true);
     try {
       await adapter.saveCalculation(document);
-      setCurrent(document);
       setSaved(await adapter.listCalculations());
-      setDirty(false);
+      if (calculationToken.current === version) {
+        setCurrent(document);
+        setDirty(false);
+      }
       setError(null);
     } catch (error) {
       fail(error instanceof Error ? error.message : t.errors.calculationSave);
@@ -568,8 +685,8 @@ export function CalculationView({
     try {
       const path =
         kind === "pdf"
-          ? await adapter.exportResultPdf(result, company)
-          : await adapter.exportResultExcel(result, company);
+          ? await adapter.exportResultPdf(result, company, locale)
+          : await adapter.exportResultExcel(result, company, locale);
       setHint(path ? { kind: "exportSaved", path } : { kind: "exportCancelled" });
       setError(null);
     } catch (error) {
@@ -581,9 +698,18 @@ export function CalculationView({
 
   const exportJson = async () => {
     if (!current || transferring) return;
+    const normalized = normalizeCalculation(current, t);
+    if (normalized.error || !normalized.calculation) {
+      fail(normalized.error ?? t.errors.calculationExport);
+      return;
+    }
+    const document = normalized.calculation.created_at
+      ? normalized.calculation
+      : { ...normalized.calculation, created_at: new Date().toISOString() };
+    setCurrent(document);
     setTransferring("export");
     try {
-      const path = await adapter.exportCalculationJson(current);
+      const path = await adapter.exportCalculationJson(document);
       setHint(path ? { kind: "jsonSaved", path } : { kind: "exportCancelled" });
       setError(null);
     } catch (error) {
@@ -605,6 +731,7 @@ export function CalculationView({
       }
       const imported = structuredClone(document);
       if (!imported.created_at) imported.created_at = new Date().toISOString();
+      invalidateCalculation();
       setCurrent(imported);
       setResult(null);
       setProfileOpen(false);
@@ -629,6 +756,7 @@ export function CalculationView({
   };
 
   const updateFile = (fileId: string, patch: Partial<CalculationFileInput>) => {
+    invalidateCalculation();
     setResult(null);
     setDirty(true);
     setCurrent((current) =>
@@ -639,16 +767,28 @@ export function CalculationView({
   };
 
   const removeFile = (fileId: string) => {
+    invalidateCalculation();
     setResult(null);
     setDirty(true);
     setCurrent((current) =>
-      current ? { ...current, files: current.files.filter((f) => f.id !== fileId) } : current,
+      current
+        ? {
+            ...current,
+            files: current.files.filter((f) => f.id !== fileId),
+            // Zusatzartikel nicht still verlieren: sie werden der
+            // Projektebene zugeordnet und bleiben so in den Kosten.
+            additional_items: current.additional_items.map((item) =>
+              item.file_id === fileId ? { ...item, file_id: null } : item,
+            ),
+          }
+        : current,
     );
   };
 
   const addMaterialToFile = (fileId: string, materialId: string) => {
     const material = materials.find((m) => m.id === materialId);
     if (!material) return;
+    invalidateCalculation();
     setResult(null);
     setDirty(true);
     setCurrent((current) =>
@@ -676,6 +816,36 @@ export function CalculationView({
     );
   };
 
+  const applyGcodeImport = (fileId: string, info: GcodeInfo, path: string) => {
+    const time = info.time_from_comments_hours ?? info.simulated_time_hours;
+    const imported = importedVolume(info.filaments);
+    const existing = current?.files.find((file) => file.id === fileId);
+    const existingMaterials = existing?.materials ?? [];
+    // With filament data the assignment happens per filament; without it
+    // the manual materials remain the only source.
+    const materials =
+      imported.filamentVolumesCm3.length > 0
+        ? []
+        : existingMaterials.filter((material) => material.filament_index === null);
+    updateFile(fileId, {
+      ...(existing?.file_name.trim() ? {} : { file_name: fileStem(path) }),
+      print_time_hours: time,
+      filament_volumes_cm3: imported.filamentVolumesCm3,
+      materials,
+      ...(imported.volumeCm3 === null ? {} : { volume_cm3: imported.volumeCm3 }),
+    });
+    setHint(
+      info.detected_slicer
+        ? {
+            kind: "import",
+            slicer: info.detected_slicer,
+            source: info.used_comments ? "comments" : "simulated",
+            ...imported,
+          }
+        : { kind: "fileTime", ...imported },
+    );
+  };
+
   const importIntoFile = async (fileId: string, kind: "gcode" | "stl" | "3mf") => {
     try {
       const path = await adapter.pickImportFile(kind);
@@ -688,33 +858,17 @@ export function CalculationView({
             ? await adapter.importStlFile(path)
             : await adapter.import3mfFile(path);
       if ("used_comments" in info) {
-        const time = info.time_from_comments_hours ?? info.simulated_time_hours;
         const imported = importedVolume(info.filaments);
-        const existing = current?.files.find((file) => file.id === fileId);
-        const existingMaterials = existing?.materials ?? [];
-        // With filament data the assignment happens per filament; without it
-        // the manual materials remain the only source.
-        const materials =
-          imported.filamentVolumesCm3.length > 0
-            ? []
-            : existingMaterials.filter((material) => material.filament_index === null);
-        updateFile(fileId, {
-          ...(existing?.file_name.trim() ? {} : { file_name: fileStem(path) }),
-          print_time_hours: time,
-          filament_volumes_cm3: imported.filamentVolumesCm3,
-          materials,
-          ...(imported.volumeCm3 === null ? {} : { volume_cm3: imported.volumeCm3 }),
-        });
-        setHint(
-          info.detected_slicer
-            ? {
-                kind: "import",
-                slicer: info.detected_slicer,
-                source: info.used_comments ? "comments" : "simulated",
-                ...imported,
-              }
-            : { kind: "fileTime", ...imported },
+        const existingMaterials =
+          current?.files.find((file) => file.id === fileId)?.materials ?? [];
+        const manualMaterials = existingMaterials.filter(
+          (material) => material.filament_index === null,
         );
+        if (imported.filamentVolumesCm3.length > 0 && manualMaterials.length > 0) {
+          setPendingGcodeImport({ fileId, info, path });
+          return;
+        }
+        applyGcodeImport(fileId, info, path);
       } else if ("triangle_count" in info) {
         const existing = current?.files.find((file) => file.id === fileId);
         updateFile(fileId, {
@@ -732,22 +886,44 @@ export function CalculationView({
             ? matchMaterialByName(materials, info.material_names[0] ?? "")
             : undefined;
 
+        // Das 3MF-Volumen und die Slicer-Zeit gelten für die gesamte Platte.
+        // Bei mehreren Objekten auf der Platte werden sie auf ein Objekt
+        // heruntergerechnet und die Stückzahl entsprechend gesetzt, damit
+        // der Stückpreis stimmt.
+        const objectCount = Math.max(1, info.object_count);
+        const perPiece = (value: string) =>
+          objectCount > 1 ? (divideDecimalString(value, objectCount, 9) ?? value) : value;
+        const perPieceVolumes = imported.filamentVolumesCm3.map(perPiece);
+        const perPieceVolume = info.volume_cm3 ? perPiece(info.volume_cm3) : null;
+        const multiplyTime =
+          existing?.multiply_print_time_with_quantity ??
+          current?.profile.multiply_print_time_with_quantity ??
+          true;
+        // Die Slicer-Zeit gilt für die ganze Platte. Nur wenn der Rechenkern
+        // die Zeit mit der Stückzahl multipliziert, darf sie pro Objekt
+        // gespeichert werden; sonst bleibt sie als Platten-Gesamtzeit stehen.
+        const printTime = info.estimated_time_hours
+          ? multiplyTime
+            ? perPiece(info.estimated_time_hours)
+            : info.estimated_time_hours
+          : (existing?.print_time_hours ?? "0");
+
         let nextMaterials = existingMaterials.filter(
           (entry) => entry.filament_index === null,
         );
-        if (imported.filamentVolumesCm3.length > 0 && singleMaterial) {
-          nextMaterials = imported.filamentVolumesCm3.map((volume, index) => ({
+        if (perPieceVolumes.length > 0 && singleMaterial) {
+          nextMaterials = perPieceVolumes.map((volume, index) => ({
             material: { ...singleMaterial },
             weight_g: null,
             volume_cm3: volume,
             filament_index: index,
           }));
-        } else if (imported.filamentVolumesCm3.length === 0 && singleMaterial) {
+        } else if (perPieceVolumes.length === 0 && singleMaterial) {
           nextMaterials = [
             {
               material: { ...singleMaterial },
               weight_g: null,
-              volume_cm3: info.volume_cm3,
+              volume_cm3: perPieceVolume,
               filament_index: null,
             },
           ];
@@ -755,12 +931,11 @@ export function CalculationView({
 
         updateFile(fileId, {
           file_name: existing?.file_name.trim() ? existing.file_name : fileStem(path),
-          volume_cm3: info.volume_cm3,
+          quantity: objectCount,
+          ...(perPieceVolume === null ? {} : { volume_cm3: perPieceVolume }),
           ...(info.dimensions_mm ? { dimensions_mm: info.dimensions_mm } : {}),
-          ...(info.estimated_time_hours
-            ? { print_time_hours: info.estimated_time_hours }
-            : {}),
-          filament_volumes_cm3: imported.filamentVolumesCm3,
+          print_time_hours: printTime,
+          filament_volumes_cm3: perPieceVolumes,
           materials: nextMaterials,
         });
         setHint({
@@ -776,6 +951,7 @@ export function CalculationView({
   };
 
   const toggleWorkstep = (workstep: Workstep) => {
+    invalidateCalculation();
     setResult(null);
     setDirty(true);
     setCurrent((current) => {
@@ -791,6 +967,7 @@ export function CalculationView({
   };
 
   const updateProfile = (patch: Partial<CalculationProfile>) => {
+    invalidateCalculation();
     setResult(null);
     setDirty(true);
     setCurrent((current) =>
@@ -863,7 +1040,7 @@ export function CalculationView({
               <li key={entry.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
                 <button
                   type="button"
-                  onClick={() => void loadSaved(entry.id)}
+                  onClick={() => requestLoadSaved(entry.id)}
                   className="min-w-0 flex-1 truncate rounded-control px-1 py-0.5 text-left text-brand-ink transition-colors hover:bg-raised/40 hover:text-ink"
                 >
                   {entry.project_name}
@@ -1020,23 +1197,31 @@ export function CalculationView({
               </FormSection>
 
               <FormSection title={t.calculation.workstepsTitle}>
-                {allWorksteps.length === 0 ? (
+                {workstepChoices.length === 0 ? (
                   <p className="text-sm text-ink-faint">{t.worksteps.noneAvailable}</p>
                 ) : (
                   <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
-                    {allWorksteps.map((workstep) => {
-                      const selected = current.worksteps.some((w) => w.id === workstep.id);
+                    {workstepChoices.map((workstep) => {
+                      const snapshot = current.worksteps.find((w) => w.id === workstep.id);
+                      const selected = Boolean(snapshot);
+                      const display = snapshot ?? workstep;
+                      const isSnapshotOnly = !allWorksteps.some((w) => w.id === workstep.id);
                       return (
                         <li key={workstep.id} className="px-4 py-2.5">
                           <Checkbox
                             checked={selected}
-                            onChange={() => toggleWorkstep(workstep)}
+                            onChange={() => toggleWorkstep(display)}
                             label={
                               <>
-                                {workstep.name}
+                                {display.name}
                                 <span className="ml-2 text-xs text-ink-faint">
-                                  ({formatMoney(workstep.price, locale)} {currency})
+                                  ({formatMoney(display.price, locale)} {currency})
                                 </span>
+                                {isSnapshotOnly ? (
+                                  <span className="ml-2 text-xs text-ink-faint">
+                                    ({t.calculation.snapshotLabel})
+                                  </span>
+                                ) : null}
                               </>
                             }
                           />
@@ -1108,6 +1293,30 @@ export function CalculationView({
           confirmLabel={t.calculation.importConfirm}
           onConfirm={() => void importJson()}
           onCancel={() => setConfirmImport(false)}
+        />
+      ) : null}
+
+      {pendingGcodeImport ? (
+        <ConfirmDialog
+          title={t.calculation.replaceMaterialsTitle}
+          message={t.calculation.replaceMaterialsMessage}
+          confirmLabel={t.calculation.replaceMaterialsConfirm}
+          onConfirm={() => {
+            const pending = pendingGcodeImport;
+            setPendingGcodeImport(null);
+            if (pending) applyGcodeImport(pending.fileId, pending.info, pending.path);
+          }}
+          onCancel={() => setPendingGcodeImport(null)}
+        />
+      ) : null}
+
+      {pendingLoadId ? (
+        <ConfirmDialog
+          title={t.calculation.discardTitle}
+          message={t.calculation.discardMessage}
+          confirmLabel={t.calculation.discardConfirm}
+          onConfirm={confirmLoadSaved}
+          onCancel={() => setPendingLoadId(null)}
         />
       ) : null}
 
@@ -1429,9 +1638,14 @@ function FileCard({
   const setDimension = (index: 0 | 1 | 2, value: string) => {
     const next: DimensionsMm = file.dimensions_mm
       ? [...file.dimensions_mm]
-      : ["0", "0", "0"];
-    next[index] = value === "" ? "0" : value;
-    const hasValue = next.some((dimension) => Number(dimension) > 0);
+      : ["", "", ""];
+    next[index] = value;
+    // Auch ungültige, negative oder leere Eingaben behalten, damit die
+    // Validierung sie melden kann; nur eine komplett leere/Null-Maske wird
+    // zu null.
+    const hasValue = next.some(
+      (dimension) => dimension.trim() !== "" && dimension.trim() !== "0",
+    );
     onChange({ dimensions_mm: hasValue ? next : null });
   };
 
@@ -1466,7 +1680,12 @@ function FileCard({
               className="text-right tabular-nums"
               onChange={(e) => {
                 const parsed = Number.parseInt(e.target.value, 10);
-                onChange({ quantity: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 });
+                onChange({
+                  quantity:
+                    Number.isFinite(parsed) && parsed >= 0
+                      ? Math.min(parsed, UINT32_MAX)
+                      : 0,
+                });
               }}
             />
           </Field>
@@ -1507,7 +1726,7 @@ function FileCard({
                 }
               >
                 <DecimalInput
-                  value={file.dimensions_mm?.[index] ?? "0"}
+                  value={file.dimensions_mm?.[index] ?? ""}
                   onChange={(value) => setDimension(index as 0 | 1 | 2, value)}
                 />
               </Field>
@@ -1724,7 +1943,9 @@ function FileCard({
                     const parsed = Number.parseInt(event.target.value, 10);
                     onChange({
                       material_changes:
-                        Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
+                        Number.isFinite(parsed) && parsed >= 0
+                          ? Math.min(parsed, UINT32_MAX)
+                          : 0,
                     });
                   }}
                 />

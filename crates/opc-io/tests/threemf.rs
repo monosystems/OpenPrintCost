@@ -307,3 +307,9 @@ fn dreiecksindex_ausserhalb_des_meshes_wird_abgelehnt() {
     let bytes = package(&[("3D/3dmodel.model", model)]);
     assert!(matches!(parse_3mf(&bytes), Err(IoError::Corrupt { .. })));
 }
+
+#[test]
+fn modell_mit_nicht_endlicher_geometrie_ist_ein_fehler() {
+    let bytes = package(&[("3D/3dmodel.model", &cube_model(f64::NAN, None))]);
+    assert!(matches!(parse_3mf(&bytes), Err(IoError::Corrupt { .. })));
+}

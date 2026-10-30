@@ -1,5 +1,6 @@
 //! Maschinenstundensatz — die kalkulatorische Miete des Druckers.
 
+use crate::calc::checked::sum;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -98,12 +99,27 @@ impl HourlyRate {
     }
 
     /// Summe der Fixkosten je Zeitbasis in Euro.
-    pub fn fixed_costs(&self) -> Decimal {
-        self.maintenance_fixed + self.rent_fixed + self.electricity_fixed + self.additional_fixed
+    pub fn fixed_costs(&self) -> Result<Decimal, crate::calc::CalcError> {
+        sum(
+            [
+                self.maintenance_fixed,
+                self.rent_fixed,
+                self.electricity_fixed,
+                self.additional_fixed,
+            ],
+            "Fixkosten",
+        )
     }
 
     /// Summe der variablen Kosten je Stunde in Euro.
-    pub fn variable_costs(&self) -> Decimal {
-        self.maintenance_variable + self.electricity_variable + self.additional_variable
+    pub fn variable_costs(&self) -> Result<Decimal, crate::calc::CalcError> {
+        sum(
+            [
+                self.maintenance_variable,
+                self.electricity_variable,
+                self.additional_variable,
+            ],
+            "Variable Kosten",
+        )
     }
 }

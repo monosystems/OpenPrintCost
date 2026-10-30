@@ -2,7 +2,13 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MockPlatformAdapter } from "../api/mockAdapter";
-import { emptyCompany, newId, type CalculationProfile } from "../api/types";
+import {
+  emptyCompany,
+  newId,
+  type CalculationProfile,
+  type Workstep,
+  type WorkstepCategory,
+} from "../api/types";
 import { CalculationView } from "./CalculationView";
 
 function seed(adapter: MockPlatformAdapter) {
@@ -53,6 +59,19 @@ function seed(adapter: MockPlatformAdapter) {
   ]);
 }
 
+const tauriWindow = vi.hoisted(() => ({
+  handler: undefined as ((event: { preventDefault: () => void }) => void) | undefined,
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: async (handler: (event: { preventDefault: () => void }) => void) => {
+      tauriWindow.handler = handler;
+      return () => undefined;
+    },
+  }),
+}));
+
 async function addMaterial(
   user: ReturnType<typeof userEvent.setup>,
   fileCard: HTMLElement,
@@ -97,6 +116,44 @@ describe("CalculationView", () => {
     expect(screen.getByText("Selling price", { selector: "h4" })).toBeInTheDocument();
   });
 
+  it("keeps additional items when their file is removed", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Orphan-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.type(await screen.findByLabelText("File name"), "A.stl");
+
+    const itemsSection = screen
+      .getByRole("heading", { name: "Additional items" })
+      .closest("section");
+    if (!itemsSection) throw new Error("Items section missing");
+    await user.type(within(itemsSection).getByLabelText("Name"), "Verpackung");
+    await user.clear(within(itemsSection).getByLabelText("Item price"));
+    await user.type(within(itemsSection).getByLabelText("Item price"), "2");
+    const target = within(itemsSection).getByLabelText("Assignment");
+    const option = within(target).getByRole("option", { name: "A.stl" });
+    await user.selectOptions(target, (option as HTMLOptionElement).value);
+    await user.click(within(itemsSection).getByRole("button", { name: "Add" }));
+
+    await user.click(screen.getByRole("button", { name: "Remove file A.stl" }));
+    expect(screen.getByText("Verpackung")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+
+    const summaries = await adapter.listCalculations();
+    const saved = summaries.find((entry) => entry.project_name === "Orphan-Test");
+    if (!saved) throw new Error("Saved calculation missing");
+    const stored = await adapter.getCalculation(saved.id);
+    expect(stored.document.files).toHaveLength(0);
+    expect(stored.document.additional_items).toHaveLength(1);
+    expect(stored.document.additional_items[0]?.file_id).toBeNull();
+  });
+
   it("accepts comma decimals and normalizes them before calculating", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
@@ -114,6 +171,64 @@ describe("CalculationView", () => {
 
     await waitFor(() => expect(screen.getByText(/Result:/)).toBeInTheDocument());
     expect(screen.getByLabelText("Print time (h)")).toHaveValue("0.5");
+  });
+
+  it("normalizes decimals before exporting JSON", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const exportJson = vi.spyOn(adapter, "exportCalculationJson");
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Export-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const printTime = await screen.findByLabelText("Print time (h)");
+    await user.clear(printTime);
+    await user.type(printTime, "0,5");
+    await user.click(screen.getByRole("button", { name: "Export JSON" }));
+
+    await waitFor(() => expect(exportJson).toHaveBeenCalled());
+    expect(exportJson.mock.calls[0]?.[0].files[0]?.print_time_hours).toBe("0.5");
+    expect(exportJson.mock.calls[0]?.[0].created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("keeps a negative dimension visible to validation", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Dimension-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const width = await screen.findByLabelText("Width X");
+    await user.clear(width);
+    await user.type(width, "-5");
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/must not be negative/i);
+  });
+
+  it("rejects a negative print time with a localized error", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Negative-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const printTime = await screen.findByLabelText("Print time (h)");
+    await user.clear(printTime);
+    await user.type(printTime, "-1");
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/must not be negative/i);
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
   });
 
   it("reports an empty required decimal instead of a backend parse error", async () => {
@@ -174,6 +289,144 @@ describe("CalculationView", () => {
     const toast = await screen.findByRole("status");
     expect(toast).toHaveTextContent(/PrusaSlicer detected/);
     expect(toast).toHaveTextContent(/2\.886 cm³ filament volume taken/);
+  });
+
+  it("turns a multi-object 3MF into per-piece values", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "import3mfFile").mockResolvedValue({
+      volume_cm3: "10",
+      dimensions_mm: ["20", "20", "20"],
+      object_count: 2,
+      material_names: ["PLA"],
+      estimated_time_hours: "4",
+      filament_volumes_cm3: ["3.6075"],
+      detected_slicer: "BambuStudio",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Plate-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
+
+    await waitFor(() =>
+      expect(within(fileCard).getByLabelText("Quantity")).toHaveValue("2"),
+    );
+    expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("5");
+    expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("2");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => expect(await adapter.listCalculations()).toHaveLength(1));
+    const summary = (await adapter.listCalculations())[0];
+    if (!summary) throw new Error("Saved calculation missing");
+    const stored = await adapter.getCalculation(summary.id);
+    const file = stored.document.files[0];
+    expect(file?.quantity).toBe(2);
+    expect(file?.volume_cm3).toBe("5");
+    expect(file?.print_time_hours).toBe("2");
+    expect(file?.filament_volumes_cm3).toEqual(["1.80375"]);
+  });
+
+  it("keeps plate print time when quantity multiplication is disabled", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "import3mfFile").mockResolvedValue({
+      volume_cm3: "10",
+      dimensions_mm: ["20", "20", "20"],
+      object_count: 2,
+      material_names: ["PLA"],
+      estimated_time_hours: "4",
+      filament_volumes_cm3: ["3.6075"],
+      detected_slicer: "BambuStudio",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Customize" }));
+    const multiply = screen.getByRole("checkbox", { name: "Print time × quantity" });
+    expect(multiply).toBeChecked();
+    await user.click(multiply);
+
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
+
+    await waitFor(() => expect(within(fileCard).getByLabelText("Quantity")).toHaveValue("2"));
+    expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("5");
+    expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("4");
+  });
+
+  it("keeps an existing print time when a 3MF has no estimate", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "import3mfFile").mockResolvedValue({
+      volume_cm3: "5",
+      dimensions_mm: ["10", "10", "10"],
+      object_count: 1,
+      material_names: [],
+      estimated_time_hours: null,
+      filament_volumes_cm3: [],
+      detected_slicer: "BambuStudio",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    const printTime = within(fileCard).getByLabelText("Print time (h)");
+    await user.clear(printTime);
+    await user.type(printTime, "3.5");
+
+    await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
+
+    await waitFor(() =>
+      expect(within(fileCard).getByLabelText("Print time (h)")).toHaveValue("3.5"),
+    );
+    expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("5");
+  });
+
+  it("asks before a G-code import replaces manual materials", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    vi.spyOn(adapter, "importGcodeFile").mockResolvedValue({
+      time_from_comments_hours: "1",
+      simulated_time_hours: "1",
+      used_comments: true,
+      filaments: [{ length_mm: "1000", diameter_mm: "1.75", volume_mm3: "2405" }],
+      layer_count: 40,
+      detected_slicer: "PrusaSlicer",
+    });
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    const fileCard = (await screen.findByLabelText("File name")).closest("li");
+    if (!fileCard) throw new Error("File card missing");
+    await addMaterial(user, fileCard, "PLA");
+    expect(
+      within(fileCard).getByRole("button", { name: "Remove material PLA" }),
+    ).toBeInTheDocument();
+
+    await user.click(within(fileCard).getByRole("button", { name: "Import G-code" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/manual material assignments/i);
+    await user.click(within(dialog).getByRole("button", { name: "Replace" }));
+
+    await waitFor(() =>
+      expect(within(fileCard).getByText("Imported filaments")).toBeInTheDocument(),
+    );
+    expect(
+      within(fileCard).queryByRole("button", { name: "Remove material PLA" }),
+    ).not.toBeInTheDocument();
   });
 
   it("sums multiple filament volumes and assigns materials per filament", async () => {
@@ -324,6 +577,8 @@ describe("CalculationView", () => {
   it("exports the result and shows the path", async () => {
     const adapter = new MockPlatformAdapter();
     await seed(adapter);
+    const exportPdf = vi.spyOn(adapter, "exportResultPdf");
+    const exportExcel = vi.spyOn(adapter, "exportResultExcel");
     const user = userEvent.setup();
     render(<CalculationView adapter={adapter} />);
 
@@ -335,9 +590,11 @@ describe("CalculationView", () => {
 
     await user.click(screen.getByRole("button", { name: "Export PDF" }));
     expect(await screen.findByRole("status")).toHaveTextContent("mock-report.pdf");
+    expect(exportPdf.mock.calls[0]?.[2]).toBe("en");
 
     await user.click(screen.getByRole("button", { name: "Export Excel" }));
     expect(await screen.findByRole("status")).toHaveTextContent("mock-report.xlsx");
+    expect(exportExcel.mock.calls[0]?.[2]).toBe("en");
 
     // The company import is only for types — no unused import.
     expect(emptyCompany.name).toBe("");
@@ -396,6 +653,208 @@ describe("CalculationView", () => {
 
     await user.type(screen.getByLabelText("Print time (h)"), "3");
     expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+  });
+
+  it("backfills created_at when loading an old calculation", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const exportJson = vi.spyOn(adapter, "exportCalculationJson");
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Old");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+
+    const summary = (await adapter.listCalculations()).find((entry) => entry.project_name === "Old");
+    if (!summary) throw new Error("Saved calculation missing");
+    const stored = await adapter.getCalculation(summary.id);
+    await adapter.saveCalculation({ ...stored.document, created_at: null });
+    const reloaded = await adapter.getCalculation(summary.id);
+
+    await user.click(await screen.findByRole("button", { name: /^Old/ }));
+    await user.click(screen.getByRole("button", { name: "Export JSON" }));
+
+    await waitFor(() => expect(exportJson).toHaveBeenCalled());
+    expect(exportJson.mock.calls.at(-1)?.[0].created_at).toBe(reloaded.created_at);
+  });
+
+  it("asks the Tauri close handler before closing a dirty calculation", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    try {
+      await user.click(await screen.findByRole("button", { name: "New calculation" }));
+      await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Close-Test");
+      await user.click(screen.getByRole("button", { name: "Add file" }));
+      await waitFor(() => expect(tauriWindow.handler).toBeTypeOf("function"));
+
+      const blocked = { preventDefault: vi.fn() };
+      tauriWindow.handler?.(blocked);
+      expect(blocked.preventDefault).toHaveBeenCalled();
+
+      confirm.mockReturnValue(true);
+      const allowed = { preventDefault: vi.fn() };
+      tauriWindow.handler?.(allowed);
+      expect(allowed.preventDefault).not.toHaveBeenCalled();
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+      confirm.mockRestore();
+    }
+  });
+
+  it("warns before unloading a dirty calculation", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Dirty");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const dirtyEvent = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirtyEvent);
+    expect(dirtyEvent.defaultPrevented).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+
+    const cleanEvent = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(cleanEvent);
+    expect(cleanEvent.defaultPrevented).toBe(false);
+  });
+
+  it("keeps a selected workstep visible after it is deleted from master data", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const category: WorkstepCategory = { id: newId(), name: "Finishing", color: null };
+    await adapter.saveWorkstepCategory(category);
+    const workstep: Workstep = {
+      id: newId(),
+      name: "Entgraten",
+      category,
+      calculation_type: "per-piece",
+      price: "2",
+      quantity: "1",
+      duration_hours: "0",
+      timing: "after",
+    };
+    await adapter.saveWorkstep(workstep);
+
+    const user = userEvent.setup();
+    const { rerender } = render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Snapshot-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(await screen.findByRole("checkbox", { name: /Entgraten/ }));
+
+    await adapter.deleteWorkstep(workstep.id);
+    rerender(<CalculationView adapter={adapter} active={false} />);
+    rerender(<CalculationView adapter={adapter} active />);
+
+    const checkbox = await screen.findByRole("checkbox", { name: /Entgraten/ });
+    expect(checkbox).toBeChecked();
+    expect(screen.getByText(/saved snapshot/)).toBeInTheDocument();
+  });
+
+  it("ignores a stale calculation result after an edit", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const original = adapter.calculate.bind(adapter);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(adapter, "calculate").mockImplementation(async (input) => {
+      await gate;
+      return original(input);
+    });
+
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Race-Test");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(screen.getByRole("button", { name: "Calculate" }));
+    await screen.findByRole("button", { name: "Calculating …" });
+
+    const printTime = screen.getByLabelText("Print time (h)");
+    await user.clear(printTime);
+    await user.type(printTime, "3");
+
+    release();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Calculate" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/Result:/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Print time (h)")).toHaveValue("3");
+  });
+
+  it("keeps edits made while a save is running", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const original = adapter.saveCalculation.bind(adapter);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(adapter, "saveCalculation").mockImplementation(async (input) => {
+      await gate;
+      return original(input);
+    });
+
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Save-Race");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+
+    const printTime = await screen.findByLabelText("Print time (h)");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("button", { name: "Saving …" });
+
+    await user.clear(printTime);
+    await user.type(printTime, "7");
+
+    release();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    expect(screen.getByLabelText("Print time (h)")).toHaveValue("7");
+  });
+
+  it("asks before replacing a dirty draft with a saved calculation", async () => {
+    const adapter = new MockPlatformAdapter();
+    await seed(adapter);
+    const user = userEvent.setup();
+    render(<CalculationView adapter={adapter} />);
+
+    await user.click(await screen.findByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Saved");
+    await user.click(screen.getByRole("button", { name: "Add file" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+
+    await user.click(screen.getByRole("button", { name: "New calculation" }));
+    await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "Draft");
+
+    const savedEntry = await screen.findByRole("button", { name: /^Saved/ });
+    await user.click(savedEntry);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/unsaved changes/i);
+    await user.click(within(dialog).getByRole("button", { name: "Discard" }));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("e.g. Enclosure series")).toHaveValue("Saved"),
+    );
   });
 
   it("asks before discarding unsaved changes", async () => {
@@ -543,7 +1002,7 @@ describe("CalculationView", () => {
     if (!fileCard) throw new Error("File card missing");
     await user.click(within(fileCard).getByRole("button", { name: "Import 3MF" }));
     await waitFor(() =>
-      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("3"),
+      expect(within(fileCard).getByLabelText("Volume (cm³)")).toHaveValue("1.5"),
     );
 
     await user.type(screen.getByPlaceholderText("e.g. Enclosure series"), "3MF-Multi");

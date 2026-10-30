@@ -35,6 +35,23 @@ describe("ProfilesView", () => {
     expect(within(dialog).getByText("Fields marked * are required.")).toBeInTheDocument();
   });
 
+  it("rejects a percentage above 100", async () => {
+    const adapter = new MockPlatformAdapter();
+    const user = userEvent.setup();
+    render(<ProfilesView adapter={adapter} />);
+    await waitFor(() => expect(screen.queryByText("Loading …")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    await user.type(screen.getByPlaceholderText("e.g. Standard 19%"), "Ungültig");
+    const tax = screen.getByLabelText("Tax rate (%)");
+    await user.clear(tax);
+    await user.type(tax, "150");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/between 0 and 100/i);
+    expect(await adapter.listCalculationProfiles()).toHaveLength(0);
+  });
+
   it("rejects an empty name", async () => {
     const adapter = new MockPlatformAdapter();
     const user = userEvent.setup();

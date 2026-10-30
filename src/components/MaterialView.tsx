@@ -50,6 +50,10 @@ function validate(material: Material, t: Strings): Errors {
   ] as const) {
     if (!isDecimalString(material[key])) {
       errors[key] = t.validation.decimal(label);
+    } else if ((key === "density_g_cm3" || key === "package_size") && Number(material[key]) <= 0) {
+      errors[key] = t.validation.positive(label);
+    } else if (key === "price" && Number(material[key]) < 0) {
+      errors[key] = t.validation.nonNegative(label);
     }
   }
   return errors;

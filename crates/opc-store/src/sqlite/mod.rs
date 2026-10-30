@@ -20,6 +20,7 @@ use opc_core::model::{
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Duration;
 use uuid::Uuid;
 
 /// Ein Store auf Basis einer SQLite-Datei.
@@ -58,6 +59,7 @@ impl SqliteStore {
             })?;
         }
 
+        prepare_database_file(&path)?;
         let connection = Connection::open(&path).map_err(|error| StoreError::Backend {
             message: format!(
                 "Datenbank '{}' konnte nicht geöffnet werden: {error}",
@@ -79,9 +81,32 @@ impl SqliteStore {
     /// Baut den Store aus einer bestehenden Verbindung.
     fn from_connection(mut connection: Connection, path: PathBuf) -> StoreResult<Self> {
         connection
+            .busy_timeout(Duration::from_secs(5))
+            .map_err(backend)?;
+        connection
             .pragma_update(None, "foreign_keys", "ON")
             .map_err(backend)?;
-        migrations::apply_migrations(&mut connection)?;
+        if path != Path::new(":memory:") {
+            set_private_permissions(&path)?;
+            // WAL erlaubt Lesen parallel zu einem Schreiber und reduziert
+            // Lock-Fehler bei zwei geöffneten Instanzen. Manche Dateisysteme
+            // (z. B. Netzwerkfreigaben) unterstützen WAL nicht; dann bleibt
+            // SQLite beim bisherigen Journal-Modus und die App startet weiter.
+            // Kein harter Fehler, wenn SQLite WAL nicht aktivieren kann
+            // (typischerweise auf Netzwerkfreigaben): der bisherige bzw.
+            // explizit angeforderte DELETE-Modus ist ein gültiger Fallback.
+            if connection
+                .query_row("PRAGMA journal_mode = WAL", [], |row| {
+                    row.get::<_, String>(0)
+                })
+                .is_err()
+            {
+                let _ = connection.pragma_update(None, "journal_mode", "DELETE");
+            }
+            set_private_permissions_for_database(&path)?;
+        }
+        migrations::apply_migrations(&mut connection, &path)?;
+        set_private_permissions_for_database(&path)?;
         Ok(Self {
             connection: Mutex::new(connection),
             path,
@@ -179,6 +204,12 @@ impl PrinterRepository for SqliteStore {
             let now = mapping::now_iso8601();
             let created = existing_created_at(connection, "printers", &printer.id)?
                 .unwrap_or_else(|| now.clone());
+            let build_volume =
+                printer
+                    .build_volume_mm3()
+                    .map_err(|error| StoreError::InvalidValue {
+                        message: error.to_string(),
+                    })?;
             connection
                 .execute(
                     "INSERT INTO printers (id, model, manufacturer, process, material_family,
@@ -212,7 +243,7 @@ impl PrinterRepository for SqliteStore {
                         mapping::enum_to_text(&printer.process)?,
                         mapping::enum_to_text(&printer.material_family)?,
                         mapping::decimal_to_text(printer.power_watts),
-                        mapping::decimal_to_text(printer.build_volume_mm3()),
+                        mapping::decimal_to_text(build_volume),
                         mapping::decimal_to_text(printer.build_width_mm),
                         mapping::decimal_to_text(printer.build_depth_mm),
                         mapping::decimal_to_text(printer.build_height_mm),
@@ -685,7 +716,7 @@ impl CalculationRepository for SqliteStore {
                      FROM calculations c
                      LEFT JOIN calculation_files f ON f.calculation_id = c.id
                      GROUP BY c.id, c.project_name, c.created_at, c.updated_at
-                     ORDER BY c.updated_at DESC",
+                     ORDER BY c.updated_at DESC, c.id ASC",
                 )
                 .map_err(backend)?;
             let rows = statement
@@ -695,8 +726,8 @@ impl CalculationRepository for SqliteStore {
                         project_name: row.get(1)?,
                         created_at: row.get(2)?,
                         updated_at: row.get(3)?,
-                        file_count: row.get::<_, i64>(4)? as u32,
-                        total_quantity: row.get::<_, i64>(5)? as u32,
+                        file_count: u32::try_from(row.get::<_, i64>(4)?).unwrap_or(u32::MAX),
+                        total_quantity: u32::try_from(row.get::<_, i64>(5)?).unwrap_or(u32::MAX),
                     })
                 })
                 .map_err(backend)?;
@@ -746,6 +777,7 @@ impl CalculationRepository for SqliteStore {
 
     fn save_calculation(&self, calculation: &CalculationInput) -> StoreResult<()> {
         self.with_connection_mut(|connection| {
+            crate::validation::ensure_unique_file_ids(calculation)?;
             let now = mapping::now_iso8601();
             let created =
                 existing_created_at(connection, "calculations", &calculation.id)?.unwrap_or_else(|| now.clone());
@@ -928,4 +960,138 @@ fn collect<T>(rows: impl Iterator<Item = rusqlite::Result<T>>) -> StoreResult<Ve
         items.push(row.map_err(backend)?);
     }
     Ok(items)
+}
+
+/// Legt eine neue Datenbankdatei auf Unix direkt mit `0600` an.
+#[cfg(unix)]
+fn prepare_database_file(path: &Path) -> StoreResult<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+    {
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(error) => Err(StoreError::Backend {
+            message: format!(
+                "Datenbank '{}' konnte nicht angelegt werden: {error}",
+                path.display()
+            ),
+        }),
+    }
+}
+
+/// Auf Nicht-Unix-Systemen gibt es keine POSIX-Dateirechte.
+#[cfg(not(unix))]
+fn prepare_database_file(_path: &Path) -> StoreResult<()> {
+    Ok(())
+}
+
+/// Setzt auf Unix restriktive Dateirechte für die lokale Datenbank.
+///
+/// Fehlende Rechteunterstützung ist kein Startfehler: Netzwerkfreigaben und
+/// manche Sonderdateisysteme erlauben kein `chmod`. Die Anwendung bleibt
+/// nutzbar, statt eine zuvor funktionierende Datenbank zu blockieren.
+#[cfg(unix)]
+fn set_private_permissions(path: &Path) -> StoreResult<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    if path == Path::new(":memory:") {
+        return Ok(());
+    }
+    match std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+        Ok(()) => Ok(()),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound
+                    | std::io::ErrorKind::PermissionDenied
+                    | std::io::ErrorKind::Unsupported
+            ) =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(StoreError::Backend {
+            message: format!(
+                "Rechte der Datenbank '{}' konnten nicht gesetzt werden: {error}",
+                path.display()
+            ),
+        }),
+    }
+}
+
+/// Setzt die Dateirechte der Datenbank und ihrer WAL-Sidecars (`-wal`, `-shm`).
+///
+/// SQLite legt die Sidecars mit der Prozess-Umask an; ohne diesen Schritt
+/// bleiben sie typischerweise `0644`, obwohl die Hauptdatei `0600` ist.
+#[cfg(unix)]
+fn set_private_permissions_for_database(path: &Path) -> StoreResult<()> {
+    if path == Path::new(":memory:") {
+        return Ok(());
+    }
+    set_private_permissions(path)?;
+    for suffix in ["-wal", "-shm"] {
+        let mut sidecar = std::ffi::OsString::from(path.as_os_str());
+        sidecar.push(suffix);
+        set_private_permissions(Path::new(&sidecar))?;
+    }
+    Ok(())
+}
+
+/// Auf Nicht-Unix-Systemen gibt es keine POSIX-Dateirechte.
+#[cfg(not(unix))]
+fn set_private_permissions(_path: &Path) -> StoreResult<()> {
+    Ok(())
+}
+
+/// Auf Nicht-Unix-Systemen gibt es keine POSIX-Dateirechte.
+#[cfg(not(unix))]
+fn set_private_permissions_for_database(_path: &Path) -> StoreResult<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SqliteStore;
+
+    #[test]
+    fn datei_datenbank_nutzt_wal_und_private_rechte() {
+        let directory = tempfile::tempdir().expect("Temp-Verzeichnis");
+        let path = directory.path().join("test.db");
+        let store = SqliteStore::open(&path).expect("Datenbank muss öffnen");
+
+        {
+            let connection = store.connection.lock().expect("Verbindung");
+            let mode: String = connection
+                .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+                .expect("journal_mode");
+            assert_eq!(mode.to_ascii_lowercase(), "wal");
+            let timeout: i64 = connection
+                .query_row("PRAGMA busy_timeout", [], |row| row.get(0))
+                .expect("busy_timeout");
+            assert!(timeout >= 5000);
+            connection
+                .execute_batch("CREATE TABLE IF NOT EXISTS permission_probe (id INTEGER);")
+                .expect("Schreibzugriff");
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for suffix in ["", "-wal", "-shm"] {
+                let mut sidecar = std::ffi::OsString::from(path.as_os_str());
+                sidecar.push(suffix);
+                let sidecar = std::path::Path::new(&sidecar);
+                let mode = std::fs::metadata(sidecar)
+                    .expect("Datei-Metadaten")
+                    .permissions()
+                    .mode()
+                    & 0o777;
+                assert_eq!(mode, 0o600, "Rechte für {suffix:?} sind nicht privat");
+            }
+        }
+    }
 }

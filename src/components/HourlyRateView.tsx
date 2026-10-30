@@ -49,23 +49,29 @@ function validate(rate: HourlyRate, t: Strings): Errors {
     ["replacement_cost", t.rates.replacement],
     ["service_life_years", t.rates.serviceLife],
     ["interest_rate_percent", t.rates.interest],
-    ["maintenance_fixed", `${t.rates.maintenanceFixed} (fix)`],
-    ["rent_fixed", `${t.rates.rentFixed} (fix)`],
-    ["electricity_fixed", `${t.rates.electricityFixed} (fix)`],
-    ["additional_fixed", `${t.rates.additionalFixed} (fix)`],
-    ["maintenance_variable", `${t.rates.maintenanceVariable} (variabel)`],
-    ["electricity_variable", `${t.rates.electricityVariable} (variabel)`],
-    ["additional_variable", `${t.rates.additionalVariable} (variabel)`],
+    ["maintenance_fixed", `${t.rates.maintenanceFixed} (${t.rates.fixedSuffix})`],
+    ["rent_fixed", `${t.rates.rentFixed} (${t.rates.fixedSuffix})`],
+    ["electricity_fixed", `${t.rates.electricityFixed} (${t.rates.fixedSuffix})`],
+    ["additional_fixed", `${t.rates.additionalFixed} (${t.rates.fixedSuffix})`],
+    ["maintenance_variable", `${t.rates.maintenanceVariable} (${t.rates.variableSuffix})`],
+    ["electricity_variable", `${t.rates.electricityVariable} (${t.rates.variableSuffix})`],
+    ["additional_variable", `${t.rates.additionalVariable} (${t.rates.variableSuffix})`],
   ];
   const errors: Errors = {};
   if (rate.name.trim() === "") errors.name = t.validation.required(t.validation.designation);
   for (const [key, label] of required) {
     if (!isDecimalString(rate[key] as string)) {
       errors[key] = t.validation.decimal(label);
+    } else if (Number(rate[key]) < 0) {
+      errors[key] = t.validation.nonNegative(label);
     }
   }
-  if (rate.fixed_rate_override !== null && rate.fixed_rate_override !== "" && !isDecimalString(rate.fixed_rate_override)) {
-    errors.fixed_rate_override = t.validation.decimalOrEmpty(t.rates.fixedOverride);
+  if (rate.fixed_rate_override !== null && rate.fixed_rate_override !== "") {
+    if (!isDecimalString(rate.fixed_rate_override)) {
+      errors.fixed_rate_override = t.validation.decimalOrEmpty(t.rates.fixedOverride);
+    } else if (Number(rate.fixed_rate_override) < 0) {
+      errors.fixed_rate_override = t.validation.nonNegative(t.rates.fixedOverride);
+    }
   }
   return errors;
 }

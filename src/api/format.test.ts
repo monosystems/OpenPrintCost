@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { multiplyDecimalStrings, sumDecimalStrings, sumSignedDecimalStrings } from "./format";
+import {
+  divideDecimalString,
+  isDecimalString,
+  multiplyDecimalStrings,
+  sumDecimalStrings,
+  sumSignedDecimalStrings,
+} from "./format";
 
 describe("multiplyDecimalStrings", () => {
   it("multiplies whole numbers exactly", () => {
@@ -51,5 +57,44 @@ describe("sumSignedDecimalStrings", () => {
     expect(sumSignedDecimalStrings(["2", "3e4"])).toBeNull();
     expect(sumSignedDecimalStrings(["2", ""])).toBeNull();
     expect(sumSignedDecimalStrings(["2", "1,5"])).toBeNull();
+  });
+});
+
+describe("isDecimalString", () => {
+  it("accepts values representable by rust_decimal", () => {
+    expect(isDecimalString("1.23")).toBe(true);
+    expect(isDecimalString("-0.5")).toBe(true);
+    expect(isDecimalString("79228162514264337593543950335")).toBe(true);
+    expect(isDecimalString("7.9228162514264337593543950335")).toBe(true);
+    expect(isDecimalString(`0.${"1".repeat(28)}`)).toBe(true);
+  });
+
+  it("rejects values outside the rust_decimal range", () => {
+    expect(isDecimalString("79228162514264337593543950336")).toBe(false);
+    expect(isDecimalString("1".repeat(30))).toBe(false);
+    expect(isDecimalString(`0.${"1".repeat(29)}`)).toBe(false);
+    expect(isDecimalString(`9.${"9".repeat(28)}`)).toBe(false);
+  });
+
+  it("still rejects malformed numbers", () => {
+    expect(isDecimalString("")).toBe(false);
+    expect(isDecimalString("1,5")).toBe(false);
+    expect(isDecimalString("1e3")).toBe(false);
+    expect(isDecimalString(".")).toBe(false);
+  });
+});
+
+describe("divideDecimalString", () => {
+  it("divides and rounds half-up", () => {
+    expect(divideDecimalString("10", 2)).toBe("5");
+    expect(divideDecimalString("10", 3, 3)).toBe("3.333");
+    expect(divideDecimalString("1.005", 1, 2)).toBe("1.01");
+    expect(divideDecimalString("3.6075", 2)).toBe("1.80375");
+  });
+
+  it("rejects invalid input", () => {
+    expect(divideDecimalString("-1", 2)).toBeNull();
+    expect(divideDecimalString("1", 0)).toBeNull();
+    expect(divideDecimalString("1,5", 2)).toBeNull();
   });
 });

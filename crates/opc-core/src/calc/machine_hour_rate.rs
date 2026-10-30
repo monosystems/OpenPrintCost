@@ -18,6 +18,7 @@
 //! Abschreibung und Zins sind Jahreswerte und werden **nicht** mit `faktor`
 //! multipliziert.
 
+use crate::calc::checked::{add, div, mul};
 use crate::model::hourly_rate::{HourlyRate, TimeBasis};
 use rust_decimal::Decimal;
 
@@ -60,37 +61,44 @@ pub fn calculate_hourly_rate(rate: &HourlyRate) -> Result<Decimal, crate::calc::
     }
 
     let factor = Decimal::from(rate.time_basis.year_factor());
-    let depreciation = depreciation(rate);
-    let interest = interest(rate);
+    let depreciation = depreciation(rate)?;
+    let interest = interest(rate)?;
+    let fixed = mul(rate.fixed_costs()?, factor, "Fixkosten")?;
+    let variable = mul(rate.variable_costs()?, factor, "Variable Kosten")?;
+    let numerator = add(
+        add(depreciation, interest, "Maschinenstundensatz")?,
+        fixed,
+        "Maschinenstundensatz",
+    )?;
+    let numerator = add(numerator, variable, "Maschinenstundensatz")?;
+    let denominator = mul(rate.machine_hours, factor, "Maschinenstunden")?;
 
-    let numerator =
-        depreciation + interest + rate.fixed_costs() * factor + rate.variable_costs() * factor;
-    let denominator = rate.machine_hours * factor;
-
-    numerator
-        .checked_div(denominator)
-        .ok_or(crate::calc::CalcError::Arithmetic {
-            message: format!("Maschinenstundensatz nicht berechenbar: {numerator} / {denominator}"),
-        })
+    div(numerator, denominator, "Maschinenstundensatz")
 }
 
 /// Abschreibung in Euro pro Jahr.
 ///
 /// `wiederbeschaffungskosten / nutzungsdauer_jahre` — bei Nutzungsdauer 0
 /// wird 0 zurückgegeben (kein Divisionsfehler).
-fn depreciation(rate: &HourlyRate) -> Decimal {
+fn depreciation(rate: &HourlyRate) -> Result<Decimal, crate::calc::CalcError> {
     if rate.service_life_years <= Decimal::ZERO {
-        return Decimal::ZERO;
+        return Ok(Decimal::ZERO);
     }
-    rate.replacement_cost / rate.service_life_years
+    div(
+        rate.replacement_cost,
+        rate.service_life_years,
+        "Abschreibung",
+    )
 }
 
 /// Zinskosten in Euro pro Jahr.
 ///
 /// `(wiederbeschaffungskosten / 2) / 100 × zinssatz` — die Bezugshälfte der
 /// Wiederbeschaffungskosten als Kapitalbindung.
-fn interest(rate: &HourlyRate) -> Decimal {
-    (rate.replacement_cost / Decimal::from(2)) / Decimal::from(100) * rate.interest_rate_percent
+fn interest(rate: &HourlyRate) -> Result<Decimal, crate::calc::CalcError> {
+    let half = div(rate.replacement_cost, Decimal::from(2), "Zins")?;
+    let percent = div(half, Decimal::from(100), "Zins")?;
+    mul(percent, rate.interest_rate_percent, "Zins")
 }
 
 /// Zeitbasis-Faktor als `Decimal` — 1 pro Jahr, 12 pro Monat.

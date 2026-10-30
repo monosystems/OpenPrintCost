@@ -247,6 +247,35 @@ fn extract_time(comments: &[&str]) -> Option<Decimal> {
     })
 }
 
+/// Behandelt Kommas in Dauerangaben kontextabhängig.
+///
+/// Ein Komma zwischen zwei Ziffern ist ein Dezimalkomma (`1,5h`). Nach einer
+/// Einheit oder vor einem Leerzeichen trennt es Komponenten (`1h,12m`,
+/// `1 h, 12 m`). Ein globales Ersetzen durch Punkt würde `1h,12m` fälschlich
+/// als `1.002h` lesen.
+fn normalize_duration_commas(text: &str) -> String {
+    let characters: Vec<char> = text.chars().collect();
+    let mut normalized = String::with_capacity(text.len());
+    for (index, character) in characters.iter().copied().enumerate() {
+        if character != ',' {
+            normalized.push(character);
+            continue;
+        }
+        let previous = index
+            .checked_sub(1)
+            .and_then(|position| characters.get(position))
+            .copied()
+            .unwrap_or(' ');
+        let next = characters.get(index + 1).copied().unwrap_or(' ');
+        if previous.is_ascii_digit() && next.is_ascii_digit() {
+            normalized.push('.');
+        } else {
+            normalized.push(' ');
+        }
+    }
+    normalized
+}
+
 /// Wandelt eine Dauerangabe in Stunden um.
 ///
 /// Verstanden werden `1h 12m 44s`, `8m 6s`, `45s`, `7 hours 39 minutes` und
@@ -255,7 +284,7 @@ fn extract_time(comments: &[&str]) -> Option<Decimal> {
 /// Gerechnet wird in `Decimal`, damit `1h 12m 44s` exakt dasselbe ergibt wie
 /// von Hand gerechnet (`1 + 12/60 + 44/3600`).
 pub(crate) fn parse_duration_hours(text: &str) -> Option<Decimal> {
-    let text = text.trim();
+    let text = text.trim().to_ascii_lowercase();
     if text.is_empty() {
         return None;
     }
@@ -264,14 +293,28 @@ pub(crate) fn parse_duration_hours(text: &str) -> Option<Decimal> {
         return Some(hours);
     }
 
-    let normalized = text
+    // Einheiten ausschreiben und Leerzeichen zwischen Zahl und Einheit
+    // entfernen, damit auch "7 hours 39 minutes" und "1 h 12 m" passen.
+    let mut normalized = text
         .replace("hours", "h")
         .replace("hour", "h")
         .replace("minutes", "m")
         .replace("minute", "m")
         .replace("seconds", "s")
-        .replace("second", "s")
-        .replace(',', " ");
+        .replace("second", "s");
+    normalized = normalize_duration_commas(&normalized);
+    for unit in ["h", "m", "s"] {
+        let with_space = format!(" {unit}");
+        while normalized.contains(&with_space) {
+            normalized = normalized.replace(&with_space, unit);
+        }
+    }
+
+    // Nach der Normalisierung kann eine reine Dezimalzahl mit Komma übrig
+    // bleiben (z. B. "1,5" → "1.5").
+    if let Ok(hours) = normalized.parse::<Decimal>() {
+        return Some(hours);
+    }
 
     let mut hours = Decimal::ZERO;
     let mut matched = false;
@@ -284,15 +327,17 @@ pub(crate) fn parse_duration_hours(text: &str) -> Option<Decimal> {
                 let value: Decimal = number.parse().ok()?;
                 match character {
                     'h' => {
-                        hours += value;
+                        hours = hours.checked_add(value)?;
                         matched = true;
                     }
                     'm' => {
-                        hours += value / Decimal::from(60);
+                        let minutes = value.checked_div(Decimal::from(60))?;
+                        hours = hours.checked_add(minutes)?;
                         matched = true;
                     }
                     's' => {
-                        hours += value / Decimal::from(3600);
+                        let seconds = value.checked_div(Decimal::from(3600))?;
+                        hours = hours.checked_add(seconds)?;
                         matched = true;
                     }
                     _ => return None,
@@ -539,6 +584,20 @@ struct ToolState {
     used_mm: f64,
 }
 
+/// Addiert eine Fahrzeit ohne Panic bei Überlauf.
+fn add_move_time(total: &mut Decimal, distance: Decimal, feedrate: Decimal) {
+    let Some(per_minute) = feedrate.checked_div(Decimal::from(60)) else {
+        return;
+    };
+    if per_minute.is_zero() {
+        return;
+    }
+    let Some(time) = distance.checked_div(per_minute) else {
+        return;
+    };
+    *total = total.checked_add(time).unwrap_or(Decimal::MAX);
+}
+
 /// Simuliert die Fahrbewegungen eines GCodes.
 ///
 /// Modell (bewusst einfacher als das beschleunigungsbasierte Modell der
@@ -677,8 +736,13 @@ fn simulate(text: &str) -> Simulation {
                             }
                             has_extrusion = true;
                         }
-                        'F' if value > 0.0 => {
-                            feedrate = decimal_from_f64(value);
+                        'F' if value.is_finite() && value > 0.0 => {
+                            let parsed = decimal_from_f64(value);
+                            // Sehr kleine oder nicht darstellbare Werte werden
+                            // zu 0; sie dürfen den Vorschub nicht auf 0 setzen.
+                            if !parsed.is_zero() {
+                                feedrate = parsed;
+                            }
                         }
                         _ => {}
                     }
@@ -689,11 +753,10 @@ fn simulate(text: &str) -> Simulation {
                 let dz = target.2 - z;
                 let distance = decimal_from_f64((dx * dx + dy * dy + dz * dz).sqrt());
                 if has_move {
-                    time_seconds += distance / (feedrate / Decimal::from(60));
+                    add_move_time(&mut time_seconds, distance, feedrate);
                 } else if has_extrusion {
                     // Reine Extrusionsfahrt: Vorschub wie bei Fahrten.
-                    time_seconds +=
-                        decimal_from_f64(e_delta.abs()) / (feedrate / Decimal::from(60));
+                    add_move_time(&mut time_seconds, decimal_from_f64(e_delta.abs()), feedrate);
                 }
                 if e_delta > 0.0 {
                     tools[current_tool].used_mm += e_delta;

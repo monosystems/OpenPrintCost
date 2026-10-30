@@ -46,6 +46,7 @@ pub mod memory;
 pub mod port;
 pub mod record;
 pub mod sqlite;
+pub(crate) mod validation;
 
 pub use document::{
     CALCULATION_DOCUMENT_FORMAT, CALCULATION_DOCUMENT_VERSION, CalculationDocument, from_json,

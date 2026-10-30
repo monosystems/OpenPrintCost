@@ -29,9 +29,56 @@ function formatDecimal(value: string, min: number, max?: number, locale: Locale 
   }).format(numeric);
 }
 
-/** Checks whether a string is a valid decimal number (dot separator). */
+const DECIMAL_MAX = 79228162514264337593543950335n;
+const DECIMAL_MAX_SCALE = 28;
+const DECIMAL_MAX_SIGNIFICANT_DIGITS = 29;
+
+/**
+ * Checks whether a string is a valid decimal number (dot separator) that
+ * `rust_decimal` can represent.
+ *
+ * The backend stores money and quantities as a 96-bit decimal. Values with
+ * too many digits would either fail deserialization or silently round to
+ * zero, so the UI rejects them before they cross the Tauri boundary.
+ */
 export function isDecimalString(value: string): boolean {
-  return /^-?\d+(\.\d+)?$/.test(value.trim());
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) return false;
+
+  const integer = (match[2] ?? "").replace(/^0+/, "") || "0";
+  const fraction = (match[3] ?? "").replace(/0+$/, "");
+  if (fraction.length > DECIMAL_MAX_SCALE) return false;
+
+  // Der Mantissenwert muss in 96 Bit passen. Die angehängte Fraktion ergibt
+  // genau den mit 10^scale skalierten Wert.
+  const digits = integer + fraction;
+  if (digits.length > DECIMAL_MAX_SIGNIFICANT_DIGITS) return false;
+  return BigInt(digits) <= DECIMAL_MAX;
+}
+
+/**
+ * Divides a non-negative decimal string by a positive integer and rounds
+ * half-up to `scale` decimal places. Returns `null` for invalid input.
+ */
+export function divideDecimalString(
+  value: string,
+  divisor: number,
+  scale = 9,
+): string | null {
+  if (!Number.isInteger(divisor) || divisor <= 0 || !Number.isInteger(scale) || scale < 0) {
+    return null;
+  }
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) return null;
+
+  const fraction = match[2] ?? "";
+  const digits = BigInt((match[1] ?? "0") + fraction);
+  const denominator = BigInt(divisor) * 10n ** BigInt(fraction.length);
+  const numerator = digits * 10n ** BigInt(scale);
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  const rounded = quotient + (remainder * 2n >= denominator ? 1n : 0n);
+  return formatScaled(rounded, scale);
 }
 
 /**

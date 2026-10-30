@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlatformAdapter } from "../api/platform";
-import { formatMoney, isDecimalString } from "../api/format";
+import { formatMoney } from "../api/format";
+import { validateProfileDecimals } from "../api/profileValidation";
 import { useLocale, type Strings } from "../i18n";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { newId, type CalculationProfile } from "../api/types";
@@ -45,26 +46,9 @@ function emptyProfile(): CalculationProfile {
 
 type Errors = Partial<Record<string, string>>;
 
-function decimals(t: Strings): ReadonlyArray<readonly [keyof CalculationProfile, string]> {
-  return [
-    ["fail_rate_percent", t.profiles.failRate],
-    ["tax_rate_percent", t.profiles.tax],
-    ["margin_percent", t.profiles.margin],
-    ["handling_fee", t.profiles.handlingFee],
-    ["energy_price_per_kwh", t.profiles.energyPrice],
-    ["power_level_percent", t.profiles.powerLevel],
-    ["print_time_factor", t.profiles.printTimeFactor],
-  ];
-}
-
 function validate(profile: CalculationProfile, t: Strings): Errors {
-  const errors: Errors = {};
+  const errors: Errors = validateProfileDecimals(profile, t);
   if (profile.name.trim() === "") errors.name = t.validation.required(t.validation.designation);
-  for (const [key, label] of decimals(t)) {
-    if (!isDecimalString(profile[key] as string)) {
-      errors[key] = t.validation.decimal(label);
-    }
-  }
   return errors;
 }
 

@@ -355,6 +355,18 @@ fn maschinenstundensatz_monatsbasis_multipliziert_fixkosten_mit_zwoelf() {
 }
 
 #[test]
+fn freier_stundensatz_null_gewinnt_gegen_den_druckersatz() {
+    let mut input = base_input();
+    let mut rate = HourlyRate::new("Null");
+    rate.fixed_rate_override = Some(dec!(0));
+    input.hourly_rate = Some(rate);
+    input.printer.hourly_rate = Some(dec!(25));
+
+    let result = calculate(&input).expect("Berechnung muss gelingen");
+    assert_eq!(result.machine_hour_rate, dec!(0));
+}
+
+#[test]
 fn freier_stundensatz_ueberschreibt_die_berechnung() {
     let mut rate = HourlyRate::new("Fest");
     rate.machine_hours = dec!(800);
@@ -792,10 +804,14 @@ fn ergebnis_serialisiert_decimal_als_string() {
     let result = calculate(&input).expect("Berechnung muss erfolgreich sein");
     let json = serde_json::to_string(&result).expect("Serialisierung muss gelingen");
 
+    let value: serde_json::Value = serde_json::from_str(&json).expect("JSON muss gültig sein");
     assert!(
-        json.contains("\"total\":\"71.94264\""),
+        value["total"].is_string(),
         "Decimal muss als String serialisiert werden: {json}"
     );
+    let total: rust_decimal::Decimal =
+        serde_json::from_value(value["total"].clone()).expect("String muss Decimal sein");
+    assert_eq!(total, dec!(71.94264));
     assert!(
         !json.contains("\"total\":71"),
         "Decimal darf nicht als Zahl serialisiert werden: {json}"

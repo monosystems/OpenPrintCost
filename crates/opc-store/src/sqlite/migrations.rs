@@ -7,7 +7,8 @@
 
 use crate::error::{StoreError, StoreResult};
 use crate::sqlite::mapping::backend;
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
+use std::path::Path;
 
 /// Eine versionierte Schemaänderung.
 pub struct Migration {
@@ -17,6 +18,9 @@ pub struct Migration {
     pub name: &'static str,
     /// Das SQL der Migration.
     pub sql: &'static str,
+    /// Ob die Migration Tabellen verwirft/neu aufbaut und daher vorher ein
+    /// Datenbank-Backup benötigt.
+    pub destructive: bool,
 }
 
 /// Alle Migrationen in aufsteigender Versionsfolge.
@@ -25,21 +29,31 @@ pub const MIGRATIONS: &[Migration] = &[
         version: 1,
         name: "initial_schema",
         sql: include_str!("migrations/0001_initial_schema.sql"),
+        destructive: false,
     },
     Migration {
         version: 2,
         name: "company_info",
         sql: include_str!("migrations/0002_company_info.sql"),
+        destructive: false,
     },
     Migration {
         version: 3,
         name: "printer_build_dimensions",
         sql: include_str!("migrations/0003_printer_build_dimensions.sql"),
+        destructive: false,
     },
     Migration {
         version: 4,
         name: "company_currency",
         sql: include_str!("migrations/0004_company_currency.sql"),
+        destructive: false,
+    },
+    Migration {
+        version: 5,
+        name: "calculation_files_composite_key",
+        sql: include_str!("migrations/0005_calculation_files_composite_key.sql"),
+        destructive: true,
     },
 ];
 
@@ -57,7 +71,7 @@ pub fn latest_version() -> i64 {
 /// Bricht ab, wenn die Datenbank aus einer **neueren** Anwendung stammt
 /// (Schema-Version größer als die höchste hier unterstützte) — statt
 /// stillschweigend weiterzulaufen und Daten zu verlieren.
-pub fn apply_migrations(conn: &mut Connection) -> StoreResult<()> {
+pub fn apply_migrations(conn: &mut Connection, path: &Path) -> StoreResult<()> {
     create_migration_table(conn)?;
 
     let applied = applied_versions(conn)?;
@@ -70,6 +84,13 @@ pub fn apply_migrations(conn: &mut Connection) -> StoreResult<()> {
         });
     }
 
+    if let Some(migration) = MIGRATIONS
+        .iter()
+        .find(|migration| migration.destructive && migration.version > latest_applied)
+    {
+        backup_before_destructive_migration(conn, path, migration.version)?;
+    }
+
     for migration in MIGRATIONS {
         if migration.version <= latest_applied {
             continue;
@@ -77,6 +98,37 @@ pub fn apply_migrations(conn: &mut Connection) -> StoreResult<()> {
         apply_one(conn, migration)?;
     }
 
+    Ok(())
+}
+
+/// Legt vor einer destruktiven Migration eine konsistente Kopie der Datenbank an.
+///
+/// `VACUUM INTO` schreibt auch bei aktivem WAL einen konsistenten Snapshot und
+/// lässt die laufende Verbindung unangetastet.
+fn backup_before_destructive_migration(
+    conn: &Connection,
+    path: &Path,
+    target_version: i64,
+) -> StoreResult<()> {
+    if path == Path::new(":memory:") {
+        return Ok(());
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("openprintcost.db");
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    let backup = path.with_file_name(format!("{file_name}.backup-v{target_version}-{timestamp}"));
+    let backup_text = backup.to_string_lossy().into_owned();
+    conn.execute("VACUUM INTO ?1", params![backup_text])
+        .map_err(|error| StoreError::Migration {
+            version: target_version,
+            message: format!(
+                "Backup vor Migration {} konnte nicht angelegt werden: {error}",
+                target_version
+            ),
+        })?;
+    super::set_private_permissions(&backup)?;
     Ok(())
 }
 
