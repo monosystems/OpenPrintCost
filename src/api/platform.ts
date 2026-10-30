@@ -5,6 +5,7 @@
  * Rule: no component except `tauriAdapter.ts` may import `@tauri-apps/api`.
  * Tests and browser development run against `mockAdapter.ts`.
  */
+import type { Locale } from "../i18n";
 import type {
   CalculationInput,
   CalculationProfile,
@@ -110,8 +111,16 @@ export interface PlatformAdapter {
    * Renders the result and saves it via the file dialog.
    * Returns the path — or `null` when the dialog is cancelled.
    */
-  exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
-  exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null>;
+  exportResultPdf(
+    result: CalculationResult,
+    company: CompanyInfo,
+    locale?: Locale,
+  ): Promise<string | null>;
+  exportResultExcel(
+    result: CalculationResult,
+    company: CompanyInfo,
+    locale?: Locale,
+  ): Promise<string | null>;
 
   // -- Company info ---------------------------------------------------------------
   getCompanyInfo(): Promise<CompanyInfo>;

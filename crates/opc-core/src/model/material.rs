@@ -1,5 +1,6 @@
 //! Material-Stammdaten.
 
+use crate::calc::checked::mul;
 use crate::money;
 use crate::units::MaterialUnit;
 use rust_decimal::Decimal;
@@ -90,7 +91,11 @@ impl Material {
     /// Eine Verpackungsgröße von `0` liefert `Err(CalcError::DivisionByZero)`
     /// und **nicht** `0` oder einen Panic (Spec 0003, Randfälle).
     pub fn price_per_gram(&self) -> Result<Decimal, crate::calc::CalcError> {
-        let package_grams = self.package_size * self.unit.grams_per_unit();
+        let package_grams = mul(
+            self.package_size,
+            self.unit.grams_per_unit(),
+            "Verpackungsgröße",
+        )?;
         money::checked_divide(self.price, package_grams, "package_size")
     }
 
@@ -99,7 +104,10 @@ impl Material {
     /// ```text
     /// gewicht_g = volumen_cm3 × dichte_g_cm3
     /// ```
-    pub fn weight_from_volume(&self, volume_cm3: Decimal) -> Decimal {
-        volume_cm3 * self.density_g_cm3
+    pub fn weight_from_volume(
+        &self,
+        volume_cm3: Decimal,
+    ) -> Result<Decimal, crate::calc::CalcError> {
+        mul(volume_cm3, self.density_g_cm3, "Materialgewicht")
     }
 }

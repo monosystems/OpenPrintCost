@@ -373,3 +373,67 @@ fn leere_eingabe_ist_ein_fehler() {
     let error = parse_gcode("  \n").expect_err("muss fehlschlagen");
     assert_eq!(error, opc_io::IoError::Empty);
 }
+
+#[test]
+fn extrem_kleiner_vorschub_panict_nicht() {
+    // Regression: F1e-40 wurde zu Decimal 0 und die Zeitberechnung teilte
+    // anschließend durch null.
+    let info = parse_gcode("G1 X1 F1e-40\n").expect("muss parsen");
+    assert!(info.simulated_time_hours >= dec!(0));
+    assert!(info.time_from_comments_hours.is_none());
+}
+
+#[test]
+fn extrem_grosser_vorschub_panict_nicht() {
+    let info = parse_gcode("G1 X1 F1e309\n").expect("muss parsen");
+    assert!(info.simulated_time_hours >= dec!(0));
+}
+
+#[test]
+fn dauer_mit_ausgeschriebenen_einheiten_wird_geparst() {
+    let info = parse_gcode("; Build time: 7 hours 39 minutes\n").expect("muss parsen");
+    assert_eq!(info.time_from_comments_hours, Some(dec!(7.65)));
+
+    let info = parse_gcode("; estimated printing time (normal mode) = 1 hour 12 minutes\n")
+        .expect("muss parsen");
+    assert_eq!(info.time_from_comments_hours, Some(dec!(1.2)));
+}
+
+#[test]
+fn dauer_mit_dezimalkomma_wird_geparst() {
+    let info = parse_gcode("; Build time: 1,5h\n").expect("muss parsen");
+    assert_eq!(info.time_from_comments_hours, Some(dec!(1.5)));
+}
+
+#[test]
+fn dauer_mit_komma_als_komponententrenner_wird_geparst() {
+    for text in [
+        "; Build time: 1h,12m\n",
+        "; Build time: 1 h, 12 m\n",
+        "; Build time: 1 hour, 12 minutes\n",
+    ] {
+        let info = parse_gcode(text).expect("muss parsen");
+        assert_eq!(
+            info.time_from_comments_hours,
+            Some(dec!(1.2)),
+            "fehlerhaft für {text:?}"
+        );
+    }
+}
+
+#[test]
+fn extrem_grosse_dauer_panict_nicht() {
+    let info =
+        parse_gcode("; Build time: 79228162514264337593543950335h 1h\n").expect("muss parsen");
+    assert!(info.time_from_comments_hours.is_none());
+}
+
+#[test]
+fn stl_mit_nicht_endlichen_koordinaten_ist_ein_fehler() {
+    let mut triangles = cube_triangles(10.0);
+    triangles[0].a[0] = f64::NAN;
+    assert!(parse_stl(&to_binary_stl(&triangles)).is_err());
+
+    let ascii = "solid bad\n facet normal 0 0 0\n outer loop\n vertex NaN 0 0\n vertex 1 0 0\n vertex 0 1 0\n endloop\n endfacet\nendsolid bad\n";
+    assert!(parse_stl(ascii.as_bytes()).is_err());
+}

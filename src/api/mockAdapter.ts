@@ -230,6 +230,7 @@ export class MockPlatformAdapter implements PlatformAdapter {
       id: calculation.id,
       project_name: calculation.project_name,
       created_at: calculation.created_at,
+      notes: calculation.notes,
       positions,
       base_total: total,
       margin_total: "0",
@@ -324,12 +325,17 @@ export class MockPlatformAdapter implements PlatformAdapter {
   }
 
   // -- Export ------------------------------------------------------------------
-  async exportResultPdf(_result: CalculationResult, _company: CompanyInfo): Promise<string | null> {
+  async exportResultPdf(
+    _result: CalculationResult,
+    _company: CompanyInfo,
+    _locale?: string,
+  ): Promise<string | null> {
     return "mock-report.pdf";
   }
   async exportResultExcel(
     _result: CalculationResult,
     _company: CompanyInfo,
+    _locale?: string,
   ): Promise<string | null> {
     return "mock-report.xlsx";
   }

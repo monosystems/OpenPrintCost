@@ -53,6 +53,8 @@ function validate(workstep: Workstep, t: Strings): Errors {
   ] as const) {
     if (!isDecimalString(workstep[key])) {
       errors[key] = t.validation.decimal(label);
+    } else if (Number(workstep[key]) < 0) {
+      errors[key] = t.validation.nonNegative(label);
     }
   }
   return errors;

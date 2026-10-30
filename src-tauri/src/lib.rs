@@ -33,9 +33,18 @@ impl AppState {
 /// Startet die Desktop-Anwendung.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    // Auf dem Desktop verhindert das Plugin eine zweite Instanz, die sonst
+    // parallel auf dieselbe lokale Datenbank schreiben könnte.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.set_focus();
+        }
+    }));
+    builder
         .setup(|app| {
             // Die Datenbank liegt im Benutzerdatenverzeichnis der App — sie
             // gehört dem Benutzer und wird nicht hochgeladen.

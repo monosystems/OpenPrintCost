@@ -126,6 +126,22 @@ fn test_calculation() -> CalculationInput {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn ueberlaufendes_bauvolumen_wird_statt_eines_panics_abgelehnt() {
+    let store = SqliteStore::open_in_memory().expect("In-Memory-SQLite muss öffnen");
+    let mut printer = test_printer();
+    printer.build_width_mm = Decimal::MAX;
+    printer.build_depth_mm = dec!(2);
+    printer.build_height_mm = dec!(2);
+
+    let result = std::panic::catch_unwind(|| store.save_printer(&printer));
+    assert!(result.is_ok(), "save_printer darf nicht panicen");
+    assert!(
+        matches!(result.unwrap(), Err(StoreError::InvalidValue { .. })),
+        "Überlauf muss als InvalidValue gemeldet werden"
+    );
+}
+
+#[test]
 fn drucker_legen_sich_an_und_lassen_sich_lesen() {
     for_each_backend(|store| {
         let printer = test_printer();
@@ -153,7 +169,7 @@ fn drucker_speichern_alle_felder_exakt() {
         assert_eq!(loaded.build_width_mm, dec!(250));
         assert_eq!(loaded.build_depth_mm, dec!(210));
         assert_eq!(loaded.build_height_mm, dec!(220));
-        assert_eq!(loaded.build_volume_mm3(), dec!(11_550_000));
+        assert_eq!(loaded.build_volume_mm3().unwrap(), dec!(11_550_000));
         assert_eq!(loaded.purchase_price, dec!(1499));
         assert_eq!(loaded.hourly_rate, Some(dec!(12.5)));
         assert_eq!(loaded.nozzle_wear_cost, Some(dec!(4.5)));
@@ -405,6 +421,34 @@ fn profile_kann_geloescht_werden() {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn gleiche_datei_id_in_zwei_kalkulationen_ist_erlaubt() {
+    for_each_backend(|store| {
+        let first = test_calculation();
+        let shared_file_id = first.files[0].id;
+        let mut second = test_calculation();
+        second.id = Uuid::new_v4();
+        second.project_name = "Zweite Kalkulation".to_string();
+        second.files[0].id = shared_file_id;
+
+        store.save_calculation(&first).expect("erste Kalkulation");
+        store.save_calculation(&second).expect("zweite Kalkulation");
+        assert_eq!(store.list_calculations().unwrap().len(), 2);
+    });
+}
+
+#[test]
+fn doppelte_datei_id_in_einer_kalkulation_ist_ein_fehler() {
+    for_each_backend(|store| {
+        let mut calculation = test_calculation();
+        calculation.files[1].id = calculation.files[0].id;
+        assert!(matches!(
+            store.save_calculation(&calculation),
+            Err(StoreError::InvalidValue { .. })
+        ));
+    });
+}
+
+#[test]
 fn kalkulation_wird_als_schnappschuss_gespeichert() {
     for_each_backend(|store| {
         let calculation = test_calculation();
@@ -529,6 +573,80 @@ fn migrationen_werden_nicht_doppelt_angewandt() {
         let store = SqliteStore::open(&path).unwrap();
         assert_eq!(store.list_printers().unwrap().len(), 1);
     }
+}
+
+#[test]
+fn destruktive_migration_legt_vorher_ein_backup_an() {
+    use opc_store::sqlite::migrations::MIGRATIONS;
+    use rusqlite::{Connection, params};
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("openprintcost.db");
+
+    {
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (
+                     version    INTEGER PRIMARY KEY NOT NULL,
+                     name       TEXT NOT NULL,
+                     applied_at TEXT NOT NULL
+                 );",
+            )
+            .unwrap();
+        for migration in MIGRATIONS.iter().filter(|migration| migration.version <= 4) {
+            connection.execute_batch(migration.sql).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
+                    params![migration.version, migration.name, "2026-01-01T00:00:00Z"],
+                )
+                .unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO calculations (id, project_name, notes, created_at, updated_at, document)
+                 VALUES ('calc', 'Alt', NULL, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '{}')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO calculation_files
+                 (id, calculation_id, file_name, quantity, print_time_hours, volume_cm3, weight_g, material_changes, sort_order)
+                 VALUES ('file', 'calc', 'alt.stl', 1, '2', NULL, NULL, 0, 0)",
+                [],
+            )
+            .unwrap();
+    }
+
+    let _store = SqliteStore::open(&path).expect("Migration muss laufen");
+
+    let backup = std::fs::read_dir(directory.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|entry| {
+            entry
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.contains(".backup-v5-"))
+        })
+        .expect("Backup vor Migration 0005 fehlt");
+
+    let backup_connection = Connection::open(backup).unwrap();
+    let files: i64 = backup_connection
+        .query_row("SELECT COUNT(*) FROM calculation_files", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(files, 1, "Backup muss die alten Dateien enthalten");
+    let version: i64 = backup_connection
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(version, 4, "Backup muss den Stand vor Migration 0005 haben");
 }
 
 #[test]

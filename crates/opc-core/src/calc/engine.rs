@@ -31,6 +31,7 @@
 //! Material, Maschine und Energie (§ 4.10) — diese **gehören** in die
 //! Gesamtkosten, denn der verworfene Druck ist bezahlt.
 
+use crate::calc::checked::{add, div, mul, sub, sum};
 use crate::calc::energy;
 use crate::calc::fit;
 use crate::calc::machine_hour_rate;
@@ -71,10 +72,10 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
         let (file_positions, summary) = calculate_file(input, file, hourly_rate)?;
         let scope = apply_margin_and_tax(input, file_positions, Some(file.id))?;
         positions.extend(scope.positions);
-        base_total += scope.base;
-        margin_total += scope.margin;
-        tax_total += scope.tax;
-        total += scope.total;
+        base_total = add(base_total, scope.base, "Summe")?;
+        margin_total = add(margin_total, scope.margin, "Summe")?;
+        tax_total = add(tax_total, scope.tax, "Summe")?;
+        total = add(total, scope.total, "Summe")?;
         file_summaries.push(summary);
     }
 
@@ -85,10 +86,10 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
     positions.extend(project_scope.positions);
 
     // 4) Summen bilden.
-    let base_total = base_total + project_scope.base;
-    let margin_total = margin_total + project_scope.margin;
-    let tax_total = tax_total + project_scope.tax;
-    let total = total + project_scope.total;
+    let base_total = add(base_total, project_scope.base, "Summe")?;
+    let margin_total = add(margin_total, project_scope.margin, "Summe")?;
+    let tax_total = add(tax_total, project_scope.tax, "Summe")?;
+    let total = add(total, project_scope.total, "Summe")?;
 
     let mut total_position = CostPosition::new(CostGroup::Total, "Verkaufspreis", total);
     total_position.detail = Some(format!("{} €", money::format_de(total, 2)));
@@ -102,13 +103,17 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
         (None, None)
     } else {
         let pieces = Decimal::from(total_quantity);
-        (Some(base_total / pieces), Some(total / pieces))
+        (
+            Some(div(base_total, pieces, "Kosten je Stück")?),
+            Some(div(total, pieces, "Preis je Stück")?),
+        )
     };
 
     Ok(CalculationResult {
         id: input.id,
         project_name: input.project_name.clone(),
         created_at: input.created_at.clone(),
+        notes: input.notes.clone(),
         positions,
         base_total,
         margin_total,
@@ -130,7 +135,9 @@ pub fn calculate(input: &CalculationInput) -> Result<CalculationResult, crate::c
 fn resolve_hourly_rate(input: &CalculationInput) -> Result<Decimal, crate::calc::CalcError> {
     if let Some(rate) = &input.hourly_rate {
         let computed = machine_hour_rate::calculate_hourly_rate(rate)?;
-        if !computed.is_zero() {
+        // Ein explizit gesetzter Satz (auch 0) gewinnt; nur ein aus fehlenden
+        // Daten berechneter Nullsatz fällt auf den Drucker-Stundensatz zurück.
+        if rate.fixed_rate_override.is_some() || !computed.is_zero() {
             return Ok(computed);
         }
     }
@@ -172,11 +179,17 @@ fn calculate_file(
         .multiply_print_time_with_quantity
         .unwrap_or(profile.multiply_print_time_with_quantity);
     let print_time_base = if multiply {
-        file.print_time_hours * Decimal::from(quantity) * profile.print_time_factor
+        let scaled = mul(file.print_time_hours, Decimal::from(quantity), "Druckzeit")?;
+        mul(scaled, profile.print_time_factor, "Druckzeit")?
     } else {
         file.print_time_hours
     };
-    let print_time_fail = print_time_base * fail_rate / Decimal::from(100);
+    let fail_rate_fraction = div(fail_rate, Decimal::from(100), "Fehlerrate")?;
+    let print_time_fail = mul(
+        print_time_base,
+        fail_rate_fraction,
+        "Druckzeit (Fehlerrate)",
+    )?;
 
     // --- Materialkosten (Spec 4.2) -----------------------------------------
     let mut material_g_total = Decimal::ZERO;
@@ -184,15 +197,15 @@ fn calculate_file(
     let mut entries: Vec<MaterialEntry> = Vec::new();
 
     for file_material in &file.materials {
-        let piece_weight = material::piece_weight_g(file_material, file.weight_g, file.volume_cm3);
-        let g_base = material::material_g_base(piece_weight, quantity);
-        let g_fail = material::material_g_fail(g_base, fail_rate);
+        let piece_weight = material::piece_weight_g(file_material, file.weight_g, file.volume_cm3)?;
+        let g_base = material::material_g_base(piece_weight, quantity)?;
+        let g_fail = material::material_g_fail(g_base, fail_rate)?;
         let price_per_gram = material::price_per_gram(&file_material.material)?;
-        let cost_base = material::material_costs_base(g_base, price_per_gram);
-        let cost_fail = material::material_costs_fail(g_fail, price_per_gram);
+        let cost_base = material::material_costs_base(g_base, price_per_gram)?;
+        let cost_fail = material::material_costs_fail(g_fail, price_per_gram)?;
 
-        material_g_total += g_base;
-        material_g_fail_total += g_fail;
+        material_g_total = add(material_g_total, g_base, "Materialsumme")?;
+        material_g_fail_total = add(material_g_fail_total, g_fail, "Materialsumme")?;
         entries.push(MaterialEntry {
             name: file_material.material.name.clone(),
             material_id: file_material.material.id,
@@ -210,13 +223,13 @@ fn calculate_file(
         combine,
         profile.exclude_material_from_margin,
         Some(file.id),
-    ) {
+    )? {
         push(&mut positions, position);
     }
 
     // --- Maschinenkosten (Spec 4.3) ----------------------------------------
-    let machine_base = hourly_rate * print_time_base;
-    let machine_fail = hourly_rate * print_time_fail;
+    let machine_base = mul(hourly_rate, print_time_base, "Maschinenkosten")?;
+    let machine_fail = mul(hourly_rate, print_time_fail, "Maschinenkosten")?;
     if !machine_base.is_zero() {
         let mut position = CostPosition::new(CostGroup::Machine, "Maschinenkosten", machine_base);
         position.detail = Some(format!(
@@ -257,11 +270,11 @@ fn calculate_file(
     if profile.apply_energy_costs {
         let power = input.printer.power_watts;
         let kwh_base =
-            energy::energy_consumption_kwh(print_time_base, power, profile.power_level_percent);
+            energy::energy_consumption_kwh(print_time_base, power, profile.power_level_percent)?;
         let kwh_fail =
-            energy::energy_consumption_kwh(print_time_fail, power, profile.power_level_percent);
-        let cost_base = kwh_base * profile.energy_price_per_kwh;
-        let cost_fail = kwh_fail * profile.energy_price_per_kwh;
+            energy::energy_consumption_kwh(print_time_fail, power, profile.power_level_percent)?;
+        let cost_base = mul(kwh_base, profile.energy_price_per_kwh, "Energiekosten")?;
+        let cost_fail = mul(kwh_fail, profile.energy_price_per_kwh, "Energiekosten")?;
 
         if !cost_base.is_zero() {
             let mut position = CostPosition::new(CostGroup::Energy, "Energiekosten", cost_base);
@@ -294,11 +307,9 @@ fn calculate_file(
     // --- Verfahrensspezifische Zuschläge (Spec 4.7) ------------------------
     if input.printer.process == PrintProcess::Fdm {
         if let Some(cost) = input.printer.nozzle_wear_cost {
-            let mut position = CostPosition::new(
-                CostGroup::ProcessSurcharge,
-                "Düsenverschleiß",
-                cost * Decimal::from(quantity),
-            );
+            let amount = mul(cost, Decimal::from(quantity), "Düsenverschleiß")?;
+            let mut position =
+                CostPosition::new(CostGroup::ProcessSurcharge, "Düsenverschleiß", amount);
             position.detail = Some(format!("{} × {} €", quantity, money::format_de(cost, 2)));
             position.quantity = Some(Decimal::from(quantity));
             position.unit = Some("Stk".to_string());
@@ -306,10 +317,11 @@ fn calculate_file(
             positions.push(position);
         }
         if let Some(cost) = input.printer.build_plate_wear_cost {
+            let amount = mul(cost, Decimal::from(quantity), "Druckplattenverschleiß")?;
             let mut position = CostPosition::new(
                 CostGroup::ProcessSurcharge,
                 "Druckplattenverschleiß",
-                cost * Decimal::from(quantity),
+                amount,
             );
             position.detail = Some(format!("{} × {} €", quantity, money::format_de(cost, 2)));
             position.quantity = Some(Decimal::from(quantity));
@@ -318,11 +330,13 @@ fn calculate_file(
             positions.push(position);
         }
         if let Some(cost) = input.printer.material_change_cost {
-            let mut position = CostPosition::new(
-                CostGroup::ProcessSurcharge,
+            let amount = mul(
+                cost,
+                Decimal::from(file.material_changes),
                 "Materialwechsel",
-                cost * Decimal::from(file.material_changes),
-            );
+            )?;
+            let mut position =
+                CostPosition::new(CostGroup::ProcessSurcharge, "Materialwechsel", amount);
             position.detail = Some(format!(
                 "{} × {} €",
                 file.material_changes,
@@ -341,7 +355,7 @@ fn calculate_file(
         .iter()
         .filter(|w| w.calculation_type == WorkstepCalculationType::PerPiece)
     {
-        let amount = worksteps::per_piece(workstep, quantity);
+        let amount = worksteps::per_piece(workstep, quantity)?;
         let mut position = CostPosition::new(CostGroup::Worksteps, workstep.name.clone(), amount);
         position.detail = Some(format!(
             "{} € × {} × {} Stk",
@@ -349,7 +363,11 @@ fn calculate_file(
             money::format_de(workstep.quantity, 2),
             quantity
         ));
-        position.quantity = Some(workstep.quantity * Decimal::from(quantity));
+        position.quantity = Some(mul(
+            workstep.quantity,
+            Decimal::from(quantity),
+            "Arbeitsschritt",
+        )?);
         position.unit = Some("Stk".to_string());
         position.file_id = Some(file.id);
         position.source_id = Some(workstep.id);
@@ -363,7 +381,7 @@ fn calculate_file(
         .iter()
         .filter(|item| item.file_id == Some(file.id))
     {
-        let amount = item.price * item.quantity;
+        let amount = mul(item.price, item.quantity, "Zusatzartikel")?;
         let mut position = CostPosition::new(CostGroup::AdditionalItems, item.name.clone(), amount);
         position.detail = Some(format!(
             "{} × {} €",
@@ -379,7 +397,11 @@ fn calculate_file(
 
     // --- Handlungspauschale „je Datei" (Spec 4.8) --------------------------
     if profile.handling_fee_scope == HandlingFeeScope::PerFile {
-        let amount = profile.handling_fee * Decimal::from(quantity);
+        let amount = mul(
+            profile.handling_fee,
+            Decimal::from(quantity),
+            "Handlungspauschale",
+        )?;
         let mut position = CostPosition::new(CostGroup::HandlingFee, "Handlungspauschale", amount);
         position.detail = Some(format!(
             "{} € × {} Stk",
@@ -419,8 +441,8 @@ fn calculate_project_level(
     // --- Arbeitsschritte „pro Stunde" und „pro Auftrag" -------------------
     for workstep in &input.worksteps {
         let amount = match workstep.calculation_type {
-            WorkstepCalculationType::PerHour => worksteps::per_hour(workstep),
-            WorkstepCalculationType::PerOrder => worksteps::per_order(workstep),
+            WorkstepCalculationType::PerHour => worksteps::per_hour(workstep)?,
+            WorkstepCalculationType::PerOrder => worksteps::per_order(workstep)?,
             WorkstepCalculationType::PerPiece => continue,
         };
         let mut position = CostPosition::new(CostGroup::Worksteps, workstep.name.clone(), amount);
@@ -437,7 +459,7 @@ fn calculate_project_level(
         .iter()
         .filter(|item| item.file_id.is_none())
     {
-        let amount = item.price * item.quantity;
+        let amount = mul(item.price, item.quantity, "Zusatzartikel")?;
         let mut position = CostPosition::new(CostGroup::AdditionalItems, item.name.clone(), amount);
         position.detail = Some(format!(
             "{} × {} €",
@@ -495,7 +517,7 @@ fn apply_margin_and_tax(
 ) -> Result<ScopeTotals, crate::calc::CalcError> {
     let profile = &input.profile;
     let is_project_level = file_id.is_none();
-    let mut running_total = sum_of(&positions);
+    let mut running_total = sum_of(&positions)?;
 
     // --- Zuschläge vor der Marge: prozentsatz × kosten_sofar ----------------
     for surcharge in input
@@ -503,23 +525,25 @@ fn apply_margin_and_tax(
         .iter()
         .filter(|s| s.timing == SurchargeTiming::BeforeMargin)
     {
-        let amount = margin::percentage_surcharge(running_total, surcharge.percent);
+        let amount = margin::percentage_surcharge(running_total, surcharge.percent)?;
         let mut position = surcharge_position(surcharge, amount);
         position.file_id = file_id;
         push(&mut positions, position);
-        running_total += amount;
+        running_total = add(running_total, amount, "Zuschlag")?;
     }
 
     // Die Kostenbasis endet hier — Zuschläge nach der Marge gehören nicht dazu.
     let base = running_total;
 
     // --- Marge: (kosten_basis − ausgeschlossene_posten) × marge_prozent ----
-    let excluded = positions
-        .iter()
-        .filter(|position| position.excluded_from_margin)
-        .map(|position| position.amount)
-        .sum::<Decimal>();
-    let margin_base = running_total - excluded;
+    let excluded = sum(
+        positions
+            .iter()
+            .filter(|position| position.excluded_from_margin)
+            .map(|position| position.amount),
+        "Ausgeschlossene Posten",
+    )?;
+    let margin_base = sub(running_total, excluded, "Margenbasis")?;
 
     let margin_amount = if is_project_level {
         // Auf Projektebene wirkt die Marge nur auf die einmalige
@@ -530,9 +554,9 @@ fn apply_margin_and_tax(
             .find(|position| position.group == CostGroup::HandlingFee)
             .map(|position| position.amount)
             .unwrap_or(Decimal::ZERO);
-        margin::margin(fee, Decimal::ZERO, profile.margin_percent)
+        margin::margin(fee, Decimal::ZERO, profile.margin_percent)?
     } else {
-        margin::margin(running_total, excluded, profile.margin_percent)
+        margin::margin(running_total, excluded, profile.margin_percent)?
     };
 
     if !margin_amount.is_zero() {
@@ -556,7 +580,7 @@ fn apply_margin_and_tax(
         position.file_id = file_id;
         positions.push(position);
     }
-    running_total += margin_amount;
+    running_total = add(running_total, margin_amount, "Marge")?;
 
     // --- Zuschläge nach der Marge: prozentsatz × kosten_nach_marge ---------
     for surcharge in input
@@ -564,15 +588,15 @@ fn apply_margin_and_tax(
         .iter()
         .filter(|s| s.timing == SurchargeTiming::AfterMargin)
     {
-        let amount = margin::percentage_surcharge(running_total, surcharge.percent);
+        let amount = margin::percentage_surcharge(running_total, surcharge.percent)?;
         let mut position = surcharge_position(surcharge, amount);
         position.file_id = file_id;
         push(&mut positions, position);
-        running_total += amount;
+        running_total = add(running_total, amount, "Zuschlag")?;
     }
 
     // --- Steuer: (kosten_nach_marge + custom_nach_marge) × steuersatz ------
-    let tax_amount = margin::tax(running_total, profile.tax_rate_percent);
+    let tax_amount = margin::tax(running_total, profile.tax_rate_percent)?;
     if !tax_amount.is_zero() {
         let mut position = CostPosition::new(CostGroup::Tax, "Steuer", tax_amount);
         position.detail = Some(format!(
@@ -591,7 +615,7 @@ fn apply_margin_and_tax(
         base,
         margin: margin_amount,
         tax: tax_amount,
-        total: running_total + tax_amount,
+        total: add(running_total, tax_amount, "Summe")?,
     })
 }
 
@@ -616,10 +640,10 @@ fn build_material_positions(
     combine: bool,
     excluded_from_margin: bool,
     file_id: Option<Uuid>,
-) -> Vec<CostPosition> {
+) -> Result<Vec<CostPosition>, crate::calc::CalcError> {
     let mut positions = Vec::new();
     if entries.is_empty() {
-        return positions;
+        return Ok(positions);
     }
 
     if combine {
@@ -628,10 +652,16 @@ fn build_material_positions(
             .map(|entry| entry.name.clone())
             .collect::<Vec<_>>()
             .join(" + ");
-        let g_base = entries.iter().map(|entry| entry.g_base).sum::<Decimal>();
-        let g_fail = entries.iter().map(|entry| entry.g_fail).sum::<Decimal>();
-        let cost_base = entries.iter().map(|entry| entry.cost_base).sum::<Decimal>();
-        let cost_fail = entries.iter().map(|entry| entry.cost_fail).sum::<Decimal>();
+        let g_base = sum(entries.iter().map(|entry| entry.g_base), "Materialsumme")?;
+        let g_fail = sum(entries.iter().map(|entry| entry.g_fail), "Materialsumme")?;
+        let cost_base = sum(
+            entries.iter().map(|entry| entry.cost_base),
+            "Materialkosten",
+        )?;
+        let cost_fail = sum(
+            entries.iter().map(|entry| entry.cost_fail),
+            "Materialkosten",
+        )?;
 
         let mut position = CostPosition::new(CostGroup::Material, names, cost_base);
         position.detail = Some(format!("{} g Material", money::format_de(g_base, 2)));
@@ -653,7 +683,7 @@ fn build_material_positions(
         fail_position.is_fail_rate = true;
         fail_position.excluded_from_margin = excluded_from_margin;
         positions.push(fail_position);
-        return positions;
+        return Ok(positions);
     }
 
     for entry in entries {
@@ -686,7 +716,7 @@ fn build_material_positions(
         positions.push(fail_position);
     }
 
-    positions
+    Ok(positions)
 }
 
 /// Baut die Position eines prozentualen Zuschlags.
@@ -701,8 +731,11 @@ fn surcharge_position(surcharge: &CustomSurcharge, amount: Decimal) -> CostPosit
 }
 
 /// Summiert alle Beträge einer Positionsliste.
-fn sum_of(positions: &[CostPosition]) -> Decimal {
-    positions.iter().map(|position| position.amount).sum()
+fn sum_of(positions: &[CostPosition]) -> Result<Decimal, crate::calc::CalcError> {
+    sum(
+        positions.iter().map(|position| position.amount),
+        "Positionssumme",
+    )
 }
 
 /// Hängt eine Position an, sofern ihr Betrag ungleich null ist.

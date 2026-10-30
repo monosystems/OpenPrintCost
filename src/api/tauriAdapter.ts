@@ -7,6 +7,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { Locale } from "../i18n";
+import { localizeErrorMessage } from "./errors";
 import { AdapterError, type PlatformAdapter } from "./platform";
 import type {
   CalculationInput,
@@ -30,11 +32,11 @@ import type {
 /** Maps a backend error to an `AdapterError`. */
 function toError(error: unknown): AdapterError {
   if (error instanceof AdapterError) return error;
-  if (typeof error === "string") return new AdapterError(error);
+  if (typeof error === "string") return new AdapterError(localizeErrorMessage(error));
   if (error !== null && typeof error === "object") {
     const withMessage = error as { message?: unknown };
     if (typeof withMessage.message === "string") {
-      return new AdapterError(withMessage.message);
+      return new AdapterError(localizeErrorMessage(withMessage.message));
     }
   }
   return new AdapterError("Unknown data transfer error.");
@@ -191,11 +193,19 @@ export class TauriPlatformAdapter implements PlatformAdapter {
     return call("import_calculation_json");
   }
 
-  exportResultPdf(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
-    return call("export_result_pdf", { result, company });
+  exportResultPdf(
+    result: CalculationResult,
+    company: CompanyInfo,
+    locale?: Locale,
+  ): Promise<string | null> {
+    return call("export_result_pdf", { result, company, locale });
   }
-  exportResultExcel(result: CalculationResult, company: CompanyInfo): Promise<string | null> {
-    return call("export_result_excel", { result, company });
+  exportResultExcel(
+    result: CalculationResult,
+    company: CompanyInfo,
+    locale?: Locale,
+  ): Promise<string | null> {
+    return call("export_result_excel", { result, company, locale });
   }
 
   getCompanyInfo(): Promise<CompanyInfo> {

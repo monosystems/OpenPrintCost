@@ -4,6 +4,7 @@
 //! Das Modul [`engine`] orchestriert die Aufrufe in der **fixen Reihenfolge**
 //! der Kostenblöcke (Spec 0001, Abschnitt 4).
 
+pub(crate) mod checked;
 pub mod energy;
 pub mod engine;
 pub mod fit;

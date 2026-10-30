@@ -60,7 +60,11 @@ function validate(printer: Printer, t: Strings): Errors {
     ["build_height_mm", t.printers.height],
     ["purchase_price", t.printers.price],
   ] as const) {
-    if (!isDecimalString(printer[key])) errors[key] = t.validation.decimal(label);
+    if (!isDecimalString(printer[key])) {
+      errors[key] = t.validation.decimal(label);
+    } else if (Number(printer[key]) < 0) {
+      errors[key] = t.validation.nonNegative(label);
+    }
   }
   for (const [key, label] of [
     ["hourly_rate", t.printers.hourlyRate],
@@ -69,8 +73,12 @@ function validate(printer: Printer, t: Strings): Errors {
     ["material_change_cost", t.printers.materialChange],
   ] as const) {
     const value = printer[key];
-    if (value !== null && value !== "" && !isDecimalString(value)) {
-      errors[key] = t.validation.decimalOrEmpty(label);
+    if (value !== null && value !== "") {
+      if (!isDecimalString(value)) {
+        errors[key] = t.validation.decimalOrEmpty(label);
+      } else if (Number(value) < 0) {
+        errors[key] = t.validation.nonNegative(label);
+      }
     }
   }
   return errors;

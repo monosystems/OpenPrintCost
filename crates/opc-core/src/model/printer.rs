@@ -1,5 +1,6 @@
 //! Drucker-Stammdaten.
 
+use crate::calc::checked::mul;
 use crate::model::material::MaterialFamily;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -106,8 +107,9 @@ impl Printer {
     }
 
     /// Bauvolumen in mm³, berechnet aus der maximalen Druckgröße.
-    pub fn build_volume_mm3(&self) -> Decimal {
-        self.build_width_mm * self.build_depth_mm * self.build_height_mm
+    pub fn build_volume_mm3(&self) -> Result<Decimal, crate::calc::CalcError> {
+        let area = mul(self.build_width_mm, self.build_depth_mm, "Bauvolumen")?;
+        mul(area, self.build_height_mm, "Bauvolumen")
     }
 }
 
@@ -123,7 +125,7 @@ mod tests {
         printer.build_depth_mm = dec!(210);
         printer.build_height_mm = dec!(220);
 
-        assert_eq!(printer.build_volume_mm3(), dec!(11_550_000));
+        assert_eq!(printer.build_volume_mm3().unwrap(), dec!(11_550_000));
     }
 
     #[test]

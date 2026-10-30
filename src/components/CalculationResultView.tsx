@@ -1,6 +1,7 @@
 import { formatMoney, sumSignedDecimalStrings } from "../api/format";
 import { localizeDetail } from "../api/currency";
 import { useLocale } from "../i18n";
+import { localizePositionLabel } from "../i18n/positionLabels";
 import type {
   CalculationFileInput,
   CalculationResult,
@@ -103,7 +104,7 @@ export function CalculationResultView({
                     <li key={position.id} className="flex items-baseline justify-between gap-4 px-4 py-2.5">
                       <div className="min-w-0">
                         <p className="truncate text-sm text-ink">
-                          {position.label}
+                          {localizePositionLabel(position.label, t)}
                           {position.is_fail_rate ? (
                             <span className="ml-2 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning">
                               {t.calculation.failRateBadge}
@@ -111,7 +112,7 @@ export function CalculationResultView({
                           ) : null}
                         </p>
                         <p className="truncate text-xs text-ink-faint">
-                          {[position.detail ? localizeDetail(position.detail, currency) : null, file ? `${t.calculation.resultFilePrefix}: ${file}` : null]
+                          {[position.detail ? localizeDetail(position.detail, currency, locale) : null, file ? `${t.calculation.resultFilePrefix}: ${file}` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>

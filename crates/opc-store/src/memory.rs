@@ -432,7 +432,11 @@ impl CalculationRepository for MemoryStore {
                     created_at: stored.created_at.clone(),
                     updated_at: stored.updated_at.clone(),
                     file_count: stored.document.files.len() as u32,
-                    total_quantity: stored.document.files.iter().map(|file| file.quantity).sum(),
+                    total_quantity: stored
+                        .document
+                        .files
+                        .iter()
+                        .fold(0u32, |total, file| total.saturating_add(file.quantity)),
                 })
                 .collect::<Vec<_>>();
             // Neueste zuerst — bei gleichem Zeitstempel nach ID, damit die
@@ -460,6 +464,7 @@ impl CalculationRepository for MemoryStore {
 
     fn save_calculation(&self, calculation: &CalculationInput) -> StoreResult<()> {
         self.with_data(|data| {
+            crate::validation::ensure_unique_file_ids(calculation)?;
             let timestamps = data.calculations.upsert(
                 calculation.id,
                 StoredCalculation {

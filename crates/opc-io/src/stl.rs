@@ -67,7 +67,7 @@ pub fn parse_stl(bytes: &[u8]) -> IoResult<StlInfo> {
         return Err(IoError::Empty);
     }
     let triangles = detect_and_parse(bytes)?;
-    Ok(analyze(&triangles))
+    analyze(&triangles)
 }
 
 /// Erkennt das Format und parst die Dreiecke.
@@ -203,11 +203,27 @@ fn parse_coordinate(value: Option<&str>, line_number: usize) -> IoResult<f64> {
 /// Das Ergebnis wird in cm³ geliefert (mm³ / 1000). Die Umwandlung nach
 /// `Decimal` erfolgt über die String-Darstellung — exakt und ohne
 /// `f64`-Rundungsfehler an der Grenze.
-pub fn analyze(triangles: &[Triangle]) -> StlInfo {
+pub fn analyze(triangles: &[Triangle]) -> IoResult<StlInfo> {
+    if triangles.iter().any(|triangle| {
+        [triangle.a, triangle.b, triangle.c]
+            .iter()
+            .flat_map(|point| point.iter())
+            .any(|value| !value.is_finite())
+    }) {
+        return Err(IoError::Corrupt {
+            message: "STL enthält nicht-endliche Koordinaten".to_string(),
+        });
+    }
+
     let volume_mm3: f64 = triangles
         .iter()
         .map(|triangle| triangle.signed_volume_mm3())
         .sum();
+    if !volume_mm3.is_finite() {
+        return Err(IoError::Corrupt {
+            message: "STL-Volumen ist nicht darstellbar".to_string(),
+        });
+    }
     // Auf 10⁻⁶ mm³ runden: Drittel-Volumina (z. B. 2666,666… mm³) sind binär
     // nicht exakt darstellbar. Die Rundung liegt weit unter jeder
     // Druckerauflösung und verhindert Reste wie 7,999999999999999 cm³.
@@ -229,19 +245,29 @@ pub fn analyze(triangles: &[Triangle]) -> StlInfo {
     } else {
         Some((min, max))
     };
-    let dimensions_mm = bounding_box_mm.map(|(min, max)| {
-        [0, 1, 2].map(|axis| {
-            let value = max[axis] - min[axis];
-            decimal_from_f64((value * 1000.0).round() / 1000.0)
-        })
-    });
+    let dimensions_mm = match bounding_box_mm {
+        Some((min, max)) => {
+            let mut dimensions = [Decimal::ZERO; 3];
+            for axis in 0..3 {
+                let value = max[axis] - min[axis];
+                if !value.is_finite() {
+                    return Err(IoError::Corrupt {
+                        message: "STL-Maße sind nicht darstellbar".to_string(),
+                    });
+                }
+                dimensions[axis] = decimal_from_f64((value * 1000.0).round() / 1000.0);
+            }
+            Some(dimensions)
+        }
+        None => None,
+    };
 
-    StlInfo {
+    Ok(StlInfo {
         volume_cm3,
         triangle_count: triangles.len() as u64,
         bounding_box_mm,
         dimensions_mm,
-    }
+    })
 }
 
 /// Wandelt ein `f64` exakt in `Decimal` um.

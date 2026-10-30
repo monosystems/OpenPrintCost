@@ -8,7 +8,10 @@ use opc_core::calc::calculate;
 use opc_core::model::{
     CalculationFileInput, CalculationInput, CalculationProfile, FileMaterial, Material, Printer,
 };
-use opc_export::{CompanyInfo, ExportError, render_excel, render_pdf};
+use opc_export::{
+    CompanyInfo, ExportError, ExportLocale, render_excel, render_excel_with_locale, render_pdf,
+    render_pdf_with_locale,
+};
 use rust_decimal_macros::dec;
 use std::io::Cursor;
 
@@ -92,11 +95,12 @@ fn pdf_zeigt_firmendaten_wenn_vorhanden() {
 
 /// Parst ein PDF zurück und gibt den extrahierten Text aller Seiten zurück.
 fn extract_pdf_text(pdf: &[u8]) -> String {
-    use printpdf::{PdfDocument, PdfParseOptions, PdfWarnMsg};
+    use printpdf::{PdfDocument, PdfParseErrorSeverity, PdfParseOptions, PdfWarnMsg};
 
     let mut warnings: Vec<PdfWarnMsg> = Vec::new();
     let document =
         PdfDocument::parse(pdf, &PdfParseOptions::default(), &mut warnings).expect("muss parsen");
+    warnings.retain(|warning| !matches!(warning.severity, PdfParseErrorSeverity::Info));
     assert!(warnings.is_empty(), "unerwartete Warnungen: {warnings:?}");
     document
         .extract_text()
@@ -104,6 +108,61 @@ fn extract_pdf_text(pdf: &[u8]) -> String {
         .flat_map(|page| page.iter().cloned())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[test]
+fn excel_enthaelt_notizen_und_dateizuordnung() {
+    let mut result = fixture_result();
+    result.notes = Some("Bitte vor dem Versand prüfen.".to_string());
+    let bytes = render_excel(&result, &CompanyInfo::default()).expect("Excel muss erzeugen");
+    let mut excel: Xlsx<_> = Reader::new(Cursor::new(bytes)).expect("muss lesbar sein");
+
+    let overview = excel
+        .worksheet_range("Übersicht")
+        .expect("Blatt muss lesbar sein");
+    assert!(
+        overview.rows().any(
+            |row| row.first() == Some(&Data::String("Notizen".to_string()))
+                && row.get(1) == Some(&Data::String("Bitte vor dem Versand prüfen.".to_string()))
+        ),
+        "Notizen fehlen"
+    );
+}
+
+#[test]
+fn pdf_enthaelt_notizen_dateizuordnung_und_seitenzahl() {
+    let mut result = fixture_result();
+    result.notes = Some("Bitte vor dem Versand prüfen.".to_string());
+    result.project_name = "Sehr langes Projekt mit einem Namen, der umgebrochen werden muss, damit er nicht über den rechten Rand läuft".to_string();
+
+    let pdf = render_pdf(&result, &CompanyInfo::default()).expect("PDF muss erzeugen");
+    let text = extract_pdf_text(&pdf);
+
+    assert!(
+        text.contains("Notizen: Bitte vor dem Versand prüfen."),
+        "{text}"
+    );
+    assert!(
+        text.contains("Würfel.stl — PLA"),
+        "Dateizuordnung fehlt: {text}"
+    );
+    assert!(text.contains("Seite 1"), "Seitenzahl fehlt: {text}");
+}
+
+#[test]
+fn pdf_verteilt_viele_positionen_mit_seitenzahlen() {
+    let mut result = fixture_result();
+    let template = result.positions[0].clone();
+    for index in 0..80 {
+        let mut position = template.clone();
+        position.label = format!("Position {index}");
+        result.positions.push(position);
+    }
+
+    let pdf = render_pdf(&result, &CompanyInfo::default()).expect("PDF muss erzeugen");
+    let text = extract_pdf_text(&pdf);
+    assert!(text.contains("Seite 1"), "{text}");
+    assert!(text.contains("Seite 2"), "{text}");
 }
 
 #[test]
@@ -180,7 +239,7 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
     let positions = excel
         .worksheet_range("Positionen")
         .expect("Blatt muss lesbar sein");
-    let amounts: Vec<_> = positions.rows().skip(1).map(|row| row[5].clone()).collect();
+    let amounts: Vec<_> = positions.rows().skip(1).map(|row| row[6].clone()).collect();
     assert!(!amounts.is_empty(), "keine Positionen exportiert");
     for amount in &amounts {
         assert!(
@@ -190,6 +249,10 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
     }
     // Erste Position ist das Material der Fixture: 12,4 g × 0,025 €/g = 0,31 €.
     assert!(matches!(amounts[0], Data::Float(value) if (value - 0.31).abs() < 0.001));
+    assert_eq!(
+        positions.get((1, 1)),
+        Some(&Data::String("Würfel.stl".to_string()))
+    );
 
     // Dateien: eine Zeile mit Stückzahl 1 als Zahl.
     let files = excel
@@ -205,4 +268,54 @@ fn excel_roundtrip_liest_blaetter_positionen_und_summen() {
         Some(&Data::String("20,00 × 20,00 × 20,00".to_string()))
     );
     assert_eq!(files.get((1, 7)), Some(&Data::String("ja".to_string())));
+}
+
+#[test]
+fn pdf_und_excel_lassen_sich_auf_englisch_erzeugen() {
+    let mut result = fixture_result();
+    result.notes = Some("Check before shipping.".to_string());
+
+    let pdf = render_pdf_with_locale(&result, &CompanyInfo::default(), ExportLocale::En)
+        .expect("PDF muss erzeugen");
+    let text = extract_pdf_text(&pdf);
+    assert!(text.contains("Selling price"), "{text}");
+    assert!(text.contains("Page 1"), "{text}");
+    assert!(text.contains("Notes: Check before shipping."), "{text}");
+    assert!(text.contains("Machine costs —"), "{text}");
+    assert!(!text.contains("Maschinenkosten"), "{text}");
+    assert!(text.contains("0.31"), "{text}");
+    assert!(!text.contains("Projekt:"), "{text}");
+
+    let bytes = render_excel_with_locale(&result, &CompanyInfo::default(), ExportLocale::En)
+        .expect("Excel muss erzeugen");
+    let mut excel: Xlsx<_> = Reader::new(Cursor::new(bytes)).expect("muss lesbar sein");
+    let sheets = excel.sheet_names();
+    assert!(sheets.contains(&"Overview".to_string()), "{sheets:?}");
+    assert!(sheets.contains(&"Positions".to_string()), "{sheets:?}");
+    assert!(sheets.contains(&"Files".to_string()), "{sheets:?}");
+
+    let overview = excel
+        .worksheet_range("Overview")
+        .expect("Blatt muss lesbar sein");
+    assert!(
+        overview
+            .rows()
+            .any(|row| row.first() == Some(&Data::String("Selling price ($)".to_string()))),
+        "englische Summenzeile fehlt"
+    );
+}
+
+#[test]
+fn pdf_stellt_cjk_texte_dar() {
+    let mut result = fixture_result();
+    result.project_name = "中文测试".to_string();
+    if let Some(position) = result.positions.first_mut() {
+        position.label = "测试材料".to_string();
+    }
+
+    let pdf = render_pdf_with_locale(&result, &CompanyInfo::default(), ExportLocale::En)
+        .expect("PDF muss erzeugen");
+    let text = extract_pdf_text(&pdf);
+    assert!(text.contains("中文测试"), "CJK-Projektname fehlt: {text}");
+    assert!(text.contains("测试材料"), "CJK-Materialname fehlt: {text}");
 }

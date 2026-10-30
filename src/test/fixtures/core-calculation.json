@@ -1,0 +1,287 @@
+{
+  "input": {
+    "additional_items": [],
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "custom_surcharges": [],
+    "files": [
+      {
+        "dimensions_mm": [
+          "100",
+          "80",
+          "60"
+        ],
+        "filament_volumes_cm3": [],
+        "file_name": "Fixture.stl",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "material_changes": 0,
+        "materials": [
+          {
+            "filament_index": null,
+            "material": {
+              "density_g_cm3": "1.24",
+              "family": "filament",
+              "id": "00000000-0000-0000-0000-000000000002",
+              "manufacturer": null,
+              "material_type": "PLA",
+              "name": "PLA",
+              "package_size": "1",
+              "price": "25",
+              "properties": {},
+              "shop_link": null,
+              "unit": "kg"
+            },
+            "volume_cm3": null,
+            "weight_g": null
+          }
+        ],
+        "multiply_print_time_with_quantity": null,
+        "print_time_hours": "2",
+        "quantity": 1,
+        "volume_cm3": "10",
+        "weight_g": null
+      }
+    ],
+    "hourly_rate": null,
+    "id": "00000000-0000-0000-0000-00000000000a",
+    "notes": "Fixture notes",
+    "printer": {
+      "build_depth_mm": "210",
+      "build_height_mm": "220",
+      "build_plate_wear_cost": "1",
+      "build_width_mm": "250",
+      "hourly_rate": "10",
+      "id": "00000000-0000-0000-0000-000000000001",
+      "manufacturer": null,
+      "material_change_cost": "2",
+      "material_family": "filament",
+      "model": "Fixture Printer",
+      "nozzle_wear_cost": "0.5",
+      "power_watts": "100",
+      "process": "fdm",
+      "properties": {},
+      "purchase_price": "0"
+    },
+    "profile": {
+      "apply_energy_costs": true,
+      "combine_materials": false,
+      "energy_price_per_kwh": "0.35",
+      "exclude_machine_from_margin": false,
+      "exclude_material_from_margin": false,
+      "exclude_worksteps_from_margin": false,
+      "fail_rate_percent": "5",
+      "handling_fee": "1",
+      "handling_fee_scope": "per-file",
+      "id": "00000000-0000-0000-0000-000000000004",
+      "margin_percent": "20",
+      "multiply_print_time_with_quantity": true,
+      "name": "Fixture Profile",
+      "power_level_percent": "100",
+      "print_time_factor": "1",
+      "tax_rate_percent": "19"
+    },
+    "project_name": "Fixture Calculation",
+    "worksteps": []
+  },
+  "result": {
+    "base_total": "23.8990000",
+    "cost_per_piece": "23.8990000",
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "files": [
+      {
+        "dimensions_mm": [
+          "100",
+          "80",
+          "60"
+        ],
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "file_name": "Fixture.stl",
+        "fits_build_volume": true,
+        "material_g": "12.40",
+        "material_g_fail": "0.6200",
+        "print_time_hours": "2",
+        "print_time_hours_fail": "0.10",
+        "quantity": 1
+      }
+    ],
+    "id": "00000000-0000-0000-0000-00000000000a",
+    "machine_hour_rate": "10",
+    "margin_total": "4.779800000",
+    "notes": "Fixture notes",
+    "positions": [
+      {
+        "amount": "0.31000",
+        "detail": "12,40 g × 0,025000 €/g",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "material",
+        "id": "38c5f157-349c-4cc8-8694-1089bacdb1cb",
+        "is_fail_rate": false,
+        "label": "PLA",
+        "quantity": "12.40",
+        "source_id": "00000000-0000-0000-0000-000000000002",
+        "unit": "g"
+      },
+      {
+        "amount": "0.0155000",
+        "detail": "0,62 g Verbrauch",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "material",
+        "id": "35cb0d18-edf8-49e3-8ef3-77a7ffe792e5",
+        "is_fail_rate": true,
+        "label": "Materialkosten (Fehlerrate)",
+        "quantity": "0.6200",
+        "source_id": "00000000-0000-0000-0000-000000000002",
+        "unit": "g"
+      },
+      {
+        "amount": "20",
+        "detail": "2,00 h × 10,00 €/h",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "machine",
+        "id": "29e8c49b-2029-45a5-939c-164022d3b4b6",
+        "is_fail_rate": false,
+        "label": "Maschinenkosten",
+        "quantity": "2",
+        "source_id": "00000000-0000-0000-0000-000000000001",
+        "unit": "h"
+      },
+      {
+        "amount": "1.00",
+        "detail": "0,10 h × 10,00 €/h",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "machine",
+        "id": "a107d2ca-590f-440e-8c0c-9f75126b8fe8",
+        "is_fail_rate": true,
+        "label": "Maschinenkosten (Fehlerrate)",
+        "quantity": "0.10",
+        "source_id": "00000000-0000-0000-0000-000000000001",
+        "unit": "h"
+      },
+      {
+        "amount": "0.0700",
+        "detail": "0,200 kWh × 0,35 €/kWh",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "energy",
+        "id": "06b5aa5f-b3cf-4d21-a962-218bc6a73804",
+        "is_fail_rate": false,
+        "label": "Energiekosten",
+        "quantity": "0.20",
+        "source_id": null,
+        "unit": "kWh"
+      },
+      {
+        "amount": "0.0035",
+        "detail": "0,010 kWh × 0,35 €/kWh",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "energy",
+        "id": "eb1aa119-1747-4a23-82ae-636a5c81d866",
+        "is_fail_rate": true,
+        "label": "Energiekosten (Fehlerrate)",
+        "quantity": "0.01",
+        "source_id": null,
+        "unit": "kWh"
+      },
+      {
+        "amount": "0.5",
+        "detail": "1 × 0,50 €",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "process-surcharge",
+        "id": "d26ce3ac-be13-447e-adc7-705559b183e0",
+        "is_fail_rate": false,
+        "label": "Düsenverschleiß",
+        "quantity": "1",
+        "source_id": null,
+        "unit": "Stk"
+      },
+      {
+        "amount": "1",
+        "detail": "1 × 1,00 €",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "process-surcharge",
+        "id": "af2eee15-2227-439d-a4ae-fee204f2fdce",
+        "is_fail_rate": false,
+        "label": "Druckplattenverschleiß",
+        "quantity": "1",
+        "source_id": null,
+        "unit": "Stk"
+      },
+      {
+        "amount": "0",
+        "detail": "0 × 2,00 €",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "process-surcharge",
+        "id": "3ff193fb-f0ba-42a1-9eea-4a6cb355925b",
+        "is_fail_rate": false,
+        "label": "Materialwechsel",
+        "quantity": "0",
+        "source_id": null,
+        "unit": "Stk"
+      },
+      {
+        "amount": "1",
+        "detail": "1,00 € × 1 Stk",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "handling-fee",
+        "id": "90317a87-74dc-462c-b460-6e9113ba3e6f",
+        "is_fail_rate": false,
+        "label": "Handlungspauschale",
+        "quantity": "1",
+        "source_id": null,
+        "unit": "Stk"
+      },
+      {
+        "amount": "4.779800000",
+        "detail": "20,00 % auf 23,90 €",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "margin",
+        "id": "2677ed45-22e8-4633-bf62-f412f3fac2e4",
+        "is_fail_rate": false,
+        "label": "Gewinnmarge",
+        "quantity": "20",
+        "source_id": null,
+        "unit": "%"
+      },
+      {
+        "amount": "5.44897200000",
+        "detail": "19,00 % auf 28,68 €",
+        "excluded_from_margin": false,
+        "file_id": "00000000-0000-0000-0000-000000000003",
+        "group": "tax",
+        "id": "e4a66740-de46-4b1f-b3be-59547f5b3f6d",
+        "is_fail_rate": false,
+        "label": "Steuer",
+        "quantity": "19",
+        "source_id": null,
+        "unit": "%"
+      },
+      {
+        "amount": "34.12777200000",
+        "detail": "34,13 €",
+        "excluded_from_margin": false,
+        "file_id": null,
+        "group": "total",
+        "id": "a04bd698-311a-4082-a143-a4321de69594",
+        "is_fail_rate": false,
+        "label": "Verkaufspreis",
+        "quantity": null,
+        "source_id": null,
+        "unit": null
+      }
+    ],
+    "price_per_piece": "34.12777200000",
+    "project_name": "Fixture Calculation",
+    "tax_total": "5.44897200000",
+    "total": "34.12777200000",
+    "total_quantity": 1
+  }
+}

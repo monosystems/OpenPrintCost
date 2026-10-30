@@ -36,9 +36,25 @@ export function formatMoneyWithCurrency(
 }
 
 /** Ersetzt das Kern-€ in Detailtexten durch das Anzeige-Symbol (reine Darstellung). */
-export function localizeDetail(detail: string | null | undefined, symbol: string): string {
+export function localizeDetail(
+  detail: string | null | undefined,
+  symbol: string,
+  locale: "en" | "de" = "de",
+): string {
   if (!detail) return "";
-  return symbol === "€" ? detail : detail.split("€").join(symbol);
+  let localized = symbol === "€" ? detail : detail.split("€").join(symbol);
+  if (locale === "en") {
+    localized = localized
+      .replace(/(\d),(\d)/g, "$1.$2")
+      .replace(/\bVerbrauch\b/g, "consumption")
+      .replace(/\bauf\b/g, "of")
+      .replace(/\bpro Stunde\b/g, "per hour")
+      .replace(/\bpro Stück\b/g, "per piece")
+      .replace(/\bpro Auftrag\b/g, "per order")
+      .replace(/\beinmal je Kalkulation\b/g, "once per calculation")
+      .replace(/\bStk\b/g, "pcs");
+  }
+  return localized;
 }
 
 /** Normalisiert auf einen bekannten Code, Fallback wie DEFAULT_CURRENCY. */

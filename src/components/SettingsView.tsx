@@ -4,6 +4,8 @@ import { CURRENCY_OPTIONS, currencySymbol } from "../api/currency";
 import { useLocale } from "../i18n";
 import { DEFAULT_CURRENCY, type CompanyInfo, type UpdateInfo } from "../api/types";
 
+import { notifyCompanyChanged } from "../hooks/useCurrencySymbol";
+
 import { ErrorBanner, Field, PrimaryButton, Select, TextInput } from "./ui";
 
 export function SettingsView({
@@ -33,7 +35,9 @@ export function SettingsView({
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.companyLoad);
     }
-  }, [adapter, t]);
+    // `t` bewusst nicht in den Dependencies: ein Sprachwechsel darf die
+    // laufende Formulareingabe nicht durch einen Reload überschreiben.
+  }, [adapter]);
 
   useEffect(() => {
     void reload();
@@ -50,6 +54,7 @@ export function SettingsView({
       });
       setSaved(true);
       setError(null);
+      notifyCompanyChanged();
       await reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : t.errors.companySave);

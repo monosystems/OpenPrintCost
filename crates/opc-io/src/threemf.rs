@@ -30,6 +30,8 @@ const MAIN_MODEL: &str = "3d/3dmodel.model";
 const MAX_ZIP_ENTRIES: usize = 512;
 /// Maximale Größe einer Modelldatei (entpackt).
 const MAX_MODEL_BYTES: u64 = 256 * 1024 * 1024;
+/// Maximale Gesamtgröße aller Modelldateien (entpackt).
+const MAX_TOTAL_MODEL_BYTES: u64 = 512 * 1024 * 1024;
 /// Maximale Größe einer Metadatendatei (entpackt).
 const MAX_METADATA_BYTES: u64 = 8 * 1024 * 1024;
 /// Maximale Verschachtelungstiefe von Komponenten.
@@ -100,9 +102,37 @@ pub fn parse_3mf(bytes: &[u8]) -> IoResult<ThreeMfInfo> {
         });
     }
 
+    // Bereits die deklarierten Größen begrenzen, damit ein ZIP mit vielen
+    // stark komprimierten Modelldateien nicht erst beim Entpacken auffällt.
+    let mut declared_model_bytes = 0u64;
+    for name in &model_names {
+        let file = archive.by_name(name).map_err(|error| IoError::Corrupt {
+            message: format!("3MF-Eintrag '{name}' ist unlesbar: {error}"),
+        })?;
+        declared_model_bytes = declared_model_bytes.saturating_add(file.size());
+        if declared_model_bytes > MAX_TOTAL_MODEL_BYTES {
+            return Err(IoError::Corrupt {
+                message: format!(
+                    "3MF-Modelldateien sind zusammen zu groß (maximal {} MB)",
+                    MAX_TOTAL_MODEL_BYTES / (1024 * 1024)
+                ),
+            });
+        }
+    }
+
     let mut models = BTreeMap::new();
+    let mut read_model_bytes = 0u64;
     for name in &model_names {
         let xml = read_entry(&mut archive, name, MAX_MODEL_BYTES)?;
+        read_model_bytes = read_model_bytes.saturating_add(xml.len() as u64);
+        if read_model_bytes > MAX_TOTAL_MODEL_BYTES {
+            return Err(IoError::Corrupt {
+                message: format!(
+                    "3MF-Modelldateien sind zusammen zu groß (maximal {} MB)",
+                    MAX_TOTAL_MODEL_BYTES / (1024 * 1024)
+                ),
+            });
+        }
         let model = parse_model(&xml)?;
         models.insert(normalize_path(name), model);
     }
@@ -138,9 +168,17 @@ pub fn parse_3mf(bytes: &[u8]) -> IoResult<ThreeMfInfo> {
     let has_prusa_config = prusa_config.is_some();
     let (prusa_time_hours, prusa_volumes) = prusa_config.unwrap_or((None, Vec::new()));
 
-    let estimated_time_hours = slice_time_seconds
-        .map(|seconds| decimal_from_f64(round_to(seconds / 3600.0, 6)))
-        .or(prusa_time_hours);
+    let estimated_time_hours = match slice_time_seconds {
+        Some(seconds) if seconds.is_finite() => {
+            Some(decimal_from_f64(round_to(seconds / 3600.0, 6)))
+        }
+        Some(_) => {
+            return Err(IoError::Corrupt {
+                message: "3MF enthält eine nicht-endliche Druckzeit".to_string(),
+            });
+        }
+        None => prusa_time_hours,
+    };
     let filament_volumes_cm3 = if slice_volumes.is_empty() {
         prusa_volumes
     } else {
@@ -188,12 +226,31 @@ pub fn parse_3mf(bytes: &[u8]) -> IoResult<ThreeMfInfo> {
             message: "3MF enthält keine Dreiecke".to_string(),
         });
     }
+    if !geometry.volume_mm3.is_finite()
+        || geometry
+            .min
+            .iter()
+            .chain(geometry.max.iter())
+            .any(|value| !value.is_finite())
+    {
+        return Err(IoError::Corrupt {
+            message: "3MF enthält nicht-endliche Geometrie".to_string(),
+        });
+    }
 
     let dimensions_mm = Some(
         [0, 1, 2]
             .map(|axis| decimal_from_f64(round_to(geometry.max[axis] - geometry.min[axis], 3))),
     );
     let volume_cm3 = decimal_from_f64(round_to(geometry.volume_mm3.abs() / 1000.0, 6));
+    if filament_volumes_cm3
+        .iter()
+        .any(|volume| !volume.is_finite())
+    {
+        return Err(IoError::Corrupt {
+            message: "3MF enthält nicht-endliche Filamentmengen".to_string(),
+        });
+    }
     let filament_volumes_cm3 = filament_volumes_cm3
         .into_iter()
         .filter(|volume| *volume > 0.0)

@@ -28,6 +28,17 @@ frozen when the release is cut.
 <!-- changelog:unreleased:start -->
 <!-- changelog:unreleased:end -->
 
+## [0.3.2] — 2026-10-30
+
+### Fixed
+
+- *(store)* keep WAL/SHM sidecars private, fall back when WAL is unavailable, and back up the database before the destructive migration
+- *(export)* localize PDF position labels, details, headers, and amounts; cache the embedded CJK font
+- *(ui)* translate backend validation and file-write errors behind the `Ungültige Eingabe:` prefix
+- *(io)* parse comma-separated G-code duration components without turning them into decimals
+- *(calculation)* honor the print-time quantity setting and keep existing times on 3MF imports without slicer time
+- *(calculation)* share profile validation rules and keep UI position labels in sync with the Rust exporter
+
 ## [0.3.1] — 2026-10-29
 
 ### Fixed

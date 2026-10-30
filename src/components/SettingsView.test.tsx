@@ -2,7 +2,20 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MockPlatformAdapter } from "../api/mockAdapter";
+import { LanguageProvider, useLocale } from "../i18n";
 import { SettingsView } from "./SettingsView";
+
+function LanguageHarness({ adapter }: { adapter: MockPlatformAdapter }) {
+  const { setLocale } = useLocale();
+  return (
+    <>
+      <button type="button" onClick={() => setLocale("de")}>
+        Switch language
+      </button>
+      <SettingsView adapter={adapter} />
+    </>
+  );
+}
 
 describe("SettingsView", () => {
   it("shows and saves company info", async () => {
@@ -19,6 +32,22 @@ describe("SettingsView", () => {
       name: "Example Ltd",
       email: "info@example.invalid",
     });
+  });
+
+  it("keeps unsaved edits when the language changes", async () => {
+    const adapter = new MockPlatformAdapter();
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider initial="en">
+        <LanguageHarness adapter={adapter} />
+      </LanguageProvider>,
+    );
+
+    const name = await screen.findByLabelText("Company name");
+    await user.type(name, "Draft");
+    await user.click(screen.getByRole("button", { name: "Switch language" }));
+
+    expect(screen.getByLabelText("Firmenname")).toHaveValue("Draft");
   });
 
   it("loads saved company info", async () => {

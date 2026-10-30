@@ -191,8 +191,8 @@ function CostBreakdown({ result, currency = "$" }: { result: CalculationResult; 
             .map((position) => position.amount),
         ) ?? "0",
     }))
-    .filter((row) => Number(row.amount) > 0)
-    .sort((a, b) => Number(b.amount) - Number(a.amount));
+    .filter((row) => Number(row.amount) !== 0)
+    .sort((a, b) => Math.abs(Number(b.amount)) - Math.abs(Number(a.amount)));
 
   const visible = rows.slice(0, 4);
   const rest = rows.slice(4);
