@@ -26,6 +26,9 @@ frozen when the release is cut.
 ## [Unreleased]
 
 <!-- changelog:unreleased:start -->
+### Fixed
+
+- resolve 0.3.2 audit findings (#31)
 <!-- changelog:unreleased:end -->
 
 ## [0.3.2] — 2026-10-30
